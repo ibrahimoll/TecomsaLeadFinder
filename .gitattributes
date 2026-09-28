@@ -1,0 +1,5 @@
+# Normalise line endings; shell scripts must keep LF to run inside Linux containers.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.sql text eol=lf

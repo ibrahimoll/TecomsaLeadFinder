@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     login_rate_limit_attempts: int = 10
     login_rate_limit_window_seconds: int = 300
 
+    # Odoo CSV/XLSX imports. Uploaded files are kept only as an audit trail of the
+    # import source; PostgreSQL remains the live datastore.
+    import_storage_dir: str = "storage/imports"
+    import_max_bytes: int = 20 * 1024 * 1024
+    import_max_rows: int = 50_000
+    # Whether Sales Managers (not only Admins) may run Odoo imports.
+    managers_can_import: bool = False
+
     # Reserved for future phases - never required in Phase 0.
     odoo_base_url: str | None = None
     odoo_database: str | None = None

@@ -67,19 +67,59 @@ def normalize_website(value: str | None) -> str | None:
     return value if "://" in value else f"https://{value}"
 
 
-def normalize_phone(value: str | None) -> str | None:
-    """Best-effort E.164. Only numbers written in international form are converted;
-    local numbers need the country dialling code, which Phase 1 can resolve."""
+# Country dialling codes used to normalise local-format numbers. Lebanon is the
+# initial market; extend as new markets are added.
+_DIAL_CODES = {"lebanon": "961", "lb": "961"}
+
+
+def normalize_phone(value: str | None, country: str | None = None) -> str | None:
+    """Best-effort E.164.
+
+    International numbers (+961..., 00961...) are always converted. Local numbers
+    (01 234 567, 03 123 456, 71 123 456) are converted only when the country is known.
+    """
     if not value:
         return None
     raw = value.strip()
     digits = re.sub(r"\D", "", raw)
     if raw.startswith("+"):
-        national = digits
+        full = digits
     elif raw.startswith("00"):
-        national = digits[2:]
+        full = digits[2:]
     else:
-        return None
-    if 7 <= len(national) <= 15 and not national.startswith("0"):
-        return f"+{national}"
+        code = _DIAL_CODES.get((country or "").strip().lower())
+        if not code or not digits:
+            return None
+        full = code + digits.lstrip("0")
+    if 7 <= len(full) <= 15 and not full.startswith("0"):
+        return f"+{full}"
     return None
+
+
+# Personal mailbox providers: their domain says nothing about the company.
+FREE_EMAIL_DOMAINS = frozenset(
+    {
+        "gmail.com", "googlemail.com", "hotmail.com", "hotmail.fr", "outlook.com", "live.com",
+        "msn.com", "yahoo.com", "yahoo.fr", "ymail.com", "icloud.com", "me.com", "aol.com",
+        "proton.me", "protonmail.com", "gmx.com", "mail.com", "zoho.com", "yandex.com",
+        "idm.net.lb", "cyberia.net.lb", "terra.net.lb", "inco.com.lb",
+    }
+)
+
+
+def email_domain(email: str | None) -> str | None:
+    """Company domain of an email address, or None for personal/free mailboxes."""
+    if not email or "@" not in email:
+        return None
+    domain = normalize_domain(email.strip().rsplit("@", 1)[1])
+    if domain is None or domain in FREE_EMAIL_DOMAINS:
+        return None
+    return domain
+
+
+def name_key(value: str | None) -> str | None:
+    """Case/whitespace-insensitive key for people and team names."""
+    if not value:
+        return None
+    key = " ".join(value.split()).lower()
+    return key or None

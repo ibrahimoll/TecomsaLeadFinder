@@ -22,6 +22,12 @@ class AuditAction:
     CAMPAIGN_CREATED = "campaign.created"
     CAMPAIGN_UPDATED = "campaign.updated"
     CAMPAIGN_COMPANY_ADDED = "campaign.company_added"
+    IMPORT_UPLOADED = "import.uploaded"
+    IMPORT_MAPPING_CHANGED = "import.mapping_changed"
+    IMPORT_COMPLETED = "import.completed"
+    IMPORT_FAILED = "import.failed"
+    IMPORT_CANCELLED = "import.cancelled"
+    SALESPERSON_UPDATED = "salesperson.updated"
 
 
 def record(

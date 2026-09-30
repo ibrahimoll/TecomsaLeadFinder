@@ -2,12 +2,13 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
-from app.api.deps import CurrentUser, DbSession, client_ip
+from app.api.deps import CurrentUser, DbSession, can_import, client_ip
 from app.core.config import get_settings
 from app.core.exceptions import InvalidCredentialsError
 from app.core.rate_limit import login_limiter
+from app.models.enums import UserRole
 from app.schemas.auth import LoginRequest, LoginResponse
-from app.schemas.user import UserOut
+from app.schemas.user import MeOut, UserOut
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -67,6 +68,13 @@ def logout(request: Request, db: DbSession) -> Response:
     return response
 
 
-@router.get("/me", response_model=UserOut)
+@router.get("/me", response_model=MeOut)
 def me(user: CurrentUser):
-    return user
+    return {
+        **UserOut.model_validate(user).model_dump(),
+        "capabilities": {
+            "manage_users": user.role == UserRole.ADMIN,
+            "view_crm": user.role in (UserRole.ADMIN, UserRole.SALES_MANAGER),
+            "run_imports": can_import(user),
+        },
+    }

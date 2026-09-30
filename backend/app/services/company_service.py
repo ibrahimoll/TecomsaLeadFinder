@@ -1,15 +1,24 @@
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError, PermissionDeniedError
-from app.models import Campaign, CampaignCompany, Company, OdooMatch, User
-from app.models.enums import ActivityType, OdooMatchStatus
+from app.models import Campaign, CampaignCompany, Company, User
+from app.models.enums import PROTECTED_STATUSES, ActivityType, CompanySource, OdooMatchStatus
 from app.schemas.company import CompanyCreate, CompanyUpdate
-from app.services import activity_service, audit_service, lusha_usage_service, permissions
+from app.services import (
+    activity_service,
+    audit_service,
+    lusha_usage_service,
+    matching_service,
+    permissions,
+    relationship_service,
+)
 from app.services.audit_service import AuditAction
+from app.services.matching_service import MatchSignals
 from app.services.normalization import (
+    email_domain,
     normalize_company_name,
     normalize_domain,
     normalize_phone,
@@ -17,7 +26,17 @@ from app.services.normalization import (
 )
 from app.services.pagination import PageParams, paginate
 
-_PLAIN_FIELDS = ("country", "city", "industry", "main_email", "company_size", "description")
+_PLAIN_FIELDS = ("country", "city", "address", "industry", "main_email", "company_size", "description")
+# Changing any of these can change which Odoo records match the company.
+_IDENTITY_FIELDS = {"name", "website", "main_phone", "main_email", "city", "country"}
+
+SortKey = Literal["created", "name", "status", "updated"]
+_SORTS = {
+    "created": (Company.created_at.desc(), Company.id.desc()),
+    "updated": (Company.updated_at.desc(), Company.id.desc()),
+    "name": (Company.normalized_name.asc(), Company.id.asc()),
+    "status": (Company.crm_status.asc(), Company.normalized_name.asc()),
+}
 
 
 def list_companies(
@@ -27,6 +46,11 @@ def list_companies(
     q: str | None = None,
     country: str | None = None,
     industry: str | None = None,
+    crm_status: OdooMatchStatus | None = None,
+    protected: bool | None = None,
+    source: CompanySource | None = None,
+    salesperson_id: int | None = None,
+    sort: SortKey = "created",
 ) -> tuple[list[Company], int]:
     stmt = select(Company)
     if q:
@@ -44,8 +68,16 @@ def list_companies(
         stmt = stmt.where(Company.country == country)
     if industry:
         stmt = stmt.where(Company.industry == industry)
-    stmt = stmt.order_by(Company.created_at.desc(), Company.id.desc())
-    return paginate(db, stmt, params)
+    if crm_status:
+        stmt = stmt.where(Company.crm_status == crm_status)
+    if protected is not None:
+        condition = Company.crm_status.in_(list(PROTECTED_STATUSES))
+        stmt = stmt.where(condition if protected else ~condition)
+    if source:
+        stmt = stmt.where(Company.source == source)
+    if salesperson_id:
+        stmt = stmt.where(Company.salesperson_id == salesperson_id)
+    return paginate(db, stmt.order_by(*_SORTS[sort]), params)
 
 
 def get_company(db: Session, company_id: int) -> Company:
@@ -55,6 +87,18 @@ def get_company(db: Session, company_id: int) -> Company:
     return company
 
 
+def _signals(data: CompanyCreate | Company) -> MatchSignals:
+    return MatchSignals(name=data.name, website=data.website, email=data.main_email,
+                        phone=data.main_phone, city=data.city, country=data.country)
+
+
+def find_duplicates(db: Session, signals: MatchSignals, exclude_id: int | None = None) -> list[dict[str, Any]]:
+    return [
+        {"company": m.company, "score": round(m.score, 2), "reason": m.reason}
+        for m in matching_service.find_matches(db, signals, exclude_id=exclude_id)
+    ]
+
+
 def create_company(db: Session, actor: User, data: CompanyCreate) -> Company:
     company = Company(
         name=data.name,
@@ -62,17 +106,19 @@ def create_company(db: Session, actor: User, data: CompanyCreate) -> Company:
         website=normalize_website(data.website),
         domain=normalize_domain(data.website),
         main_phone=data.main_phone,
-        main_phone_normalized=normalize_phone(data.main_phone),
+        main_phone_normalized=normalize_phone(data.main_phone, data.country),
+        source=CompanySource.MANUAL,
         created_by=actor.id,
         **{f: getattr(data, f) for f in _PLAIN_FIELDS},
     )
     if company.main_email:
         company.main_email = company.main_email.lower()
+        company.email_domain = email_domain(company.main_email)
     db.add(company)
     db.flush()
 
-    # Odoo has NOT been consulted. Record that explicitly rather than implying a result.
-    db.add(OdooMatch(company_id=company.id, match_status=OdooMatchStatus.NOT_CHECKED))
+    # Checked against imported Odoo data; NOT_CHECKED when no Odoo import exists yet.
+    relationship_service.refresh_company(db, company)
     activity_service.record(
         db,
         activity_type=ActivityType.COMPANY_CREATED,
@@ -86,7 +132,8 @@ def create_company(db: Session, actor: User, data: CompanyCreate) -> Company:
         user_id=actor.id,
         entity_type="company",
         entity_id=company.id,
-        metadata={"name": company.name, "domain": company.domain, "source": "MANUAL"},
+        metadata={"name": company.name, "domain": company.domain, "source": "MANUAL",
+                  "crm_status": company.crm_status},
     )
     db.commit()
     db.refresh(company)
@@ -109,9 +156,12 @@ def update_company(db: Session, actor: User, company_id: int, data: CompanyUpdat
     if "website" in changes:
         new_values["website"] = normalize_website(changes["website"])
         new_values["domain"] = normalize_domain(changes["website"])
-    if "main_phone" in changes:
-        new_values["main_phone"] = changes["main_phone"]
-        new_values["main_phone_normalized"] = normalize_phone(changes["main_phone"])
+    if "main_phone" in changes or "country" in changes:
+        phone = changes.get("main_phone", company.main_phone)
+        new_values["main_phone"] = phone
+        new_values["main_phone_normalized"] = normalize_phone(phone, changes.get("country", company.country))
+    if "main_email" in changes:
+        new_values["email_domain"] = email_domain(changes["main_email"])
     for field in _PLAIN_FIELDS:
         if field in changes:
             new_values[field] = changes[field]
@@ -124,6 +174,8 @@ def update_company(db: Session, actor: User, company_id: int, data: CompanyUpdat
             setattr(company, field, value)
 
     if diff:
+        if _IDENTITY_FIELDS & diff.keys():
+            relationship_service.refresh_company(db, company)
         audit_service.record(
             db,
             action=AuditAction.COMPANY_UPDATED,
@@ -168,6 +220,8 @@ def get_company_detail(db: Session, user: User, company_id: int) -> dict[str, An
         .where(permissions.campaign_visibility_filter(user))
         .order_by(CampaignCompany.created_at.desc())
     ).all()
+    evidence = relationship_service.evidence_for(db, company)
+    activity_dates = [d for lead in evidence.leads for d in (lead.last_activity, lead.updated_date) if d]
 
     return {
         "company": company,
@@ -185,6 +239,12 @@ def get_company_detail(db: Session, user: User, company_id: int) -> dict[str, An
             for link in links
         ],
         "odoo_match": company.odoo_matches[0] if company.odoo_matches else None,
+        "relationship": {
+            "crm_records": evidence.leads,
+            "odoo_contacts": evidence.contacts,
+            "last_interaction": max(activity_dates) if activity_dates else None,
+        },
+        "possible_duplicates": find_duplicates(db, _signals(company), exclude_id=company.id),
         "lusha_credits_used": lusha_usage_service.total_credits(db, company_id=company.id),
         "can_edit": permissions.can_edit_company(user, company),
     }

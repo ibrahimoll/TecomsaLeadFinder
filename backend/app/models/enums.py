@@ -37,14 +37,58 @@ class QualificationStatus(StrEnum):
 
 
 class OdooMatchStatus(StrEnum):
+    """A company's relationship with TECOMSA according to Odoo data.
+
+    NOT_CHECKED means no Odoo data has been imported yet, so LeadFinder cannot
+    honestly say whether the company is new. AVAILABLE means Odoo data exists
+    and nothing in it matches this company.
+    """
+
     NOT_CHECKED = "NOT_CHECKED"
-    NEW = "NEW"
+    AVAILABLE = "AVAILABLE"
     EXISTING_CONTACT = "EXISTING_CONTACT"
-    EXISTING_CUSTOMER = "EXISTING_CUSTOMER"
-    ACTIVE_OPPORTUNITY = "ACTIVE_OPPORTUNITY"
+    EXISTING_LEAD = "EXISTING_LEAD"
+    EXISTING_OPPORTUNITY = "EXISTING_OPPORTUNITY"
+    CUSTOMER = "CUSTOMER"
+    LOST_OPPORTUNITY = "LOST_OPPORTUNITY"
     PREVIOUSLY_CONTACTED = "PREVIOUSLY_CONTACTED"
-    POSSIBLE_DUPLICATE = "POSSIBLE_DUPLICATE"
     CHECK_FAILED = "CHECK_FAILED"
+
+
+# Statuses that mean TECOMSA already has a relationship: never treat as a new prospect.
+PROTECTED_STATUSES = frozenset(
+    {
+        OdooMatchStatus.EXISTING_CONTACT,
+        OdooMatchStatus.EXISTING_LEAD,
+        OdooMatchStatus.EXISTING_OPPORTUNITY,
+        OdooMatchStatus.CUSTOMER,
+        OdooMatchStatus.LOST_OPPORTUNITY,
+        OdooMatchStatus.PREVIOUSLY_CONTACTED,
+    }
+)
+
+
+class CompanySource(StrEnum):
+    MANUAL = "MANUAL"
+    ODOO_IMPORT = "ODOO_IMPORT"
+    DEMO = "DEMO"
+
+
+class ImportType(StrEnum):
+    ODOO_CRM = "ODOO_CRM"
+    ODOO_CONTACTS = "ODOO_CONTACTS"
+
+
+class ImportStatus(StrEnum):
+    PREVIEW = "PREVIEW"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class CrmLeadType(StrEnum):
+    LEAD = "LEAD"
+    OPPORTUNITY = "OPPORTUNITY"
 
 
 class LushaActionType(StrEnum):

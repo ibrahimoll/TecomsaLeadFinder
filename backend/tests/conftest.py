@@ -6,6 +6,7 @@ name must end in `_test`. The schema is built with the real Alembic migrations
 """
 
 import os
+import tempfile
 from collections.abc import Callable, Iterator
 
 import pytest
@@ -23,6 +24,8 @@ os.environ["ENVIRONMENT"] = "test"
 os.environ["COOKIE_SECURE"] = "false"
 os.environ["JWT_SECRET"] = "test-jwt-secret-" + "x" * 32
 os.environ["APP_SECRET"] = "test-app-secret-" + "x" * 32
+os.environ["IMPORT_STORAGE_DIR"] = tempfile.mkdtemp(prefix="leadfinder-test-imports-")
+os.environ["MANAGERS_CAN_IMPORT"] = "false"
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402

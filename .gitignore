@@ -35,3 +35,6 @@ Thumbs.db
 
 # Local tool settings
 .claude/settings.local.json
+
+# Uploaded import files (source files only; PostgreSQL is the datastore)
+backend/storage/

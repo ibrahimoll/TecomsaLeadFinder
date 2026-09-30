@@ -15,7 +15,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models import Company, User
-from app.models.enums import UserRole
+from app.models.enums import CompanySource, UserRole
 from app.schemas.company import CompanyCreate
 from app.schemas.user import UserCreate
 from app.services import company_service, user_service
@@ -63,13 +63,15 @@ def main() -> int:
                 if db.scalar(select(Company).where(Company.name == name)):
                     print(f"exists  {name}")
                     continue
-                company_service.create_company(
+                company = company_service.create_company(
                     db,
                     agent,
                     CompanyCreate(
                         name=name, country="Lebanon", industry=industry, description=DEMO_DESCRIPTION
                     ),
                 )
+                company.source = CompanySource.DEMO  # never mistaken for real or Odoo data
+                db.commit()
                 print(f"created {name}")
 
     print(f"\nAll demo users share the development password: {DEV_PASSWORD}")

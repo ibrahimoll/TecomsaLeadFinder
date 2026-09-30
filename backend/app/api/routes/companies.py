@@ -3,15 +3,19 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUser, DbSession, Pagination
+from app.models.enums import CompanySource, OdooMatchStatus
+from app.schemas.common import Page
 from app.schemas.company import (
     CompanyCreate,
     CompanyDetail,
     CompanyNoteCreate,
     CompanyOut,
     CompanyUpdate,
+    DuplicateCandidate,
 )
-from app.schemas.common import Page
 from app.services import company_service
+from app.services.company_service import SortKey
+from app.services.matching_service import MatchSignals
 from app.services.pagination import page_response
 
 router = APIRouter(prefix="/companies", tags=["companies"])
@@ -25,9 +29,34 @@ def list_companies(
     q: Annotated[str | None, Query(max_length=200)] = None,
     country: Annotated[str | None, Query(max_length=100)] = None,
     industry: Annotated[str | None, Query(max_length=150)] = None,
+    crm_status: OdooMatchStatus | None = None,
+    protected: bool | None = None,
+    source: CompanySource | None = None,
+    salesperson_id: int | None = None,
+    sort: SortKey = "created",
 ):
-    items, total = company_service.list_companies(db, params, q=q, country=country, industry=industry)
+    items, total = company_service.list_companies(
+        db, params, q=q, country=country, industry=industry, crm_status=crm_status,
+        protected=protected, source=source, salesperson_id=salesperson_id, sort=sort,
+    )
     return page_response(items, total, params)
+
+
+@router.get("/duplicates", response_model=list[DuplicateCandidate])
+def check_duplicates(
+    _: CurrentUser,
+    db: DbSession,
+    name: Annotated[str | None, Query(max_length=255)] = None,
+    website: Annotated[str | None, Query(max_length=500)] = None,
+    email: Annotated[str | None, Query(max_length=320)] = None,
+    phone: Annotated[str | None, Query(max_length=50)] = None,
+    city: Annotated[str | None, Query(max_length=100)] = None,
+    country: Annotated[str | None, Query(max_length=100)] = None,
+    exclude_id: int | None = None,
+):
+    """Existing companies that may be the same organisation as the one being entered."""
+    signals = MatchSignals(name=name, website=website, email=email, phone=phone, city=city, country=country)
+    return company_service.find_duplicates(db, signals, exclude_id=exclude_id)
 
 
 @router.post("", response_model=CompanyOut, status_code=status.HTTP_201_CREATED)

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models.enums import UserRole
 from app.schemas.common import InModel, OutModel, require_value
@@ -19,6 +19,18 @@ class UserOut(OutModel):
     created_at: datetime
     updated_at: datetime
     last_login_at: datetime | None
+
+
+class Capabilities(BaseModel):
+    """What the current user may do; the frontend uses it only to shape navigation."""
+
+    manage_users: bool
+    view_crm: bool
+    run_imports: bool
+
+
+class MeOut(UserOut):
+    capabilities: Capabilities
 
 
 class UserCreate(InModel):

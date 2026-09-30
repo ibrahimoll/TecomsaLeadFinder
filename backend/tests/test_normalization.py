@@ -3,6 +3,7 @@
 import pytest
 
 from app.services.normalization import (
+    email_domain,
     normalize_company_name,
     normalize_domain,
     normalize_phone,
@@ -58,3 +59,23 @@ def test_normalize_website_adds_scheme():
 )
 def test_normalize_phone(raw, expected):
     assert normalize_phone(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("01 234 567", "+9611234567"), ("03 123 456", "+9613123456"), ("71 123 456", "+96171123456"),
+     ("+961 1 234 567", "+9611234567")],
+)
+def test_lebanese_local_numbers_with_country(raw, expected):
+    assert normalize_phone(raw, "Lebanon") == expected
+
+
+def test_abc_foods_variants_normalise_identically():
+    variants = ["ABC Foods SAL", "ABC Foods S.A.L.", "ABC FOODS", "  abc   foods, s.a.r.l. "]
+    assert {normalize_company_name(v) for v in variants} == {"abc foods"}
+
+
+def test_email_domain_ignores_personal_mailboxes():
+    assert email_domain("Rami@ABCFoods.example") == "abcfoods.example"
+    assert email_domain("someone@gmail.com") is None
+    assert email_domain("not-an-email") is None

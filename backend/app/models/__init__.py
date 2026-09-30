@@ -6,8 +6,11 @@ from app.models.audit import AuditLog
 from app.models.campaign import Campaign, CampaignCompany
 from app.models.company import Company
 from app.models.contact import Contact
+from app.models.import_run import ImportRun
 from app.models.lusha_usage import LushaUsage
+from app.models.odoo import CrmLead, OdooContact
 from app.models.odoo_match import OdooMatch
+from app.models.salesperson import Salesperson
 from app.models.user import User, UserSession
 
 __all__ = [
@@ -17,9 +20,13 @@ __all__ = [
     "CampaignCompany",
     "Company",
     "Contact",
+    "CrmLead",
+    "ImportRun",
     "LeadActivity",
     "LushaUsage",
+    "OdooContact",
     "OdooMatch",
+    "Salesperson",
     "User",
     "UserSession",
 ]

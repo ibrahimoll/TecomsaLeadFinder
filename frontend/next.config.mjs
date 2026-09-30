@@ -9,6 +9,11 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   eslint: { ignoreDuringBuilds: true },
+  experimental: {
+    // Proxied request bodies are cut at 10 MB by default; Odoo exports may be up to
+    // 20 MB (the backend enforces IMPORT_MAX_BYTES), so allow a little headroom.
+    middlewareClientMaxBodySize: "25mb",
+  },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${backendUrl}/:path*` }];
   },

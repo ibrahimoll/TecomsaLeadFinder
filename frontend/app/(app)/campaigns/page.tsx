@@ -1,72 +1,53 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Megaphone, Plus } from "lucide-react";
+import { Suspense, useCallback } from "react";
 
 import { CampaignStatusBadge, DivisionBadge } from "@/components/status-badges";
 import {
-  Alert,
+  Button,
   ButtonLink,
-  Card,
+  Checkbox,
+  DataTable,
   EmptyState,
-  Input,
-  Loading,
   PageHeader,
   Pagination,
+  RowLink,
+  SearchInput,
+  Section,
   Select,
-  Table,
-  Td,
-  Th,
+  Toolbar,
 } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { CAMPAIGN_STATUS_LABEL, DIVISIONS } from "@/lib/constants";
 import { dash, formatDate } from "@/lib/format";
+import { useDebouncedSearch, useUrlState } from "@/lib/use-url-state";
 import type { Campaign, CampaignStatus, Page } from "@/types";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 50;
+const KEYS = ["q", "status", "division", "mine", "page"] as const;
 
-function CampaignsTable() {
-  const router = useRouter();
-  const params = useSearchParams();
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
-  const status = params.get("status") ?? "";
-  const division = params.get("division") ?? "";
-  const mine = params.get("mine") === "1";
+function CampaignsView() {
+  const [filters, setFilters] = useUrlState(KEYS);
+  const commitSearch = useCallback((q: string) => setFilters({ q }), [setFilters]);
+  const [search, setSearch] = useDebouncedSearch(filters.q, commitSearch);
+  const page = Number(filters.page) || 1;
 
-  const { data, error, loading } = useApi<Page<Campaign>>("/campaigns", {
-    q,
-    status,
-    division,
-    mine: mine || undefined,
+  const { data, error, loading, reload } = useApi<Page<Campaign>>("/campaigns", {
+    q: filters.q,
+    status: filters.status,
+    division: filters.division,
+    mine: filters.mine === "1" || undefined,
     page,
     page_size: PAGE_SIZE,
   });
-
-  function setFilter(key: string, value: string) {
-    const next = new URLSearchParams(params.toString());
-    if (value) next.set(key, value);
-    else next.delete(key);
-    setPage(1);
-    router.replace(`/campaigns${next.toString() ? `?${next}` : ""}`);
-  }
-
-  const filtered = Boolean(q || status || division || mine);
+  const filtered = Boolean(filters.q || filters.status || filters.division || filters.mine);
 
   return (
-    <Card bodyClassName="p-0">
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 p-3">
-        <Input
-          className="max-w-xs"
-          placeholder="Search campaign name…"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
-        />
-        <Select className="w-40" value={division} onChange={(e) => setFilter("division", e.target.value)}>
+    <Section flush>
+      <Toolbar>
+        <SearchInput className="w-full sm:w-64" value={search} onChange={setSearch} placeholder="Search campaigns" label="Search campaigns" />
+        <Select aria-label="Division" className="w-36" value={filters.division} onChange={(e) => setFilters({ division: e.target.value })}>
           <option value="">All divisions</option>
           {DIVISIONS.map((d) => (
             <option key={d.value} value={d.value}>
@@ -74,7 +55,7 @@ function CampaignsTable() {
             </option>
           ))}
         </Select>
-        <Select className="w-40" value={status} onChange={(e) => setFilter("status", e.target.value)}>
+        <Select aria-label="Status" className="w-36" value={filters.status} onChange={(e) => setFilters({ status: e.target.value })}>
           <option value="">All statuses</option>
           {(Object.keys(CAMPAIGN_STATUS_LABEL) as CampaignStatus[]).map((s) => (
             <option key={s} value={s}>
@@ -82,70 +63,52 @@ function CampaignsTable() {
             </option>
           ))}
         </Select>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600">
-          <input type="checkbox" checked={mine} onChange={(e) => setFilter("mine", e.target.checked ? "1" : "")} />
-          Created by me
-        </label>
-      </div>
-      {error && (
-        <div className="p-3">
-          <Alert>{error.message}</Alert>
+        <Checkbox label="Created by me" checked={filters.mine === "1"} onChange={(e) => setFilters({ mine: e.target.checked ? "1" : "" })} />
+        {filtered && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearch("");
+              setFilters({ q: "", status: "", division: "", mine: "" });
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
+      </Toolbar>
+      <DataTable
+        caption="Campaigns"
+        rows={data?.items}
+        loading={loading}
+        error={error?.message}
+        onRetry={reload}
+        rowKey={(c) => c.id}
+        empty={
+          <EmptyState
+            icon={<Megaphone className="h-5 w-5" />}
+            title={filtered ? "No campaigns match these filters" : "No campaigns yet"}
+            description={filtered ? undefined : "A campaign defines which companies and roles a TECOMSA division should target."}
+            action={!filtered && <ButtonLink href="/campaigns/new" size="sm">New campaign</ButtonLink>}
+          />
+        }
+        columns={[
+          { key: "name", header: "Campaign", cell: (c) => <RowLink href={`/campaigns/${c.id}`}>{c.name}</RowLink> },
+          { key: "division", header: "Division", cell: (c) => <DivisionBadge division={c.tecomsa_division} /> },
+          { key: "market", header: "Market", cell: (c) => [c.city, c.region, c.country].filter(Boolean).join(", ") },
+          { key: "industry", header: "Industry", cell: (c) => <span className="text-fg-muted">{dash(c.industry)}</span> },
+          { key: "companies", header: "Companies", align: "right", cell: (c) => `${c.company_count} / ${c.target_company_count}` },
+          { key: "status", header: "Status", cell: (c) => <CampaignStatusBadge status={c.status} /> },
+          { key: "creator", header: "Created by", cell: (c) => <span className="text-fg-muted">{c.creator.name}</span> },
+          { key: "created", header: "Created", cell: (c) => <span className="text-fg-muted">{formatDate(c.created_at)}</span> },
+        ]}
+      />
+      {data && (
+        <div className="border-t border-border">
+          <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPage={(p) => setFilters({ page: String(p) })} />
         </div>
       )}
-      {loading && !data ? (
-        <Loading />
-      ) : data && data.items.length === 0 ? (
-        <EmptyState
-          title={filtered ? "No campaigns match these filters" : "No campaigns yet"}
-          description={filtered ? undefined : "Create a campaign draft to define who TECOMSA should target."}
-          action={!filtered && <ButtonLink href="/campaigns/new">Create campaign</ButtonLink>}
-        />
-      ) : (
-        data && (
-          <>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Campaign name</Th>
-                  <Th>Division</Th>
-                  <Th>Country</Th>
-                  <Th>Industry</Th>
-                  <Th className="text-right">Target</Th>
-                  <Th>Status</Th>
-                  <Th>Creator</Th>
-                  <Th>Created</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {data.items.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50">
-                    <Td>
-                      <Link href={`/campaigns/${c.id}`} className="font-medium text-brand-700 hover:underline">
-                        {c.name}
-                      </Link>
-                    </Td>
-                    <Td>
-                      <DivisionBadge division={c.tecomsa_division} />
-                    </Td>
-                    <Td>{c.country}</Td>
-                    <Td>{dash(c.industry)}</Td>
-                    <Td className="text-right tabular-nums">
-                      {c.company_count} / {c.target_company_count}
-                    </Td>
-                    <Td>
-                      <CampaignStatusBadge status={c.status} />
-                    </Td>
-                    <Td>{c.creator.name}</Td>
-                    <Td>{formatDate(c.created_at)}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPage={setPage} />
-          </>
-        )
-      )}
-    </Card>
+    </Section>
   );
 }
 
@@ -154,11 +117,15 @@ export default function CampaignsPage() {
     <>
       <PageHeader
         title="Campaigns"
-        description="Prospecting campaigns by TECOMSA division."
-        actions={<ButtonLink href="/campaigns/new">Create campaign</ButtonLink>}
+        description="Targeting definitions per TECOMSA division. No external searches run in this version."
+        actions={
+          <ButtonLink href="/campaigns/new">
+            <Plus className="h-3.5 w-3.5" aria-hidden /> New campaign
+          </ButtonLink>
+        }
       />
-      <Suspense fallback={<Loading />}>
-        <CampaignsTable />
+      <Suspense>
+        <CampaignsView />
       </Suspense>
     </>
   );

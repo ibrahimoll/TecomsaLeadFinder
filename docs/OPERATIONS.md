@@ -132,6 +132,10 @@ docker compose -f docker-compose.prod.yml exec -T db psql -U "$POSTGRES_USER" -d
 
 **Manual:** `./scripts/backup_db.sh` writes `./backups/leadfinder_<timestamp>_manual.dump`.
 
+**Uploaded import files:** the original Odoo export files live in the `imports` Docker volume
+(`/app/storage/imports`). All imported data is in PostgreSQL, so the database backup is what matters. Keep the files
+only if you want the original exports as an audit trail. They contain CRM data, so protect them like the database.
+
 **Off-site copy (required):** `./backups` is on the same server as the database. Sync it to TECOMSA-owned storage,
 such as an S3-compatible bucket or NAS, for example with a nightly `rclone sync ./backups remote:leadfinder-backups`.
 
@@ -172,3 +176,7 @@ docker rm -f lf-restore-test
 | Tests refuse to run | `TEST_DATABASE_URL` must be set and the database name must end in `_test`. |
 | `leadfinder_test` does not exist | It is created only when the dev Postgres volume is first initialised. Run `docker compose exec db createdb -U leadfinder leadfinder_test`. |
 | Migration drift | `alembic check` from `backend/` reports model changes that have no migration. |
+| Import says a required column is not mapped | The export uses different header names. Map the columns on the review page and click *Apply mapping*. |
+| Every company still shows *Not checked* | No Odoo import has completed yet. Check *Import history* for runs left in *Awaiting confirmation*. |
+| A company is protected unexpectedly | Its profile's *TECOMSA relationship* tab lists the exact Odoo records and the matching reason (same domain, phone or name). |
+| Upload fails for files over 10 MB | Rebuild the frontend image. `next.config.mjs` raises the proxy body limit to 25 MB; the backend limit is `IMPORT_MAX_BYTES`. |

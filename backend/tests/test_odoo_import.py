@@ -123,7 +123,10 @@ def test_manually_added_duplicate_is_protected_and_flagged(client_for):
     assert created["odoo_status"] == "EXISTING_OPPORTUNITY" and created["is_protected"] is True
     detail = agent.get(f"/companies/{created['id']}").json()
     assert detail["possible_duplicates"][0]["company"]["name"] == "ABC Foods S.A.L."
-    assert "domain" in detail["possible_duplicates"][0]["reason"]
+    assert "name" in detail["possible_duplicates"][0]["reason"]
+    # CRM contact details are not copied onto the company record.
+    abc = agent.get(f"/companies/{candidates[0]['company']['id']}").json()
+    assert abc["main_email"] is None and abc["main_phone"] is None
 
 
 def test_reimport_updates_instead_of_duplicating(client_for, db):

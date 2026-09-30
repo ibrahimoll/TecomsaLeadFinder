@@ -1,10 +1,11 @@
 "use client";
 
 import clsx from "clsx";
+import { Check, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { Alert, Button, Card, Field, Input, Select, Textarea } from "@/components/ui";
+import { Alert, Button, Field, Input, Section, Select, Textarea } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import {
   CAMPAIGN_SIZE_RANGES,
@@ -40,7 +41,7 @@ function initialValues(c?: Campaign): Values {
   return {
     name: c?.name ?? "",
     tecomsa_division: c?.tecomsa_division ?? "",
-    country: c?.country ?? "",
+    country: c?.country ?? "Lebanon",
     region: c?.region ?? "",
     city: c?.city ?? "",
     industry: c?.industry ?? "",
@@ -76,8 +77,8 @@ function RolePicker({
 
   return (
     <div>
-      {options.length === 0 && <p className="mb-2 text-xs text-slate-500">Select a division to see suggested roles.</p>}
-      <div className="flex flex-wrap gap-1.5">
+      {options.length === 0 && <p className="mb-2 text-xs text-fg-muted">Choose a division to see suggested roles.</p>}
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Target roles">
         {options.map((role) => {
           const active = selected.includes(role);
           return (
@@ -87,12 +88,11 @@ function RolePicker({
               onClick={() => toggle(role)}
               aria-pressed={active}
               className={clsx(
-                "rounded-full border px-2.5 py-1 text-xs font-medium",
-                active
-                  ? "border-brand-600 bg-brand-600 text-white"
-                  : "border-slate-300 bg-white text-slate-700 hover:border-slate-400",
+                "inline-flex h-7 items-center gap-1 rounded border px-2.5 text-xs font-medium transition-colors",
+                active ? "border-fg bg-fg text-white" : "border-border-strong bg-surface text-fg hover:bg-surface-hover",
               )}
             >
+              {active && <Check className="h-3 w-3" aria-hidden />}
               {role}
             </button>
           );
@@ -100,6 +100,7 @@ function RolePicker({
       </div>
       <div className="mt-2 flex max-w-sm gap-2">
         <Input
+          aria-label="Add another role"
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
           onKeyDown={(e) => {
@@ -111,8 +112,8 @@ function RolePicker({
           placeholder="Add another role"
           maxLength={100}
         />
-        <Button type="button" variant="secondary" onClick={addCustom}>
-          Add
+        <Button variant="secondary" onClick={addCustom} disabled={!custom.trim()}>
+          <Plus className="h-3.5 w-3.5" aria-hidden /> Add
         </Button>
       </div>
     </div>
@@ -169,10 +170,11 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {formError && <Alert>{formError}</Alert>}
-      <Card title="Campaign">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+      <Section title="Campaign">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Field label="Campaign name" htmlFor="name" required error={errors.name} className="md:col-span-2">
-            <Input id="name" value={values.name} onChange={set("name")} required maxLength={200} />
+            <Input id="name" value={values.name} onChange={set("name")} required maxLength={200} placeholder="e.g. Frinzo – Beirut restaurants" />
           </Field>
           <Field label="TECOMSA division" htmlFor="division" required error={errors.tecomsa_division}>
             <Select id="division" value={values.tecomsa_division} onChange={set("tecomsa_division")} required>
@@ -184,27 +186,10 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
               ))}
             </Select>
           </Field>
-          <Field label="Target company count" htmlFor="count" required error={errors.target_company_count}>
-            <Input
-              id="count"
-              type="number"
-              min={1}
-              max={10000}
-              list="count-options"
-              value={values.target_company_count}
-              onChange={set("target_company_count")}
-              required
-            />
-            <datalist id="count-options">
-              {TARGET_COUNTS.map((n) => (
-                <option key={n} value={n} />
-              ))}
-            </datalist>
-          </Field>
         </div>
-      </Card>
+      </Section>
 
-      <Card title="Targeting">
+      <Section title="Target market">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Field label="Country" htmlFor="country" required error={errors.country}>
             <Select id="country" value={values.country} onChange={set("country")} required>
@@ -217,11 +202,16 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
             </Select>
           </Field>
           <Field label="Region" htmlFor="region" error={errors.region}>
-            <Input id="region" value={values.region} onChange={set("region")} maxLength={100} placeholder="Optional" />
+            <Input id="region" value={values.region} onChange={set("region")} maxLength={100} placeholder="Optional, e.g. Mount Lebanon" />
           </Field>
           <Field label="City" htmlFor="city" error={errors.city}>
             <Input id="city" value={values.city} onChange={set("city")} maxLength={100} placeholder="Optional" />
           </Field>
+        </div>
+      </Section>
+
+      <Section title="Company criteria">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Field label="Industry" htmlFor="industry" error={errors.industry}>
             {industryMode === "list" ? (
               <Select
@@ -245,7 +235,7 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
             ) : (
               <div className="flex gap-2">
                 <Input id="industry" value={values.industry} onChange={set("industry")} maxLength={150} placeholder="Custom industry" autoFocus />
-                <Button type="button" variant="ghost" onClick={() => setIndustryMode("list")}>
+                <Button variant="ghost" onClick={() => setIndustryMode("list")}>
                   List
                 </Button>
               </div>
@@ -260,29 +250,54 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
               ))}
             </Select>
           </Field>
+          <Field label="Target company count" htmlFor="count" required error={errors.target_company_count}>
+            <Input
+              id="count"
+              type="number"
+              min={1}
+              max={10000}
+              list="count-options"
+              value={values.target_company_count}
+              onChange={set("target_company_count")}
+              required
+            />
+            <datalist id="count-options">
+              {TARGET_COUNTS.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="Decision-makers" description="Roles to look for at qualifying companies.">
+        <Field label="Target roles" error={errors.target_roles}>
+          <RolePicker
+            division={values.tecomsa_division}
+            selected={values.target_roles}
+            onChange={(roles) => setValues((v) => ({ ...v, target_roles: roles }))}
+          />
+        </Field>
+      </Section>
+
+      <Section title="Budget & notes">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Field
             label="Max. Lusha credit budget"
             htmlFor="budget"
             error={errors.max_lusha_credit_budget}
-            hint="Stored for later phases. No Lusha credits are used now."
+            hint="Stored for later phases. No credits are used now."
           >
             <Input id="budget" type="number" min={0} value={values.max_lusha_credit_budget} onChange={set("max_lusha_credit_budget")} placeholder="Optional" />
           </Field>
-          <Field label="Target roles" error={errors.target_roles} className="md:col-span-3">
-            <RolePicker
-              division={values.tecomsa_division}
-              selected={values.target_roles}
-              onChange={(roles) => setValues((v) => ({ ...v, target_roles: roles }))}
-            />
-          </Field>
-          <Field label="Additional instructions" htmlFor="instructions" error={errors.additional_instructions} className="md:col-span-3">
+          <Field label="Additional instructions" htmlFor="instructions" error={errors.additional_instructions} className="md:col-span-2">
             <Textarea id="instructions" value={values.additional_instructions} onChange={set("additional_instructions")} maxLength={5000} />
           </Field>
         </div>
-      </Card>
+      </Section>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="secondary" onClick={() => router.back()}>
+        <Button variant="secondary" onClick={() => router.back()}>
           Cancel
         </Button>
         <Button type="submit" disabled={saving}>

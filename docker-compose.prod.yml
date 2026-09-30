@@ -31,6 +31,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    volumes:
+      # Uploaded Odoo export files (import source audit trail; not the live datastore)
+      - imports:/app/storage/imports
     depends_on:
       db:
         condition: service_healthy
@@ -73,3 +76,4 @@ services:
 
 volumes:
   pgdata:
+  imports:

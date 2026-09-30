@@ -206,7 +206,7 @@ def create_upload(db: Session, actor: User, import_type: ImportType, filename: s
     db.flush()
     _store_counts(run, _analyse(import_type, parsed, run.column_mapping))
     audit_service.record(db, action=AuditAction.IMPORT_UPLOADED, user_id=actor.id, entity_type="import_run",
-                         entity_id=run.id, metadata={"type": import_type.value, "filename": original,
+                         entity_id=run.id, metadata={"type": ImportType(import_type).value, "filename": original,
                                                      "rows": run.row_count})
     db.commit()
     db.refresh(run)
@@ -424,9 +424,10 @@ class _Writer:
         r = row.record
         person = self.salespeople.resolve(r["salesperson"])
         phone = r["phone"] or r["mobile"]
+        # CRM email/phone belong to the contact person, not the company: they are used for
+        # matching but never copied onto the company record.
         company = self.company_for(row, create=True, extra={
-            "website": r["website"], "phone": phone if r["company_name"] else None,
-            "email": r["email"] if r["company_name"] else None, "city": r["city"], "country": r["country"]})
+            "website": r["website"], "city": r["city"], "country": r["country"]})
         self.upsert(CrmLead, row.key, {
             "odoo_lead_id": odoo_int_id(r["odoo_id"]),
             "odoo_external_id": odoo_external_id(r["odoo_id"]),

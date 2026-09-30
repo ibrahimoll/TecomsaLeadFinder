@@ -1,154 +1,188 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { Building2, Plus } from "lucide-react";
+import { Suspense, useCallback } from "react";
 
-import { OdooStatusBadge } from "@/components/status-badges";
+import { CrmStatusBadge, SourceBadge } from "@/components/status-badges";
 import {
-  Alert,
+  Avatar,
+  Button,
   ButtonLink,
-  Card,
+  DataTable,
   EmptyState,
-  Input,
-  Loading,
   PageHeader,
   Pagination,
+  RowLink,
+  SearchInput,
+  Section,
   Select,
-  Table,
-  Td,
-  Th,
+  Toolbar,
 } from "@/components/ui";
 import { useApi } from "@/lib/api";
-import { countryNames, INDUSTRIES } from "@/lib/constants";
-import { dash, formatDate } from "@/lib/format";
-import type { Company, Page } from "@/types";
+import { countryNames, ODOO_STATUS_LABEL, ODOO_STATUSES, SOURCE_LABEL } from "@/lib/constants";
+import { dash, formatDate, location } from "@/lib/format";
+import { useDebouncedSearch, useUrlState } from "@/lib/use-url-state";
+import type { Company, CompanySource, Page } from "@/types";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 50;
+const KEYS = ["q", "crm_status", "protected", "source", "country", "sort", "page"] as const;
 
-export default function CompaniesPage() {
-  const [q, setQ] = useState("");
-  const [country, setCountry] = useState("");
-  const [industry, setIndustry] = useState("");
-  const [page, setPage] = useState(1);
-  const { data, error, loading } = useApi<Page<Company>>("/companies", {
-    q,
-    country,
-    industry,
+function CompaniesView() {
+  const [filters, setFilters] = useUrlState(KEYS);
+  const commitSearch = useCallback((q: string) => setFilters({ q }), [setFilters]);
+  const [search, setSearch] = useDebouncedSearch(filters.q, commitSearch);
+  const page = Number(filters.page) || 1;
+
+  const { data, error, loading, reload } = useApi<Page<Company>>("/companies", {
+    q: filters.q,
+    crm_status: filters.crm_status,
+    protected: filters.protected,
+    source: filters.source,
+    country: filters.country,
+    sort: filters.sort || "created",
     page,
     page_size: PAGE_SIZE,
   });
-  const filtered = Boolean(q || country || industry);
+  const filtered = Boolean(filters.q || filters.crm_status || filters.protected || filters.source || filters.country);
 
+  return (
+    <Section flush>
+      <Toolbar
+        end={
+          <Select
+            aria-label="Sort by"
+            className="w-40"
+            value={filters.sort || "created"}
+            onChange={(e) => setFilters({ sort: e.target.value === "created" ? "" : e.target.value })}
+          >
+            <option value="created">Newest first</option>
+            <option value="updated">Recently updated</option>
+            <option value="name">Name A–Z</option>
+            <option value="status">CRM status</option>
+          </Select>
+        }
+      >
+        <SearchInput className="w-full sm:w-72" value={search} onChange={setSearch} placeholder="Search name, domain or city" label="Search companies" />
+        <Select
+          aria-label="Relationship"
+          className="w-40"
+          value={filters.protected}
+          onChange={(e) => setFilters({ protected: e.target.value, crm_status: "" })}
+        >
+          <option value="">All relationships</option>
+          <option value="true">Protected (in Odoo)</option>
+          <option value="false">Not protected</option>
+        </Select>
+        <Select
+          aria-label="CRM status"
+          className="w-44"
+          value={filters.crm_status}
+          onChange={(e) => setFilters({ crm_status: e.target.value, protected: "" })}
+        >
+          <option value="">Any CRM status</option>
+          {ODOO_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {ODOO_STATUS_LABEL[s]}
+            </option>
+          ))}
+        </Select>
+        <Select aria-label="Source" className="w-36" value={filters.source} onChange={(e) => setFilters({ source: e.target.value })}>
+          <option value="">Any source</option>
+          {(Object.keys(SOURCE_LABEL) as CompanySource[]).map((s) => (
+            <option key={s} value={s}>
+              {SOURCE_LABEL[s]}
+            </option>
+          ))}
+        </Select>
+        <Select aria-label="Country" className="w-40" value={filters.country} onChange={(e) => setFilters({ country: e.target.value })}>
+          <option value="">Any country</option>
+          {countryNames().map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+        {filtered && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearch("");
+              setFilters({ q: "", crm_status: "", protected: "", source: "", country: "" });
+            }}
+          >
+            Clear filters
+          </Button>
+        )}
+      </Toolbar>
+      <DataTable
+        caption="Companies"
+        rows={data?.items}
+        loading={loading}
+        error={error?.message}
+        onRetry={reload}
+        rowKey={(c) => c.id}
+        sort={filters.sort || "created"}
+        onSort={(key) => setFilters({ sort: key === "created" ? "" : key })}
+        empty={
+          <EmptyState
+            icon={<Building2 className="h-5 w-5" />}
+            title={filtered ? "No companies match these filters" : "No companies yet"}
+            description={
+              filtered
+                ? "Try a different search or clear the filters."
+                : "Import TECOMSA's Odoo contacts and CRM records, or add a company manually."
+            }
+            action={!filtered && <ButtonLink href="/companies/new" size="sm">Add company</ButtonLink>}
+          />
+        }
+        columns={[
+          {
+            key: "name",
+            header: "Company",
+            sortKey: "name",
+            cell: (c) => (
+              <div className="flex min-w-[220px] items-center gap-2.5">
+                <Avatar name={c.name} size="sm" />
+                <div className="min-w-0 leading-tight">
+                  <RowLink href={`/companies/${c.id}`}>{c.name}</RowLink>
+                  <p className="truncate text-xs text-fg-muted">{c.domain ?? "No website"}</p>
+                </div>
+              </div>
+            ),
+          },
+          { key: "industry", header: "Industry", cell: (c) => <span className="text-fg-muted">{dash(c.industry)}</span> },
+          { key: "loc", header: "Location", cell: (c) => <span className="text-fg-muted">{location(c.city, c.country)}</span> },
+          { key: "source", header: "Source", cell: (c) => <SourceBadge source={c.source} /> },
+          { key: "crm", header: "CRM status", sortKey: "status", cell: (c) => <CrmStatusBadge status={c.odoo_status} /> },
+          { key: "owner", header: "Salesperson", cell: (c) => <span className="text-fg-muted">{c.salesperson?.name ?? "—"}</span> },
+          { key: "created", header: "Added", sortKey: "created", cell: (c) => <span className="text-fg-muted">{formatDate(c.created_at)}</span> },
+        ]}
+      />
+      {data && (
+        <div className="border-t border-border">
+          <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPage={(p) => setFilters({ page: String(p) })} />
+        </div>
+      )}
+    </Section>
+  );
+}
+
+export default function CompaniesPage() {
   return (
     <>
       <PageHeader
         title="Companies"
-        description="The shared TECOMSA master company database."
-        actions={<ButtonLink href="/companies/new">Add company</ButtonLink>}
+        description="TECOMSA's company database. Protected companies already have a relationship in Odoo."
+        actions={
+          <ButtonLink href="/companies/new">
+            <Plus className="h-3.5 w-3.5" aria-hidden /> Add company
+          </ButtonLink>
+        }
       />
-      <Card bodyClassName="p-0">
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 p-3">
-          <Input
-            className="max-w-xs"
-            placeholder="Search name, domain or city…"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setPage(1);
-            }}
-          />
-          <Select
-            className="w-48"
-            value={country}
-            onChange={(e) => {
-              setCountry(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">All countries</option>
-            {countryNames().map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
-          <Select
-            className="w-48"
-            value={industry}
-            onChange={(e) => {
-              setIndustry(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">All industries</option>
-            {INDUSTRIES.map((i) => (
-              <option key={i} value={i}>
-                {i}
-              </option>
-            ))}
-          </Select>
-        </div>
-        {error && (
-          <div className="p-3">
-            <Alert>{error.message}</Alert>
-          </div>
-        )}
-        {loading && !data ? (
-          <Loading />
-        ) : data && data.items.length === 0 ? (
-          <EmptyState
-            title={filtered ? "No companies match your search" : "No companies yet"}
-            description={filtered ? undefined : "Add companies manually to start building the database."}
-            action={!filtered && <ButtonLink href="/companies/new">Add company</ButtonLink>}
-          />
-        ) : (
-          data && (
-            <>
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Company name</Th>
-                    <Th>Country</Th>
-                    <Th>Industry</Th>
-                    <Th>Website</Th>
-                    <Th>Main phone</Th>
-                    <Th>Odoo status</Th>
-                    <Th>Created</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {data.items.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50">
-                      <Td>
-                        <Link href={`/companies/${c.id}`} className="font-medium text-brand-700 hover:underline">
-                          {c.name}
-                        </Link>
-                      </Td>
-                      <Td>{dash(c.country)}</Td>
-                      <Td>{dash(c.industry)}</Td>
-                      <Td>
-                        {c.website ? (
-                          <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-slate-700 hover:underline">
-                            {c.domain ?? c.website}
-                          </a>
-                        ) : (
-                          "—"
-                        )}
-                      </Td>
-                      <Td>{dash(c.main_phone)}</Td>
-                      <Td>
-                        <OdooStatusBadge status={c.odoo_status} />
-                      </Td>
-                      <Td>{formatDate(c.created_at)}</Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-              <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPage={setPage} />
-            </>
-          )
-        )}
-      </Card>
+      <Suspense>
+        <CompaniesView />
+      </Suspense>
     </>
   );
 }

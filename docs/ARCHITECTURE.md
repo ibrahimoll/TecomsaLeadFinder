@@ -36,17 +36,30 @@ erDiagram
     companies ||--o{ lusha_usage : "for"
     contacts ||--o{ lusha_usage : "for"
     users ||--o{ audit_logs : "actor"
+    users |o--o| salespeople : "linked account"
+    salespeople ||--o{ crm_leads : owns
+    salespeople ||--o{ odoo_contacts : owns
+    salespeople ||--o{ companies : "relationship owner"
+    companies ||--o{ crm_leads : "linked at import"
+    companies ||--o{ odoo_contacts : "linked at import"
+    import_runs ||--o{ crm_leads : "last imported by"
+    import_runs ||--o{ odoo_contacts : "last imported by"
+    users ||--o{ import_runs : uploads
 ```
 
 | Table | Purpose / key rules |
 | --- | --- |
 | `users` | LeadFinder accounts. `email` unique (lower-cased). `role` ∈ ADMIN, SALES_MANAGER, SALES_AGENT. `odoo_user_id` nullable link to the Odoo user. Odoo passwords are never stored. |
 | `user_sessions` | Server-side sessions. Logout, password reset and deactivation set `revoked_at`. |
-| `companies` | **One master record per organisation.** `name` is not unique. `normalized_name`, `domain` and `main_phone_normalized` are indexed for Phase 1 identity resolution. |
+| `companies` | **One master record per organisation.** `name` is not unique. `normalized_name`, `domain`, `email_domain` and `main_phone_normalized` are indexed for matching. `source` (MANUAL, ODOO_IMPORT, DEMO; extensible) and `source_reference` record origin. `crm_status`, `crm_status_reason`, `crm_checked_at` and `salesperson_id` hold the current TECOMSA relationship (denormalised for filtering). |
+| `salespeople` | TECOMSA salespeople, created from the Odoo *Salesperson* column (matched by `name_key`). They can be linked to a `users` row and an `odoo_user_id`. |
+| `crm_leads` | Odoo crm.lead records. Original `odoo_lead_id` / `odoo_external_id` are preserved. Holds stage, type, revenue, probability, active, won, lost reason, dates and salesperson. `source_key` (unique) makes re-imports update instead of duplicate. `company_key`, `domain`, `email_domain` and `phone_normalized` are matching keys. |
+| `odoo_contacts` | Odoo res.partner records (companies and people) with the same identifier and matching-key conventions. `is_customer` comes from a customer flag or rank column. |
+| `import_runs` | One row per uploaded file: type, status (PREVIEW, COMPLETED, FAILED, CANCELLED), stored file name, SHA-256 (detects repeat uploads), column mapping, row/valid/warning/duplicate/insert/update/skip/error counts, companies created or linked, row issues and failure reason. |
 | `contacts` | People at a company (company 1─* contacts). `source` / `source_reference` hold the provider-neutral origin and the provider's own id. Phase 0 creates only `MANUAL` contacts. |
 | `campaigns` | Targeting definition. `tecomsa_division` ∈ FRINZO, ODOO, IT. `status` ∈ DRAFT, READY, RUNNING, COMPLETED, FAILED, CANCELLED. `target_roles` is JSONB. |
 | `campaign_companies` | Links master companies to campaigns without duplicating them. Unique `(campaign_id, company_id)`. `status` ∈ ADDED, REVIEW, REMOVED. `qualification_status` ∈ PENDING, QUALIFIED, DISQUALIFIED. |
-| `odoo_matches` | Append-only history of CRM checks. The latest row is the current status. Company creation writes `NOT_CHECKED`. |
+| `odoo_matches` | Append-only history of relationship-status changes, with the evidence (Odoo partner or lead id, reason). A company starts at `NOT_CHECKED`. |
 | `lusha_usage` | Credit ledger (action, credits, provider request id). Empty in Phase 0. |
 | `lead_activities` | Sales-facing event timeline: COMPANY_CREATED, CAMPAIGN_CREATED, COMPANY_ADDED_TO_CAMPAIGN, CONTACT_ADDED, NOTE_ADDED. Timestamped and structured for later ML. |
 | `audit_logs` | Security and compliance trail with JSONB `metadata`. Never contains passwords, tokens or secrets. |
@@ -58,7 +71,51 @@ Normalisation (`backend/app/services/normalization.py`):
 
 - **Name:** accents stripped, lower-cased, punctuation removed, trailing legal suffixes (S.A.L., LLC, Ltd, …) dropped.
 - **Domain:** host only, lower-cased, `www.` removed, IDNA-encoded. Invalid values are rejected at input.
-- **Phone:** converted to E.164 only when entered in international form (`+…` / `00…`), otherwise `NULL`.
+- **Phone:** converted to E.164 when entered in international form (`+…` / `00…`), or in local form when the
+  country is known (Lebanon: `01 234 567` → `+9611234567`). Otherwise `NULL`.
+- **Email domain:** the company part of an address. Personal providers (gmail.com, hotmail.com, idm.net.lb, …) are
+  ignored.
+
+### Duplicate matching (`services/matching_service.py`)
+
+Deterministic signals, strongest first: Odoo partner ID (1.00), website domain (0.95), company email domain (0.90),
+E.164 phone (0.90), name + city (0.80), normalised name (0.70).
+
+- The **Add company** form calls `GET /companies/duplicates` while the user types and shows likely matches with the
+  reason.
+- Imports use an in-memory index with the same rules. A matched row links to the existing company; an unmatched row
+  with a company name creates one with source `ODOO_IMPORT`. On ties the oldest company wins, so imports never add
+  another copy.
+- Imports only fill blank company fields. They never overwrite data a user entered, and contact-level email/phone
+  from CRM rows is not copied onto the company.
+
+### Relationship status (`services/relationship_service.py`)
+
+The evidence for a company is every CRM lead and Odoo contact that is **linked to it or shares a matching signal
+with it**. Duplicate company records are therefore protected together. Precedence:
+
+`CUSTOMER > EXISTING_OPPORTUNITY > EXISTING_LEAD > LOST_OPPORTUNITY > EXISTING_CONTACT > AVAILABLE`
+
+`NOT_CHECKED` applies while no import has completed: LeadFinder never calls a company available without Odoo data.
+Statuses are recomputed for all companies after each import, and for a single company when it is created or its
+identity fields change. Each change appends an `odoo_matches` row.
+
+### Import workflow (`services/import_parser.py`, `import_fields.py`, `import_service.py`)
+
+1. **Upload:** check the extension and magic bytes (.csv/.xlsx; legacy .xls is rejected with instructions), the
+   20 MB and 50,000-row limits, and parse (CSV encoding and delimiter detection; XLSX via openpyxl, read-only).
+   The file is stored under a random name in `IMPORT_STORAGE_DIR/YYYYMM/`. The original name is sanitised and kept
+   only as metadata.
+2. **Auto-mapping:** Odoo's default English export headers and common variants are recognised. Anything else is mapped
+   in the UI (`PUT /imports/{id}/mapping`).
+3. **Preview (no writes):**
+   - row validation (required fields, dates, numbers, emails, yes/no values) and duplicates inside the file
+   - new vs existing records (by `source_key`)
+   - company matches vs new companies, first 25 rows, up to 200 row issues
+   - a warning if the same file (SHA-256) was imported before
+4. **Confirm:** upsert records, resolve salespeople, link or create companies, recompute relationships, and write the
+   audit entry, all in one transaction. On an unexpected error everything is rolled back and the run is marked
+   `FAILED` with the reason.
 
 ## 3. Authentication and authorization
 
@@ -109,8 +166,23 @@ All list endpoints accept `page` (≥1) and `page_size` (1–100) and return `{i
 | POST | `/campaigns/{id}/companies/{company_id}` | owner, manager, admin | 409 if already linked |
 | GET | `/activities` | user (scoped) | `scope=mine\|all`, `company_id`, `campaign_id` |
 | GET | `/audit` | admin | `action`, `entity_type`, `entity_id`, `user_id` |
+| GET | `/companies/duplicates` | user | `name`, `website`, `email`, `phone`, `city`, `country`: likely matches with reasons |
+| GET | `/imports` | importer | Import history (`import_type`, `status`) |
+| POST | `/imports` | importer | Multipart `import_type` + `file`; returns the preview (nothing imported yet) |
+| GET | `/imports/{id}`, `/imports/{id}/preview` | importer | Run details / recomputed preview |
+| PUT | `/imports/{id}/mapping` | importer | Change column mapping; returns the new preview |
+| POST | `/imports/{id}/confirm`, `/imports/{id}/cancel` | importer | Execute or abandon a previewed import |
+| GET | `/odoo/leads` | admin, manager | `q`, `state=open\|won\|lost`, `salesperson_id`, `stage` |
+| GET | `/odoo/stages` | admin, manager | Distinct CRM stages |
+| GET | `/odoo/contacts` | admin, manager | `q`, `companies_only`, `customers_only`, `salesperson_id` |
+| GET | `/salespeople` | admin, manager | Salespeople with record/company counts |
+| PATCH | `/salespeople/{id}` | admin | Link to a user, set email / Odoo user id / active |
 | GET | `/dashboard` | user | Real counts only |
-| GET | `/settings/status` | admin | Version, environment, integration status |
+| GET | `/settings/status` | admin | Version, environment, last import, integration states |
+
+`/companies` also accepts `crm_status`, `protected`, `source`, `salesperson_id` and `sort=created|updated|name|status`.
+`/auth/me` returns `capabilities` (`manage_users`, `view_crm`, `run_imports`), which the frontend uses to shape
+navigation. "Importer" means an Admin, or a Sales Manager when `MANAGERS_CAN_IMPORT=true`.
 
 Interactive OpenAPI docs are served at `/docs` outside production.
 
@@ -124,7 +196,9 @@ backend/app/integrations/
 ```
 
 In Phase 0 each service raises `IntegrationNotConfigured` and makes no network calls. Nothing in the application
-calls them yet, and no results are simulated. Rules for implementing them:
+calls them yet, and no results are simulated. Odoo data enters only through file imports. A future Odoo API sync
+should write into `crm_leads` / `odoo_contacts` and call `relationship_service.refresh_all`, exactly as the importer
+does. Rules for implementing them:
 
 - Credentials are read server-side from environment variables and never sent to the frontend.
 - Provider identifiers are stored as **references** (`odoo_matches.odoo_partner_id`, `contacts.source_reference`,
@@ -134,9 +208,46 @@ calls them yet, and no results are simulated. Rules for implementing them:
 
 ## 6. Frontend
 
-- `app/login`: public sign-in page.
-- `app/(app)/…`: authenticated area wrapped by `components/app-shell.tsx`, which loads `/auth/me` and renders the
-  left navigation (Dashboard, Campaigns, Companies, My Activity, and Administration for admins only).
-- Pages: dashboard, campaigns (list, new, detail, edit draft), companies (list, new, profile, edit), activity, and
-  admin (users, audit log, settings).
-- `lib/api.ts`: fetch wrapper. On a 401 it redirects to login, and it maps validation errors to form fields.
+**Design system.** All colours, radii and type sizes come from CSS variables in `app/globals.css`, mapped in
+`tailwind.config.ts`:
+
+- colours: `bg`, `surface`, `border`, `fg`, `accent`, `success`, `warning`, `danger`, `info`
+- radius: 4–8 px; base text: 13 px
+- no shadows, gradients or decorative motion; `prefers-reduced-motion` is respected
+
+New components must use these tokens, not raw Tailwind palette colours.
+
+**Primitives** (`components/ui/`):
+
+- `primitives`: Button, Input, Select, SearchInput, Checkbox, Field
+- `data`: DataTable with skeleton, empty and error states and sortable headers; Badge; MetricStrip;
+  DescriptionList; Pagination; Avatar; Alert
+- `layout`: PageHeader with breadcrumbs; Section; Toolbar; accessible Tabs with arrow-key navigation
+- `dialog`: ConfirmDialog on native `<dialog>`
+
+Pages compose these; they do not define their own styling conventions.
+
+**Navigation** (`components/app-shell.tsx`) is built from `/auth/me` capabilities:
+
+- Workspace: Dashboard, Companies, Campaigns, My activity
+- CRM (admin, manager): CRM records, Sales team
+- Data sources (importers): Odoo imports, Import history
+- Admin: Administration
+
+The shell also provides a skip link and a slide-over menu on small screens.
+
+**Key screens:**
+
+- **Companies:** URL-driven search, filters and sort.
+- **Company profile:** protection banner, then tabs for Overview, TECOMSA relationship, Intelligence (Phase 1
+  placeholders with honest empty states), Contacts, Campaigns and Activity.
+- **Odoo imports:** upload, then the review page (stepper, summary, column mapping, sample rows, issues, confirm
+  dialog), with import history.
+- **Other views:** CRM records, Sales team, and Administration (Users, Audit log, Integrations, Settings).
+
+**Infrastructure:**
+
+- `lib/api.ts` is the fetch wrapper. It sends 401s to login, maps validation errors to form fields, and gives clear
+  messages for network errors, 403, 404, 413 and 5xx.
+- `lib/use-url-state.ts` keeps filters and tabs in the URL.
+- `next.config.mjs` raises the proxied request body limit to 25 MB for uploads (the Next.js default is 10 MB).

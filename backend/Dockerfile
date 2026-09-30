@@ -15,7 +15,8 @@ RUN pip install -r requirements.txt \
 
 COPY . .
 
-RUN useradd --create-home --uid 10001 appuser
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p storage/imports && chown -R appuser storage
 USER appuser
 
 EXPOSE 8000

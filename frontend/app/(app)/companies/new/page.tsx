@@ -5,8 +5,9 @@ export default function NewCompanyPage() {
   return (
     <div className="max-w-3xl">
       <PageHeader
+        breadcrumbs={[{ label: "Companies", href: "/companies" }, { label: "Add company" }]}
         title="Add company"
-        description="Manually add a company to the master database. Its Odoo status starts as “Not checked”."
+        description="LeadFinder checks it against imported Odoo data as soon as it is saved."
       />
       <CompanyForm />
     </div>

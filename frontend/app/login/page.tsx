@@ -35,7 +35,7 @@ function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {error && <Alert>{error}</Alert>}
-      <Field label="Email" htmlFor="email">
+      <Field label="Work email" htmlFor="email">
         <Input
           id="email"
           type="email"
@@ -65,20 +65,25 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand-700">TECOMSA</p>
-          <h1 className="text-2xl font-semibold text-slate-900">LeadFinder AI</h1>
-          <p className="mt-1 text-sm text-slate-500">Internal sales platform. Authorized users only.</p>
+    <div className="flex min-h-screen flex-col items-center justify-center px-4">
+      <div className="w-full max-w-[360px]">
+        <div className="mb-6 flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded bg-fg text-xs font-bold text-white" aria-hidden>
+            LF
+          </span>
+          <div className="leading-tight">
+            <h1 className="text-[15px] font-semibold">LeadFinder</h1>
+            <p className="text-xs text-fg-muted">TECOMSA sales intelligence</p>
+          </div>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="mb-4 text-[15px] font-semibold">Sign in</h2>
           <Suspense>
             <LoginForm />
           </Suspense>
         </div>
-        <p className="mt-4 text-center text-xs text-slate-500">
-          Accounts are created by a LeadFinder administrator.
+        <p className="mt-4 text-xs text-fg-muted">
+          Internal system. Accounts are created by a LeadFinder administrator.
         </p>
       </div>
     </div>

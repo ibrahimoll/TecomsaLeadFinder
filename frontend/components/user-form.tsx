@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { Alert, Button, Card, Field, Input, Select } from "@/components/ui";
+import { Alert, Button, Checkbox, Field, Input, Section, Select } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useCurrentUser } from "@/lib/auth";
 import { USER_ROLES } from "@/lib/constants";
@@ -51,7 +51,7 @@ export function UserForm({ user }: { user?: User }) {
 
   return (
     <form onSubmit={onSubmit}>
-      <Card>
+      <Section>
         <div className="space-y-4">
           {formError && <Alert>{formError}</Alert>}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -91,14 +91,19 @@ export function UserForm({ user }: { user?: User }) {
                 maxLength={256}
               />
             </Field>
-            <Field label="Status" htmlFor="is_active" error={errors.is_active}>
-              <label className="flex items-center gap-2 py-1.5 text-sm">
-                <input id="is_active" type="checkbox" checked={isActive} disabled={isSelf} onChange={(e) => setIsActive(e.target.checked)} />
-                Active (can sign in)
-              </label>
-            </Field>
+            <fieldset>
+              <legend className="mb-1 text-xs font-medium text-fg">Status</legend>
+              <Checkbox
+                label="Active (can sign in)"
+                checked={isActive}
+                disabled={isSelf}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="py-1.5"
+              />
+              {errors.is_active && <p className="mt-1 text-xs text-danger">{errors.is_active}</p>}
+            </fieldset>
           </div>
-          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button type="button" variant="secondary" onClick={() => router.push("/admin")}>
               Cancel
             </Button>
@@ -107,7 +112,7 @@ export function UserForm({ user }: { user?: User }) {
             </Button>
           </div>
         </div>
-      </Card>
+      </Section>
     </form>
   );
 }

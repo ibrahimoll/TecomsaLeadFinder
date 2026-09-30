@@ -15,8 +15,10 @@ export class ApiError extends Error {
 type Query = Record<string, string | number | boolean | null | undefined>;
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "PUT";
   body?: unknown;
+  /** Multipart upload; the browser sets the Content-Type boundary itself. */
+  form?: FormData;
   query?: Query;
 }
 
@@ -45,7 +47,12 @@ function parseError(status: number, payload: unknown): ApiError {
     return new ApiError(status, "Please correct the highlighted fields.", fieldErrors);
   }
   if (typeof detail === "string") return new ApiError(status, detail);
-  return new ApiError(status, status >= 500 ? "Server error. Please try again." : "Request failed.");
+  if (status === 413) return new ApiError(status, "The file is too large to upload.");
+  if (status === 403) return new ApiError(status, "You do not have permission to do this.");
+  if (status === 404) return new ApiError(status, "This record no longer exists or you cannot access it.");
+  if (status >= 500)
+    return new ApiError(status, "The server hit an unexpected error. It has been logged; please try again.");
+  return new ApiError(status, `The request failed (HTTP ${status}).`);
 }
 
 async function redirectToLogin() {
@@ -56,13 +63,18 @@ async function redirectToLogin() {
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const response = await fetch(buildUrl(path, options.query), {
-    method: options.method ?? "GET",
-    headers: options.body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-    credentials: "same-origin",
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, options.query), {
+      method: options.method ?? (options.form ? "POST" : "GET"),
+      headers: options.body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: options.form ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(0, "Cannot reach the LeadFinder server. Check your connection and try again.");
+  }
 
   if (response.status === 401 && !path.startsWith("/auth/")) {
     await redirectToLogin();
@@ -89,7 +101,7 @@ export function useApi<T>(path: string | null, query?: Query) {
     try {
       setData(await api<T>(path, { query: JSON.parse(queryKey) as Query }));
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError(0, "Network error. Please try again."));
+      setError(err instanceof ApiError ? err : new ApiError(0, "Unexpected error while loading data."));
     } finally {
       setLoading(false);
     }

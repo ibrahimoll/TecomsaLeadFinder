@@ -1,16 +1,20 @@
 "use client";
 
-import { AdminGuard } from "@/components/admin-guard";
+import { RequireCapability } from "@/components/guard";
 import { PageHeader } from "@/components/ui";
 import { UserForm } from "@/components/user-form";
 
 export default function NewUserPage() {
   return (
-    <AdminGuard>
+    <RequireCapability capability="manage_users">
       <div className="max-w-3xl">
-        <PageHeader title="Create user" description="Give a TECOMSA team member access to LeadFinder." />
+        <PageHeader
+          breadcrumbs={[{ label: "Administration", href: "/admin" }, { label: "Create user" }]}
+          title="Create user"
+          description="Give a TECOMSA team member access to LeadFinder."
+        />
         <UserForm />
       </div>
-    </AdminGuard>
+    </RequireCapability>
   );
 }

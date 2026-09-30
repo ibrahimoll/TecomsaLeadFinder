@@ -2,11 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * LeadFinder design tokens. Every component reads colours from these variables
+ * (via tailwind.config.ts) so the whole product shares one visual language.
+ * Values are RGB channels so Tailwind opacity modifiers work (bg-accent/10).
+ */
 @layer base {
+  :root {
+    --bg: 247 247 248;
+    --surface: 255 255 255;
+    --surface-muted: 244 244 246;
+    --surface-hover: 240 240 243;
+    --border: 229 229 234;
+    --border-strong: 209 209 216;
+    --fg: 23 23 28;
+    --fg-muted: 99 99 112;
+    --fg-subtle: 146 146 158;
+    --accent: 38 76 212;
+    --accent-hover: 30 61 176;
+    --accent-soft: 237 241 254;
+    --success: 22 125 72;
+    --success-soft: 236 248 241;
+    --warning: 176 98 10;
+    --warning-soft: 253 246 233;
+    --danger: 190 38 38;
+    --danger-soft: 253 240 240;
+    --info: 20 108 160;
+    --info-soft: 237 246 252;
+    --focus: 38 76 212;
+  }
+
   html {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-bg text-fg antialiased;
+    font-feature-settings: "cv11", "ss01";
   }
   body {
-    @apply text-sm;
+    @apply text-[13px] leading-5;
   }
+  h1, h2, h3 {
+    @apply text-fg;
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--focus));
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgb(var(--accent) / 0.15);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+dialog::backdrop {
+  background: rgb(23 23 28 / 0.35);
 }

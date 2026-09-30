@@ -1,4 +1,12 @@
-import type { ActivityType, CampaignStatus, Division, OdooStatus, UserRole } from "@/types";
+import type {
+  ActivityType,
+  CampaignStatus,
+  CompanySource,
+  Division,
+  ImportType,
+  OdooStatus,
+  UserRole,
+} from "@/types";
 
 export const DIVISIONS: { value: Division; label: string }[] = [
   { value: "FRINZO", label: "Frinzo" },
@@ -21,13 +29,13 @@ export const ROLE_SUGGESTIONS: Record<Division, string[]> = {
 export const USER_ROLES: { value: UserRole; label: string }[] = [
   { value: "ADMIN", label: "Administrator" },
   { value: "SALES_MANAGER", label: "Sales Manager" },
-  { value: "SALES_AGENT", label: "Sales Agent" },
+  { value: "SALES_AGENT", label: "Salesperson" },
 ];
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   ADMIN: "Administrator",
   SALES_MANAGER: "Sales Manager",
-  SALES_AGENT: "Sales Agent",
+  SALES_AGENT: "Salesperson",
 };
 
 export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = {
@@ -41,13 +49,36 @@ export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = {
 
 export const ODOO_STATUS_LABEL: Record<OdooStatus, string> = {
   NOT_CHECKED: "Not checked",
-  NEW: "New",
-  EXISTING_CONTACT: "Existing contact",
-  EXISTING_CUSTOMER: "Existing customer",
-  ACTIVE_OPPORTUNITY: "Active opportunity",
+  AVAILABLE: "Available",
+  EXISTING_CONTACT: "Odoo contact",
+  EXISTING_LEAD: "Open lead",
+  EXISTING_OPPORTUNITY: "Open opportunity",
+  CUSTOMER: "Customer",
+  LOST_OPPORTUNITY: "Lost opportunity",
   PREVIOUSLY_CONTACTED: "Previously contacted",
-  POSSIBLE_DUPLICATE: "Possible duplicate",
   CHECK_FAILED: "Check failed",
+};
+
+/** Filter order for CRM status selects. */
+export const ODOO_STATUSES: OdooStatus[] = [
+  "AVAILABLE",
+  "CUSTOMER",
+  "EXISTING_OPPORTUNITY",
+  "EXISTING_LEAD",
+  "LOST_OPPORTUNITY",
+  "EXISTING_CONTACT",
+  "NOT_CHECKED",
+];
+
+export const SOURCE_LABEL: Record<CompanySource, string> = {
+  MANUAL: "Manual",
+  ODOO_IMPORT: "Odoo import",
+  DEMO: "Demo data",
+};
+
+export const IMPORT_TYPE_LABEL: Record<ImportType, string> = {
+  ODOO_CRM: "CRM leads & opportunities",
+  ODOO_CONTACTS: "Contacts & companies",
 };
 
 export const ACTIVITY_LABEL: Record<ActivityType, string> = {

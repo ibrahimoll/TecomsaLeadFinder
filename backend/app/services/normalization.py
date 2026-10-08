@@ -12,6 +12,9 @@ from urllib.parse import urlsplit
 _LEGAL_SUFFIXES = {
     "sal", "sarl", "llc", "ltd", "limited", "inc", "incorporated", "corp", "corporation",
     "co", "plc", "gmbh", "fze", "fzco", "fz", "wll", "sa", "sas", "bv", "pvt", "pte",
+    "holding", "holdings", "offshore",
+    # Arabic forms of the Lebanese SAL / SARL (after dots are removed): ش.م.ل / ش.م.م
+    "شمل", "شمم",
 }
 _LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -26,6 +29,13 @@ def normalize_company_name(name: str) -> str:
     while len(tokens) > 1 and tokens[-1] in _LEGAL_SUFFIXES:
         tokens.pop()
     return " ".join(tokens)
+
+
+def has_legal_form(name: str) -> bool:
+    """True when the name ends in a legal form such as SAL, S.A.L., LLC or Ltd."""
+    text = re.sub(r"[^\w\s]|_", " ", name.lower().replace(".", ""))
+    tokens = text.split()
+    return len(tokens) > 1 and tokens[-1] in _LEGAL_SUFFIXES
 
 
 def normalize_domain(value: str | None) -> str | None:
@@ -57,6 +67,35 @@ def normalize_domain(value: str | None) -> str | None:
     if labels[-1].isdigit():  # bare IP addresses are not company domains
         return None
     return host
+
+
+# Hosts that are not a company's own website: social profiles, link pages, maps,
+# messaging and site builders' shared roots. Two companies whose "website" is an
+# Instagram page must never be matched on that domain.
+_NON_COMPANY_DOMAINS = frozenset(
+    {
+        "facebook.com", "fb.com", "fb.me", "instagram.com", "linkedin.com", "twitter.com", "x.com",
+        "tiktok.com", "youtube.com", "youtu.be", "snapchat.com", "pinterest.com", "t.me", "telegram.me",
+        "wa.me", "whatsapp.com", "linktr.ee", "linkbio.co", "bio.link", "beacons.ai", "taplink.cc",
+        "google.com", "goo.gl", "g.page", "forms.gle", "business.site", "sites.google.com",
+        "maps.app.goo.gl", "bit.ly", "tinyurl.com", "wixsite.com", "blogspot.com", "wordpress.com",
+        "gmail.com", "hotmail.com", "yahoo.com", "outlook.com", "wikipedia.org", "tripadvisor.com",
+        "foursquare.com", "yelp.com", "coverbox.app", "kyte.site", "placeweb.site",
+    }
+)
+
+
+def company_domain(value: str | None) -> str | None:
+    """The company's own domain from a website URL, or None for social/link/maps hosts."""
+    domain = normalize_domain(value)
+    if domain is None:
+        return None
+    if any(domain == d or domain.endswith("." + d) for d in _NON_COMPANY_DOMAINS):
+        # A site builder subdomain (brand.business.site) is still unique to the company.
+        if domain.endswith((".business.site", ".wixsite.com", ".blogspot.com", ".kyte.site")) and domain.count(".") >= 2:
+            return domain
+        return None
+    return domain
 
 
 def normalize_website(value: str | None) -> str | None:

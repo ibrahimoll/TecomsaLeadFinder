@@ -36,17 +36,18 @@ CRM_ROWS = [
      datetime(2026, 9, 1, 11, 0), datetime(2026, 9, 2, 11, 0)],
 ]
 
-CONTACT_HEADERS = ["ID", "Name", "Is a Company", "Related Company", "Website", "Email", "Phone", "Mobile",
-                   "Street", "City", "Country", "Salesperson"]
+CONTACT_HEADERS = ["ID", "Name", "Is a Company", "Company", "Job Position", "Email", "Phone", "Mobile", "City",
+                   "Country"]
 CONTACT_ROWS = [
-    [501, "ABC FOODS", True, None, "www.abcfoods.example", "info@abcfoods.example", "01 111 222", None,
-     "Hamra Street", "Beirut", "Lebanon", "Nadine Haddad"],
-    [502, "Rami Khoury", False, "ABC Foods", None, "rami@abcfoods.example", None, "+961 3 555 666",
-     None, "Beirut", "Lebanon", "Nadine Haddad"],
-    [503, "Mount Lebanon Pharma", True, None, "https://mlpharma.example", "contact@mlpharma.example",
-     "+961 5 777 888", None, "Main Road", "Baabda", "Lebanon", "Karim Nassar"],
-    [504, "Jane Doe", False, None, None, "jane.doe@gmail.com", None, "+961 70 123 456", None, "Jounieh",
-     "Lebanon", None],
+    [501, "ABC FOODS", True, None, None, "info@abcfoods.example", "01 111 222", None, "Beirut", "Lebanon"],
+    [502, "Rami Khoury", False, "ABC Foods", "Procurement Manager", "rami@abcfoods.example", None,
+     "+961 3 555 666", "Beirut", "Lebanon"],
+    [505, "Mohammad Hassan", False, "ABC Foods SAL", "General Manager", "m.hassan@abcfoods.example",
+     "01 111 223", "+961 3 777 888", "Beirut", "Lebanon"],
+    [503, "Mount Lebanon Pharma", True, None, None, "contact@mlpharma.example", "+961 5 777 888", None, "Baabda",
+     "Lebanon"],
+    [504, "Jane Doe", False, None, "Consultant", "jane.doe@gmail.com", None, "+961 70 123 456", "Jounieh",
+     "Lebanon"],
 ]
 
 

@@ -168,6 +168,10 @@ docker rm -f lf-restore-test
 
 | Symptom | Check |
 | --- | --- |
+| A search fails with "Overture data could not be queried" | The backend needs outbound HTTPS to `stac.overturemaps.org`, `overturemaps-us-west-2.s3.us-west-2.amazonaws.com` and (first run only, for DuckDB's `httpfs`) `extensions.duckdb.org`. Once a release is cached, searches work offline from the cache. |
+| Searches are "Partially completed" with an OpenStreetMap error | The public Overpass servers are busy or down. Overture results are still saved. OSM is retried after 15 minutes; add another instance to `OVERPASS_URL` if it persists. |
+| The first search is slow | The first search of each Overture release downloads the country extract (about a minute). The cache lives in the `discovery` volume (`DISCOVERY_CACHE_DIR`). |
+| A search stays "Searching" after a restart | Runs execute in the backend process; a restarted backend marks interrupted runs as failed / partially completed at startup. |
 | Backend exits with `JWT_SECRET must be set…` | In staging and production both secrets must be ≥32 random characters. |
 | Login works but you are sent straight back to `/login` | Over plain HTTP, `COOKIE_SECURE=true` stops the cookie from being stored. Use HTTPS, or set `false` for local development only. |
 | `429 Too many login attempts` | Wait `LOGIN_RATE_LIMIT_WINDOW_SECONDS` (default 5 min), or restart the backend. |
@@ -176,7 +180,8 @@ docker rm -f lf-restore-test
 | Tests refuse to run | `TEST_DATABASE_URL` must be set and the database name must end in `_test`. |
 | `leadfinder_test` does not exist | It is created only when the dev Postgres volume is first initialised. Run `docker compose exec db createdb -U leadfinder leadfinder_test`. |
 | Migration drift | `alembic check` from `backend/` reports model changes that have no migration. |
-| Import says a required column is not mapped | The export uses different header names. Map the columns on the review page and click *Apply mapping*. |
-| Every company still shows *Not checked* | No Odoo import has completed yet. Check *Import history* for runs left in *Awaiting confirmation*. |
+| Upload says no Company Name or Contact Name column was detected | The export's headers are not recognised. The message lists the columns found; re-export from Odoo with the Name / Company columns, or rename the headers. |
+| A test import needs to be undone | In *Odoo imports*, use the delete icon and choose *Delete import and imported data*. |
+| Every company still shows *Not checked* | No Odoo import has completed yet. Check *Import history* for runs left in *Preview · not imported*. |
 | A company is protected unexpectedly | Its profile's *TECOMSA relationship* tab lists the exact Odoo records and the matching reason (same domain, phone or name). |
 | Upload fails for files over 10 MB | Rebuild the frontend image. `next.config.mjs` raises the proxy body limit to 25 MB; the backend limit is `IMPORT_MAX_BYTES`. |

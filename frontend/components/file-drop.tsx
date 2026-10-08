@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { FileSpreadsheet, Upload, X } from "lucide-react";
+import { FileSpreadsheet, Loader2, Upload, X } from "lucide-react";
 import { useId, useState, type DragEvent } from "react";
 
 import { formatBytes } from "@/lib/format";
@@ -14,10 +14,13 @@ export function FileDrop({
   file,
   onFile,
   disabled,
+  busy,
 }: {
   file: File | null;
   onFile: (file: File | null, error?: string) => void;
   disabled?: boolean;
+  /** Shown while the chosen file is being uploaded and checked. */
+  busy?: boolean;
 }) {
   const id = useId();
   const [over, setOver] = useState(false);
@@ -39,12 +42,17 @@ export function FileDrop({
 
   if (file) {
     return (
-      <div className="flex items-center gap-3 rounded border border-border bg-surface-muted/60 px-3 py-2.5">
-        <FileSpreadsheet className="h-5 w-5 shrink-0 text-success" aria-hidden />
+      <div className="flex items-center gap-3 rounded border border-border bg-surface-muted/60 px-3 py-2.5" aria-live="polite">
+        <FileSpreadsheet className="h-5 w-5 shrink-0 text-fg-subtle" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">{file.name}</p>
-          <p className="text-xs text-fg-muted">{formatBytes(file.size)}</p>
+          <p className="text-xs text-fg-muted">
+            {busy ? "Reading the file and detecting columns…" : formatBytes(file.size)}
+          </p>
         </div>
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin text-fg-muted" aria-label="Uploading" />
+        ) : (
         <button
           type="button"
           onClick={() => onFile(null)}
@@ -54,6 +62,7 @@ export function FileDrop({
         >
           <X className="h-4 w-4" />
         </button>
+        )}
       </div>
     );
   }
@@ -67,7 +76,7 @@ export function FileDrop({
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
       className={clsx(
-        "flex flex-col items-center justify-center rounded border border-dashed px-4 py-6 text-center transition-colors",
+        "flex flex-col items-center justify-center rounded border border-dashed px-4 py-5 text-center transition-colors",
         over ? "border-accent bg-accent-soft" : "border-border-strong bg-surface-muted/40",
       )}
     >

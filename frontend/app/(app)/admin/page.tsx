@@ -83,6 +83,7 @@ function UsersTab() {
         error={error?.message}
         onRetry={reload}
         rowKey={(u) => u.id}
+        rowHref={(u) => `/admin/users/${u.id}`}
         empty={<EmptyState title="No users found" />}
         columns={[
           {

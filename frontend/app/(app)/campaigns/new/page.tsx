@@ -3,11 +3,11 @@ import { PageHeader } from "@/components/ui";
 
 export default function NewCampaignPage() {
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <PageHeader
         breadcrumbs={[{ label: "Campaigns", href: "/campaigns" }, { label: "New campaign" }]}
         title="New campaign"
-        description="Saved as a draft. Automatic company discovery starts in a later phase."
+        description="Define who LeadFinder should find. Saved as a draft; automatic company discovery starts in a later phase."
       />
       <CampaignForm />
     </div>

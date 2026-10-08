@@ -50,10 +50,10 @@ export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = {
 export const ODOO_STATUS_LABEL: Record<OdooStatus, string> = {
   NOT_CHECKED: "Not checked",
   AVAILABLE: "Available",
-  EXISTING_CONTACT: "Odoo contact",
-  EXISTING_LEAD: "Open lead",
+  EXISTING_CONTACT: "Existing Odoo contact",
+  EXISTING_LEAD: "Existing CRM lead",
   EXISTING_OPPORTUNITY: "Open opportunity",
-  CUSTOMER: "Customer",
+  CUSTOMER: "Existing customer",
   LOST_OPPORTUNITY: "Lost opportunity",
   PREVIOUSLY_CONTACTED: "Previously contacted",
   CHECK_FAILED: "Check failed",
@@ -74,6 +74,7 @@ export const SOURCE_LABEL: Record<CompanySource, string> = {
   MANUAL: "Manual",
   ODOO_IMPORT: "Odoo import",
   DEMO: "Demo data",
+  DISCOVERY: "Discovery",
 };
 
 export const IMPORT_TYPE_LABEL: Record<ImportType, string> = {
@@ -146,3 +147,9 @@ export function countryNames(): string[] {
   countryCache = COUNTRY_CODES.map((code) => display.of(code) ?? code).sort((a, b) => a.localeCompare(b));
   return countryCache;
 }
+
+export const SOURCE_NAME: Record<string, string> = {
+  OVERTURE: "Overture Maps",
+  OSM: "OpenStreetMap",
+  LEADFINDER: "LeadFinder",
+};

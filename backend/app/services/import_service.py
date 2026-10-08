@@ -1,9 +1,13 @@
 """Odoo CSV/XLSX import workflow.
 
-upload → (parse, auto-map, validate, detect duplicates) → preview
-       → optional mapping change → preview again
+upload → (parse, detect columns, validate, detect duplicates) → preview
        → confirm → upsert records, link/create companies, recompute relationships
-Nothing is written to the Odoo tables before the user confirms.
+Nothing is written to the Odoo tables before the user confirms. Columns are detected
+from the headers; there is no manual mapping step.
+
+Every record, company and salesperson remembers the import that owns it
+(`created_by_import_id`: the one that created it, or the next import containing it once
+its owner was deleted), so an import can later be deleted with or without its data.
 """
 
 import hashlib
@@ -14,13 +18,24 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundError
-from app.models import Company, CrmLead, ImportRun, OdooContact, User
-from app.models.enums import CompanySource, CrmLeadType, ImportStatus, ImportType
+from app.models import (
+    CampaignCompany,
+    Company,
+    Contact,
+    CrmLead,
+    ImportRun,
+    LeadActivity,
+    LushaUsage,
+    OdooContact,
+    Salesperson,
+    User,
+)
+from app.models.enums import CompanySource, ContactSource, CrmLeadType, ImportStatus, ImportType
 from app.services import audit_service, relationship_service
 from app.services.audit_service import AuditAction
 from app.services.import_fields import (
@@ -28,6 +43,7 @@ from app.services.import_fields import (
     FieldSpec,
     auto_map,
     convert,
+    missing_essentials,
     odoo_external_id,
     odoo_int_id,
     source_key,
@@ -35,7 +51,9 @@ from app.services.import_fields import (
 from app.services.import_parser import ParsedFile, detect_file_type, parse_file
 from app.services.matching_service import CompanyIndex, MatchSignals
 from app.services.normalization import (
+    company_domain,
     email_domain,
+    has_legal_form,
     normalize_company_name,
     normalize_domain,
     normalize_phone,
@@ -47,7 +65,8 @@ from app.services.salesperson_service import SalespersonResolver
 logger = logging.getLogger(__name__)
 
 MAX_ISSUES = 200
-SAMPLE_ROWS = 25
+SAMPLE_ROWS = 50
+SOURCE_PREFIX = {ImportType.ODOO_CRM: "odoo-crm-import", ImportType.ODOO_CONTACTS: "odoo-contacts-import"}
 TYPE_LABEL = {ImportType.ODOO_CRM: "Odoo CRM leads / opportunities", ImportType.ODOO_CONTACTS: "Odoo contacts"}
 
 
@@ -105,50 +124,65 @@ def _analyse_crm(row: RowResult) -> None:
                                phone=r["phone"] or r["mobile"], city=r["city"], country=r["country"])
 
 
-def _analyse_contact(row: RowResult) -> None:
+def _analyse_contact(row: RowResult, company_keys: set[str]) -> None:
+    """Split an Odoo contact row into its company and its person.
+
+    Company = Company Name, else the related company. A row is the organisation itself
+    when Odoo says so ('Is a company'), or, when the export has no such column, when it
+    has no company and its name is used as another row's company or carries a legal
+    form (SAL, LLC, ...). A person without a company is kept, but no company is invented.
+    """
     r = row.record
-    if not r["contact_name"]:
-        row.errors.append("Missing contact name")
+    company = r["company_name"] or r["parent_company"]
+    name = r["contact_name"]
+    if not company and not name:
+        row.errors.append("No company or contact name")
         return
-    if r["is_company"] is None:
-        # Odoo convention: a partner without a parent company is usually the company itself.
-        r["is_company"] = not r["parent_company"]
-    if r["is_customer"] is None:
-        r["is_customer"] = False
-    row.key = source_key(r["odoo_id"], r["contact_name"], r["parent_company"], r["email"], r["phone"])
-    row.company_name = r["contact_name"] if r["is_company"] else r["parent_company"]
+    is_company = r["is_company"]
+    if is_company is None and name and not company:
+        is_company = normalize_company_name(name) in company_keys or has_legal_form(name)
+    if is_company and name:
+        company, person = name, None
+    elif name:
+        person = name
+    else:
+        person = None
+    if person and not company:
+        row.warnings.append("No company name: kept as a contact without a company")
+    phone = r["mobile"] or r["phone"]  # mobile first, as salespeople call it
+    r["is_company"] = person is None
+    r["company"], r["person"] = company, person
+    row.key = source_key(r["odoo_id"], person or company, company if person else None, r["email"], phone)
+    row.company_name = company
     row.signals = MatchSignals(
-        name=row.company_name,
-        website=r["website"],
+        name=company,
         email=r["email"],
-        phone=(r["phone"] or r["mobile"]) if r["is_company"] else None,
+        phone=phone if person is None else None,
         city=r["city"],
         country=r["country"],
-        odoo_contact_id=odoo_int_id(r["odoo_id"]) if r["is_company"] else None,
+        odoo_contact_id=odoo_int_id(r["odoo_id"]) if person is None else None,
     )
 
 
 def _analyse(import_type: str, parsed: ParsedFile, mapping: dict[str, str]) -> list[RowResult]:
     specs = FIELDS[import_type]
-    analyse = _analyse_crm if import_type == ImportType.ODOO_CRM else _analyse_contact
-    required = [s for s in specs if s.required]
-    missing_required = [s.label for s in required if s.key not in mapping]
+    converted = [_convert_row(specs, mapping, raw, i) for i, raw in enumerate(parsed.rows, start=1)]
+    if import_type == ImportType.ODOO_CRM:
+        analyse = _analyse_crm
+    else:
+        company_keys = {normalize_company_name(c) for row in converted
+                        if (c := row.record["company_name"] or row.record["parent_company"])}
+        def analyse(row: RowResult) -> None:
+            _analyse_contact(row, company_keys)
     seen: dict[str, int] = {}
-    rows = []
-    for i, raw in enumerate(parsed.rows, start=1):
-        row = _convert_row(specs, mapping, raw, i)
-        # The CRM name falls back to the customer, so only block when neither is mapped.
-        if missing_required and not (import_type == ImportType.ODOO_CRM and "company_name" in mapping):
-            row.errors.append(f"Required column not mapped: {', '.join(missing_required)}")
-        else:
-            analyse(row)
+    for row in converted:
+        analyse(row)
         if row.key and not row.errors:
             if row.key in seen:
                 row.duplicate_of = seen[row.key]
             else:
-                seen[row.key] = i
-        rows.append(row)
-    return rows
+                seen[row.key] = row.number
+    return converted
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +218,17 @@ def create_upload(db: Session, actor: User, import_type: ImportType, filename: s
     original = _safe_filename(filename)
     file_type = detect_file_type(original, content[:8])
     parsed = parse_file(content, file_type, settings.import_max_rows)  # validates before storing
+    mapping = auto_map(import_type, parsed.columns)
+    missing = missing_essentials(import_type, mapping)
+    if missing:
+        found = ", ".join(parsed.columns[:12]) + ("…" if len(parsed.columns) > 12 else "")
+        hint = ""
+        if import_type == ImportType.ODOO_CRM and not missing_essentials(
+                ImportType.ODOO_CONTACTS, auto_map(ImportType.ODOO_CONTACTS, parsed.columns)):
+            hint = " It looks like a contacts list: upload it under Odoo contacts instead."
+        raise BusinessRuleError(
+            f"The file could not be imported because no {missing} was detected. Columns found: {found}.{hint}"
+        )
 
     stored = f"{datetime.now(timezone.utc):%Y%m}/{uuid.uuid4().hex}.{file_type}"
     target = _storage_dir() / stored
@@ -199,7 +244,7 @@ def create_upload(db: Session, actor: User, import_type: ImportType, filename: s
         file_size=len(content),
         sha256=hashlib.sha256(content).hexdigest(),
         detected_columns=parsed.columns,
-        column_mapping=auto_map(import_type, parsed.columns),
+        column_mapping=mapping,
         created_by=actor.id,
     )
     db.add(run)
@@ -272,7 +317,7 @@ def build_preview(db: Session, run: ImportRun) -> dict[str, Any]:
             sample.append({
                 "row": r.number,
                 "status": status,
-                "values": {k: _jsonable(v) for k, v in r.record.items() if k in {s.key for s in specs}},
+                "values": {k: _jsonable(v) for k, v in _display(run.import_type, r).items()},
                 "messages": r.errors + r.warnings + (
                     [f"Duplicate of row {r.duplicate_of}"] if r.duplicate_of is not None else []),
                 "company_match": ({"id": match.company.id, "name": match.company.name, "reason": match.reason}
@@ -284,22 +329,40 @@ def build_preview(db: Session, run: ImportRun) -> dict[str, Any]:
                                 ImportRun.id != run.id).order_by(ImportRun.completed_at.desc())
     )
     mapped_columns = set(run.column_mapping.values())
+    shown = [s for s in specs if not s.internal]
     return {
         "run": run,
         "type_label": TYPE_LABEL[run.import_type],
         "fields": [
             {"key": s.key, "label": s.label, "required": s.required, "important": s.important,
              "column": run.column_mapping.get(s.key)}
-            for s in specs
+            for s in shown
         ],
         "unmapped_columns": [c for c in run.detected_columns if c not in mapped_columns],
-        "missing_important": [s.label for s in specs if (s.required or s.important) and s.key not in run.column_mapping],
+        "missing_important": [s.label for s in shown if (s.required or s.important) and s.key not in run.column_mapping],
         "new_records": sum(1 for r in rows if r.valid and r.key not in existing),
         "existing_records": sum(1 for r in rows if r.valid and r.key in existing),
         "companies_matched": len(matched_companies),
         "companies_new": len(new_companies),
         "sample_rows": sample,
         "previous_import": ({"id": previous.id, "completed_at": previous.completed_at} if previous else None),
+    }
+
+
+def _display(import_type: str, row: RowResult) -> dict[str, Any]:
+    """The values shown in the preview table."""
+    r = row.record
+    if import_type == ImportType.ODOO_CRM:
+        return {"opportunity": r["opportunity_name"], "company": r["company_name"], "contact": r["contact_name"],
+                "salesperson": r["salesperson"], "stage": r["stage"]}
+    return {
+        "company": r.get("company", r["company_name"] or r["parent_company"]),
+        "contact": r.get("person", r["contact_name"]),
+        "position": r["job_position"],
+        "phone": r["mobile"] or r["phone"],
+        "email": r["email"],
+        "country": r["country"],
+        "city": r["city"],
     }
 
 
@@ -311,31 +374,6 @@ def _jsonable(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
-
-
-def update_mapping(db: Session, actor: User, run_id: int, mapping: dict[str, str | None]) -> ImportRun:
-    run = get_run(db, run_id)
-    if run.status != ImportStatus.PREVIEW:
-        raise ConflictError("This import has already been processed; its mapping can no longer change.")
-    valid_keys = {s.key for s in FIELDS[run.import_type]}
-    cleaned: dict[str, str] = {}
-    for key, column in mapping.items():
-        if key not in valid_keys:
-            raise BusinessRuleError(f"Unknown field '{key}'")
-        if column is None or column == "":
-            continue
-        if column not in run.detected_columns:
-            raise BusinessRuleError(f"Column '{column}' does not exist in the file")
-        if column in cleaned.values():
-            raise BusinessRuleError(f"Column '{column}' is mapped to more than one field")
-        cleaned[key] = column
-    run.column_mapping = cleaned
-    _store_counts(run, _analyse(run.import_type, _read(run), cleaned))
-    audit_service.record(db, action=AuditAction.IMPORT_MAPPING_CHANGED, user_id=actor.id,
-                         entity_type="import_run", entity_id=run.id, metadata={"mapping": cleaned})
-    db.commit()
-    db.refresh(run)
-    return run
 
 
 def cancel(db: Session, actor: User, run_id: int) -> ImportRun:
@@ -359,7 +397,7 @@ class _Writer:
     def __init__(self, db: Session, run: ImportRun, actor: User):
         self.db, self.run, self.actor = db, run, actor
         self.now = datetime.now(timezone.utc)
-        self.salespeople = SalespersonResolver(db)
+        self.salespeople = SalespersonResolver(db, import_run_id=run.id)
         self.index = CompanyIndex(db.scalars(select(Company)).all())
         self.created: set[int] = set()
         self.linked: set[int] = set()
@@ -370,6 +408,8 @@ class _Writer:
             company = match.company
             if company.id not in self.created:
                 self.linked.add(company.id)
+            if company.source == CompanySource.ODOO_IMPORT and company.created_by_import_id is None:
+                company.created_by_import_id = self.run.id  # its import was deleted; this one adopts it
             self._fill_blanks(company, extra)
             return company
         if not (create and row.company_name):
@@ -379,8 +419,9 @@ class _Writer:
             name=row.company_name,
             normalized_name=signals.normalized_name or normalize_company_name(row.company_name),
             source=CompanySource.ODOO_IMPORT,
-            source_reference=f"odoo-import:{self.run.id}",
+            source_reference=f"{SOURCE_PREFIX[self.run.import_type]}:{self.run.id}",
             created_by=self.actor.id,
+            created_by_import_id=self.run.id,
         )
         self._fill_blanks(company, extra)
         self.db.add(company)
@@ -395,7 +436,7 @@ class _Writer:
         website = extra.get("website")
         if website and not company.website and normalize_domain(website):
             company.website = normalize_website(website)[:500]
-            company.domain = normalize_domain(website)
+            company.domain = company_domain(website)
         phone = extra.get("phone")
         if phone and not company.main_phone:
             company.main_phone = phone[:50]
@@ -411,12 +452,14 @@ class _Writer:
     def upsert(self, model, key: str, values: dict[str, Any]):
         record = self.db.scalar(select(model).where(model.source_key == key))
         if record is None:
-            record = model(source_key=key, **values)
+            record = model(source_key=key, created_by_import_id=self.run.id, **values)
             self.db.add(record)
             self.run.inserted_count += 1
         else:
             for attr, value in values.items():
                 setattr(record, attr, value)
+            if record.created_by_import_id is None:
+                record.created_by_import_id = self.run.id  # kept from a deleted import; adopted
             self.run.updated_count += 1
         return record
 
@@ -454,7 +497,7 @@ class _Writer:
             "updated_date": r["updated_date"],
             "last_activity": r["last_activity"],
             "company_key": normalize_company_name(r["company_name"]) if r["company_name"] else None,
-            "domain": normalize_domain(r["website"]) if r["website"] else None,
+            "domain": company_domain(r["website"]),
             "email_domain": email_domain(r["email"]),
             "phone_normalized": normalize_phone(phone, r["country"]),
             "company_id": company.id if company else None,
@@ -464,33 +507,30 @@ class _Writer:
 
     def write_contact(self, row: RowResult) -> None:
         r = row.record
-        person = self.salespeople.resolve(r["salesperson"])
-        phone = r["phone"] or r["mobile"]
+        person = self.salespeople.resolve(r.get("salesperson"))
+        phone = r["mobile"] or r["phone"]
         is_company = bool(r["is_company"])
+        # The row's phone and email also become the company's main phone/email when the
+        # company has none yet (never overwriting what is already there).
         company = self.company_for(row, create=True, extra={
-            "website": r["website"],
-            "phone": phone if is_company else None,
-            "email": r["email"] if is_company else None,
+            "phone": phone,
+            "email": r["email"],
             "city": r["city"], "country": r["country"],
-            "address": r["address"] if is_company else None,
             "odoo_contact_id": odoo_int_id(r["odoo_id"]) if is_company else None,
         })
-        self.upsert(OdooContact, row.key, {
+        record = self.upsert(OdooContact, row.key, {
             "odoo_contact_id": odoo_int_id(r["odoo_id"]),
             "odoo_external_id": odoo_external_id(r["odoo_id"]),
-            "contact_name": r["contact_name"],
+            "contact_name": r["company"] if is_company else r["person"],
             "is_company": is_company,
-            "parent_company": r["parent_company"],
-            "website": r["website"],
-            "domain": normalize_domain(r["website"]) if r["website"] else None,
+            "parent_company": None if is_company else r["company"],
+            "job_position": None if is_company else r["job_position"],
             "email": r["email"],
             "phone": r["phone"],
             "mobile": r["mobile"],
             "phone_normalized": normalize_phone(phone, r["country"]),
-            "address": r["address"],
             "country": r["country"],
             "city": r["city"],
-            "is_customer": bool(r["is_customer"]),
             "salesperson_name": person.name if person else None,
             "salesperson_id": person.id if person else None,
             "company_key": normalize_company_name(row.company_name) if row.company_name else None,
@@ -499,6 +539,32 @@ class _Writer:
             "import_run_id": self.run.id,
             "imported_at": self.now,
         })
+        self.write_person(record, company, phone)
+
+    def write_person(self, record: OdooContact, company: Company | None, phone: str | None) -> None:
+        """A person with a company is also a LeadFinder contact of that company (one per Odoo record)."""
+        self.db.flush()
+        person = self.db.scalar(select(Contact).where(Contact.odoo_contact_id == record.id))
+        if record.is_company or company is None:
+            if person is not None:  # the Odoo record is no longer a person at a company
+                self.db.delete(person)
+            return
+        first, _, last = record.contact_name.partition(" ")
+        values = {
+            "company_id": company.id,
+            "first_name": first[:100],
+            "last_name": last.strip()[:100] or None,
+            "job_title": record.job_position,
+            "business_email": record.email,
+            "business_phone": phone,
+            "source": ContactSource.ODOO_IMPORT,
+            "source_reference": f"odoo:{record.odoo_contact_id}" if record.odoo_contact_id else None,
+        }
+        if person is None:
+            self.db.add(Contact(odoo_contact_id=record.id, created_by=self.actor.id, **values))
+        else:
+            for attr, value in values.items():
+                setattr(person, attr, value)
 
 
 def confirm(db: Session, actor: User, run_id: int) -> ImportRun:
@@ -509,7 +575,7 @@ def confirm(db: Session, actor: User, run_id: int) -> ImportRun:
         rows = _analyse(run.import_type, _read(run), run.column_mapping)
         valid = [r for r in rows if r.valid]
         if not valid:
-            raise BusinessRuleError("No valid rows to import. Check the column mapping and the file contents.")
+            raise BusinessRuleError("No rows can be imported. Every row is a duplicate or is missing a name.")
         writer = _Writer(db, run, actor)
         write = writer.write_crm if run.import_type == ImportType.ODOO_CRM else writer.write_contact
         run.inserted_count = run.updated_count = 0
@@ -549,6 +615,115 @@ def confirm(db: Session, actor: User, run_id: int) -> ImportRun:
         ) from exc
     db.refresh(run)
     return run
+
+
+# ---------------------------------------------------------------------------
+# Delete
+# ---------------------------------------------------------------------------
+
+
+def _company_in_use(db: Session, company_id: int) -> bool:
+    """True when anything besides the import's own records refers to the company."""
+    checks = (
+        exists().where(CrmLead.company_id == company_id),
+        exists().where(OdooContact.company_id == company_id),
+        # Contacts entered in LeadFinder; imported ones go with their Odoo record.
+        exists().where(Contact.company_id == company_id, Contact.odoo_contact_id.is_(None)),
+        exists().where(CampaignCompany.company_id == company_id),
+        exists().where(LeadActivity.company_id == company_id),
+        exists().where(LushaUsage.company_id == company_id),
+    )
+    return any(db.scalar(select(check)) for check in checks)
+
+
+def _salesperson_in_use(db: Session, person: Salesperson) -> bool:
+    if person.user_id or person.odoo_user_id or person.email:
+        return True  # linked or edited by an administrator
+    return any(db.scalar(select(check)) for check in (
+        exists().where(CrmLead.salesperson_id == person.id),
+        exists().where(OdooContact.salesperson_id == person.id),
+        exists().where(Company.salesperson_id == person.id),
+    ))
+
+
+def _latest_import_using(db: Session, column_name: str, value: int, excluding: int) -> int | None:
+    """The newest other import whose Odoo records point at this company/salesperson."""
+    newest = None
+    for model in (CrmLead, OdooContact):
+        found = db.scalar(select(func.max(model.import_run_id)).where(
+            getattr(model, column_name) == value, model.import_run_id != excluding))
+        if found and (newest is None or found > newest):
+            newest = found
+    return newest
+
+
+def _hand_over(db: Session, run_id: int) -> None:
+    """Records, companies and salespeople this import created but a later import still
+    contains now belong to that import, so deleting it later with its data removes them."""
+    for model in (CrmLead, OdooContact):
+        for record in db.scalars(select(model).where(model.created_by_import_id == run_id,
+                                                     model.import_run_id.is_not(None),
+                                                     model.import_run_id != run_id)):
+            record.created_by_import_id = record.import_run_id
+    for model, column_name in ((Company, "company_id"), (Salesperson, "salesperson_id")):
+        for owned in db.scalars(select(model).where(model.created_by_import_id == run_id)):
+            newer = _latest_import_using(db, column_name, owned.id, run_id)
+            if newer:
+                owned.created_by_import_id = newer
+    db.flush()
+
+
+def delete_run(db: Session, actor: User, run_id: int, *, with_data: bool) -> dict[str, Any]:
+    """Delete an import from the history, optionally with the data only it brought in.
+
+    Import only: the history entry and stored file go; imported records stay.
+    With data: also removes the Odoo records this import created that no later import
+    contains, then the companies and salespeople it created that nothing else uses.
+    Companies used in campaigns or with contacts, notes or credits are always kept.
+    Whatever is kept but also belongs to a later import is handed over to that import.
+    """
+    run = get_run(db, run_id)
+    removed = {"crm_records": 0, "odoo_contacts": 0, "companies": 0, "salespeople": 0}
+    kept = {"records": 0, "companies": 0}
+    if with_data and run.status == ImportStatus.COMPLETED:
+        for model, label in ((CrmLead, "crm_records"), (OdooContact, "odoo_contacts")):
+            for record in db.scalars(select(model).where(model.created_by_import_id == run.id)).all():
+                if record.import_run_id not in (None, run.id):
+                    kept["records"] += 1  # a later import also contains it
+                    continue
+                db.delete(record)
+                removed[label] += 1
+        db.flush()
+        db.expire_all()  # the database cascaded to the LeadFinder contacts of deleted Odoo contacts
+        for company in db.scalars(select(Company).where(Company.created_by_import_id == run.id)).all():
+            if _company_in_use(db, company.id):
+                kept["companies"] += 1
+                continue
+            db.delete(company)
+            removed["companies"] += 1
+        db.flush()
+    _hand_over(db, run.id)
+
+    # Read before the run is deleted: the database then clears created_by_import_id.
+    own_salespeople = (db.scalars(select(Salesperson).where(Salesperson.created_by_import_id == run.id)).all()
+                       if with_data else [])
+    stored = _storage_dir() / run.stored_filename
+    details = {"filename": run.original_filename, "type": run.import_type, "status": run.status}
+    db.delete(run)
+    db.flush()
+    # Owners and statuses depend on the remaining Odoo data.
+    relationship_service.refresh_all(db)
+    db.flush()
+    for person in own_salespeople:
+        if not _salesperson_in_use(db, person):
+            db.delete(person)
+            removed["salespeople"] += 1
+    audit_service.record(db, action=AuditAction.IMPORT_DELETED, user_id=actor.id, entity_type="import_run",
+                         entity_id=run_id, metadata={**details, "with_data": with_data, "removed": removed,
+                                                     "kept": kept})
+    db.commit()
+    stored.unlink(missing_ok=True)
+    return {"id": run_id, "with_data": with_data, "removed": removed, "kept": kept}
 
 
 def list_runs(db: Session, params: PageParams, *, import_type: ImportType | None = None,

@@ -3,51 +3,66 @@
 @tailwind utilities;
 
 /*
- * LeadFinder design tokens. Every component reads colours from these variables
- * (via tailwind.config.ts) so the whole product shares one visual language.
+ * LeadFinder design system: "precision ink".
+ *
+ * One neutral scale, ink-black primary actions and a single signal-green used only
+ * for selection, focus and "active" states. Status colours carry meaning, never
+ * decoration. Every component reads these variables (via tailwind.config.ts).
  * Values are RGB channels so Tailwind opacity modifiers work (bg-accent/10).
+ *
+ * Radius: 4px badges/chips · 6px controls · 8px panels, dialogs.
+ * Elevation: borders everywhere; shadows only on floating layers (menus, dialogs, palette).
  */
 @layer base {
   :root {
-    --bg: 247 247 248;
+    --bg: 249 249 250;
     --surface: 255 255 255;
     --surface-muted: 244 244 246;
-    --surface-hover: 240 240 243;
-    --border: 229 229 234;
-    --border-strong: 209 209 216;
-    --fg: 23 23 28;
-    --fg-muted: 99 99 112;
+    --surface-hover: 241 241 244;
+    --sidebar: 246 246 248;
+    --border: 232 232 236;
+    --border-strong: 214 214 221;
+    --fg: 17 17 20;
+    --fg-muted: 95 95 108;
     --fg-subtle: 146 146 158;
-    --accent: 38 76 212;
-    --accent-hover: 30 61 176;
-    --accent-soft: 237 241 254;
-    --success: 22 125 72;
-    --success-soft: 236 248 241;
-    --warning: 176 98 10;
-    --warning-soft: 253 246 233;
-    --danger: 190 38 38;
-    --danger-soft: 253 240 240;
-    --info: 20 108 160;
-    --info-soft: 237 246 252;
-    --focus: 38 76 212;
+    --ink: 17 17 20;
+    --ink-hover: 44 44 52;
+    --accent: 10 122 96;
+    --accent-hover: 8 100 79;
+    --accent-soft: 230 245 240;
+    --success: 21 128 72;
+    --success-soft: 234 247 240;
+    --warning: 168 95 8;
+    --warning-soft: 253 245 230;
+    --danger: 196 38 44;
+    --danger-soft: 253 238 239;
+    --info: 34 96 196;
+    --info-soft: 236 242 253;
+    --focus: 10 122 96;
   }
 
   html {
     @apply bg-bg text-fg antialiased;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: "ss01", "cv11";
+    text-rendering: optimizeLegibility;
   }
   body {
-    @apply text-[13px] leading-5;
+    @apply font-sans text-[13px] leading-5;
   }
   h1, h2, h3 {
     @apply text-fg;
   }
   :focus-visible {
-    outline: 2px solid rgb(var(--focus));
+    outline: 2px solid rgb(var(--focus) / 0.6);
     outline-offset: 2px;
   }
   ::selection {
-    background: rgb(var(--accent) / 0.15);
+    background: rgb(var(--accent) / 0.16);
+  }
+  /* Quiet scrollbars for dense tables and panels. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-strong)) transparent;
   }
 }
 
@@ -55,6 +70,46 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  .hairline {
+    box-shadow: 0 0 0 1px rgb(var(--border));
+  }
+}
+
+/* Floating layers: a crisp, low shadow, never a glow. */
+@layer components {
+  .elevated {
+    box-shadow:
+      0 0 0 1px rgb(17 17 20 / 0.06),
+      0 8px 24px -6px rgb(17 17 20 / 0.14),
+      0 2px 6px -2px rgb(17 17 20 / 0.08);
+  }
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, rgb(var(--surface-muted)) 0%, rgb(var(--surface-hover)) 40%, rgb(var(--surface-muted)) 80%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* Native <dialog>: fade + slight lift on open. */
+dialog[open] {
+  animation: dialog-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+dialog::backdrop {
+  background: rgb(17 17 20 / 0.32);
+  animation: fade-in 140ms ease-out;
+}
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -65,6 +120,9 @@
   }
 }
 
-dialog::backdrop {
-  background: rgb(23 23 28 / 0.35);
+/* Select chevron (lucide chevron-down, 12px, fg-subtle). */
+.select-chevron {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239292a0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
 }

@@ -17,7 +17,7 @@ export default function EditCampaignPage() {
     return <Alert tone="warning">Only draft campaigns you are allowed to manage can be edited.</Alert>;
   }
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <PageHeader
         breadcrumbs={[
           { label: "Campaigns", href: "/campaigns" },

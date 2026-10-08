@@ -12,8 +12,9 @@ from app.services.normalization import name_key
 class SalespersonResolver:
     """Finds or creates salespeople by name during an import (cached per import)."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, import_run_id: int | None = None):
         self.db = db
+        self.import_run_id = import_run_id
         self._cache: dict[str, Salesperson] = {}
 
     def resolve(self, name: str | None) -> Salesperson | None:
@@ -23,9 +24,12 @@ class SalespersonResolver:
         if key not in self._cache:
             person = self.db.scalar(select(Salesperson).where(Salesperson.name_key == key))
             if person is None:
-                person = Salesperson(name=" ".join(name.split()), name_key=key)
+                person = Salesperson(name=" ".join(name.split()), name_key=key,
+                                     created_by_import_id=self.import_run_id)
                 self.db.add(person)
                 self.db.flush()
+            elif person.created_by_import_id is None and self.import_run_id is not None:
+                person.created_by_import_id = self.import_run_id  # adopted from a deleted import
             self._cache[key] = person
         return self._cache[key]
 

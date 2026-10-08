@@ -1,18 +1,35 @@
 "use client";
 
 import clsx from "clsx";
-import { ExternalLink, Pencil, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  CalendarDays,
+  Database,
+  ExternalLink,
+  Globe,
+  Linkedin,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldQuestion,
+  User,
+  UserCheck,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 
 import { ActivityList } from "@/components/activity-list";
-import { CampaignStatusBadge, CrmStatusBadge, DivisionBadge, SourceBadge } from "@/components/status-badges";
+import { CampaignStatusBadge, CrmStateBadge, CrmStatusBadge, DivisionBadge } from "@/components/status-badges";
 import {
   Alert,
-  Avatar,
   Badge,
   Button,
   ButtonLink,
+  CopyButton,
   DataTable,
   DescriptionList,
   EmptyState,
@@ -44,16 +61,16 @@ function ProtectionBanner({ company }: { company: CompanyDetail }) {
         icon: ShieldAlert,
         tone: "border-warning/30 bg-warning-soft",
         iconTone: "text-warning",
-        title: "Protected: TECOMSA already has a relationship with this company",
-        body: "Do not treat it as a new prospect. Coordinate with the owner below.",
+        title: "Protected, do not treat as a new prospect",
+        body: "TECOMSA already has a relationship with this company.",
       }
     : status === "AVAILABLE"
       ? {
           icon: ShieldCheck,
           tone: "border-success/25 bg-success-soft",
           iconTone: "text-success",
-          title: "Available: no match in imported Odoo data",
-          body: "This company can be considered for future LeadFinder processing.",
+          title: "Available",
+          body: "No match in imported Odoo data; this company can be considered for LeadFinder processing.",
         }
       : {
           icon: ShieldQuestion,
@@ -63,34 +80,65 @@ function ProtectionBanner({ company }: { company: CompanyDetail }) {
           body: "No Odoo data has been imported, so LeadFinder cannot say whether TECOMSA already knows this company.",
         };
   const Icon = config.icon;
+  const reason = company.crm_status_reason && status !== "NOT_CHECKED" ? company.crm_status_reason : null;
   return (
-    <div className={clsx("mb-5 flex gap-3 rounded-lg border px-4 py-3", config.tone)} role="status">
+    <div className={clsx("mb-4 flex gap-2.5 rounded border px-3 py-2 text-[13px]", config.tone)} role="status">
       <Icon className={clsx("mt-0.5 h-4 w-4 shrink-0", config.iconTone)} aria-hidden />
-      <div className="min-w-0 text-[13px]">
-        <p className="font-medium text-fg">{config.title}</p>
-        <p className="text-fg-muted">{config.body}</p>
-        {company.crm_status_reason && status !== "NOT_CHECKED" && (
-          <p className="mt-1 text-fg">
-            <span className="text-fg-muted">Reason: </span>
-            {company.crm_status_reason}
-          </p>
-        )}
-      </div>
+      <p className="min-w-0 text-fg">
+        <span className="font-medium">{config.title}.</span>{" "}
+        <span className="text-fg-muted">{reason ?? config.body}</span>
+      </p>
     </div>
   );
 }
 
 // ---- Tabs ----------------------------------------------------------------------
 
-function OverviewTab({ company }: { company: CompanyDetail }) {
+/** Email / phone as an actionable link with copy-on-hover. */
+function ContactValue({ kind, value }: { kind: "email" | "phone"; value: string | null }) {
+  if (!value) return <>—</>;
+  const href = kind === "email" ? `mailto:${value}` : `tel:${value.replace(/[^\d+]/g, "")}`;
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-      <Section title="Company information" className="lg:col-span-2">
+    <>
+      <a href={href} className={clsx("min-w-0 truncate hover:text-accent hover:underline", kind === "phone" && "tabular")}>
+        {value}
+      </a>
+      <CopyButton value={value} label={kind} />
+    </>
+  );
+}
+
+function OverviewTab({ company }: { company: CompanyDetail }) {
+  // The primary person: the first contact on file (imported or added in LeadFinder).
+  const contact = company.contacts[0];
+  const discovered = company.sources[0];
+  const optional = [
+    company.industry && { label: "Industry", value: company.industry },
+    discovered?.category && { label: "Category", value: discovered.category.replace(/_/g, " ").replace(/^\w/, (ch) => ch.toUpperCase()) },
+    discovered && {
+      label: "Discovered",
+      value: `${formatDate(discovered.first_seen_at)}${discovered.first_seen_run_id ? ` · search #${discovered.first_seen_run_id}` : ""}`,
+    },
+    company.company_size && { label: "Company size", value: `${company.company_size} employees` },
+    company.address && { label: "Address", value: company.address },
+  ].filter(Boolean) as { label: string; value: string }[];
+  const dupes = company.possible_duplicates;
+  const email = company.main_email ?? contact?.business_email ?? null;
+  const phone = company.main_phone ?? contact?.business_phone ?? null;
+  return (
+    <section className="rounded-lg border border-border bg-surface">
+      <div className="px-5 py-3">
         <DescriptionList
+          inline
           items={[
-            { label: "Name", value: company.name },
+            { label: "Company", icon: <Building2 />, value: <span className="font-medium">{company.name}</span> },
+            { label: "Contact", icon: <User />, value: dash(contact?.full_name) },
+            { label: "Position", icon: <Briefcase />, value: dash(contact?.job_title) },
+            { label: "Email", icon: <Mail />, value: <ContactValue kind="email" value={email} /> },
+            { label: "Phone", icon: <Phone />, value: <ContactValue kind="phone" value={phone} /> },
             {
               label: "Website",
+              icon: <Globe />,
               value: company.website ? (
                 <a href={company.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
                   {company.domain ?? company.website} <ExternalLink className="h-3 w-3" aria-hidden />
@@ -99,49 +147,56 @@ function OverviewTab({ company }: { company: CompanyDetail }) {
                 "—"
               ),
             },
-            { label: "Industry", value: dash(company.industry) },
-            { label: "Company size", value: company.company_size ? `${company.company_size} employees` : "—" },
-            { label: "Location", value: location(company.city, company.country) },
-            { label: "Address", value: dash(company.address) },
-            { label: "Phone", value: dash(company.main_phone) },
-            { label: "Email", value: dash(company.main_email) },
-            { label: "Source", value: <SourceBadge source={company.source} /> },
-            { label: "Added", value: `${formatDate(company.created_at)} by ${company.creator?.name ?? "unknown"}` },
+            {
+              label: "LinkedIn",
+              icon: <Linkedin />,
+              value: contact?.linkedin_url ? (
+                <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
+                  {contact.full_name} <ExternalLink className="h-3 w-3" aria-hidden />
+                </a>
+              ) : (
+                "—"
+              ),
+            },
+            { label: "Location", icon: <MapPin />, value: location(company.city, company.country) },
+            { label: "Relationship", icon: <ShieldCheck />, value: <CrmStatusBadge status={company.odoo_status} /> },
+            { label: "Owner", icon: <UserCheck />, value: company.salesperson?.name ?? "—" },
+            {
+              label: "Source",
+              icon: <Database />,
+              value:
+                company.sources.length > 1 ? company.sources.map((s) => s.source_label).join(", ") : company.source_label,
+            },
+            { label: "Added", icon: <CalendarDays />, value: `${formatDate(company.created_at)} · ${company.creator?.name ?? "unknown"}` },
+            ...optional,
           ]}
         />
         {company.description && (
-          <div className="mt-4 border-t border-border pt-3">
-            <p className="text-xs text-fg-muted">Description</p>
-            <p className="mt-0.5 whitespace-pre-line text-[13px]">{company.description}</p>
+          <div className="mt-2 grid grid-cols-[8.5rem_minmax(0,1fr)] gap-x-4 border-t border-border pt-3 text-[13px]">
+            <span className="text-fg-muted">Description</span>
+            <p className="whitespace-pre-line">{company.description}</p>
           </div>
         )}
-      </Section>
-      <div className="space-y-5">
-        <Section title="Possible duplicates" flush>
-          {company.possible_duplicates.length === 0 ? (
-            <EmptyState compact title="No likely duplicates" description="Checked by domain, email domain, phone and name." />
-          ) : (
-            <ul className="divide-y divide-border">
-              {company.possible_duplicates.map((d) => (
-                <li key={d.company.id} className="px-4 py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <RowLink href={`/companies/${d.company.id}`}>{d.company.name}</RowLink>
-                    <CrmStatusBadge status={d.company.odoo_status} />
-                  </div>
-                  <p className="mt-0.5 text-xs text-fg-muted">{d.reason}</p>
+      </div>
+      <div className="border-t border-border px-5 py-2.5 text-[13px]">
+        {dupes.length === 0 ? (
+          <p className="text-fg-muted">No likely duplicates found. Checked by domain, email domain, phone and name.</p>
+        ) : (
+          <>
+            <p className="font-medium text-fg">Possible duplicates ({dupes.length})</p>
+            <ul className="mt-1 divide-y divide-border">
+              {dupes.map((d) => (
+                <li key={d.company.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
+                  <RowLink href={`/companies/${d.company.id}`}>{d.company.name}</RowLink>
+                  <CrmStatusBadge status={d.company.odoo_status} />
+                  <span className="text-xs text-fg-muted">{d.reason}</span>
                 </li>
               ))}
             </ul>
-          )}
-        </Section>
-        <Section title="Enrichment usage">
-          <p className="text-[13px]">
-            <span className="font-semibold tabular">{company.lusha_credits_used}</span>{" "}
-            <span className="text-fg-muted">Lusha credits used. Lusha is not connected.</span>
-          </p>
-        </Section>
+          </>
+        )}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -190,7 +245,7 @@ function RelationshipTab({ company }: { company: CompanyDetail }) {
               key: "state",
               header: "State",
               cell: (r) =>
-                r.is_won ? <Badge tone="accent" dot>Won</Badge> : r.is_lost ? <Badge tone="danger" dot>Lost</Badge> : <Badge tone="warning" dot>Open</Badge>,
+                <CrmStateBadge lead={r} />,
             },
             { key: "owner", header: "Salesperson", cell: (r) => dash(r.salesperson_name) },
             { key: "rev", header: "Expected revenue", align: "right", cell: (r) => formatMoney(r.expected_revenue) },
@@ -214,22 +269,24 @@ function RelationshipTab({ company }: { company: CompanyDetail }) {
                 <div className="leading-tight">
                   <p className="font-medium">{r.contact_name}</p>
                   <p className="text-xs text-fg-muted">
-                    {r.is_company ? "Company" : r.parent_company ? `Person at ${r.parent_company}` : "Person"}
+                    {r.is_company ? "Company record" : "Contact"}
                     {r.odoo_contact_id ? ` · Odoo #${r.odoo_contact_id}` : ""}
                   </p>
                 </div>
               ),
             },
+            { key: "position", header: "Position", cell: (r) => <span className="text-fg-muted">{dash(r.job_position)}</span> },
+            { key: "phone", header: "Phone", cell: (r) => <span className="tabular">{dash(r.mobile ?? r.phone)}</span> },
             { key: "email", header: "Email", cell: (r) => dash(r.email) },
-            { key: "phone", header: "Phone", cell: (r) => dash(r.phone ?? r.mobile) },
-            { key: "customer", header: "Customer", cell: (r) => (r.is_customer ? <Badge tone="accent">Customer</Badge> : "—") },
-            { key: "owner", header: "Salesperson", cell: (r) => dash(r.salesperson_name) },
+            { key: "loc", header: "Location", cell: (r) => <span className="text-fg-muted">{location(r.city, r.country)}</span> },
           ]}
         />
       </Section>
     </div>
   );
 }
+
+const CONTACT_SOURCE_LABEL: Record<string, string> = { MANUAL: "Manual", ODOO_IMPORT: "Odoo contact import" };
 
 const INTELLIGENCE = [
   { label: "Odoo ERP fit", text: "How well Odoo ERP fits this company's operations." },
@@ -244,7 +301,7 @@ function IntelligenceTab() {
   return (
     <Section
       title="LeadFinder intelligence"
-      description="Populated from Phase 1 onwards. Nothing here is generated or estimated yet."
+      description="Company research has not been run yet. Nothing here is generated or estimated."
       flush
     >
       <ul className="divide-y divide-border">
@@ -346,7 +403,7 @@ function ContactsTab({ company, onChanged }: { company: CompanyDetail; onChanged
   return (
     <Section
       title="Contacts"
-      description="People entered in LeadFinder. Odoo contacts are listed under TECOMSA relationship."
+      description="People at this company: imported from Odoo contacts or added in LeadFinder."
       flush
       actions={!adding && <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>Add contact</Button>}
     >
@@ -364,7 +421,13 @@ function ContactsTab({ company, onChanged }: { company: CompanyDetail; onChanged
         caption="Contacts"
         rows={company.contacts}
         rowKey={(c) => c.id}
-        empty={<EmptyState compact title="No contacts yet" description="Contacts are added manually in this version." />}
+        empty={
+          <EmptyState
+            compact
+            title="No contacts yet"
+            description="Import an Odoo contacts export, or add a contact manually."
+          />
+        }
         columns={[
           {
             key: "name",
@@ -383,7 +446,7 @@ function ContactsTab({ company, onChanged }: { company: CompanyDetail; onChanged
           { key: "title", header: "Job title", cell: (c) => dash(c.job_title) },
           { key: "email", header: "Email", cell: (c) => dash(c.business_email) },
           { key: "phone", header: "Phone", cell: (c) => dash(c.business_phone) },
-          { key: "source", header: "Source", cell: (c) => <Badge>{c.source === "MANUAL" ? "Manual" : c.source}</Badge> },
+          { key: "source", header: "Source", cell: (c) => <span className="text-fg-muted">{CONTACT_SOURCE_LABEL[c.source] ?? c.source}</span> },
         ]}
       />
     </Section>
@@ -516,14 +579,7 @@ function CompanyProfile() {
     <>
       <PageHeader
         breadcrumbs={[{ label: "Companies", href: "/companies" }, { label: company.name }]}
-        title={
-          <span className="flex items-center gap-3">
-            <Avatar name={company.name} size="lg" />
-            <span className="min-w-0">
-              <span className="block truncate">{company.name}</span>
-            </span>
-          </span>
-        }
+        title={company.name}
         meta={
           <>
             <CrmStatusBadge status={company.odoo_status} />
@@ -533,8 +589,9 @@ function CompanyProfile() {
               </a>
             )}
             {company.industry && <span>{company.industry}</span>}
-            <span>{location(company.city, company.country)}</span>
-            <span>Owner: {company.salesperson?.name ?? "—"}</span>
+            <span>
+              {location(company.city, company.country)} · Owner: {company.salesperson?.name ?? "—"}
+            </span>
           </>
         }
         actions={
@@ -555,7 +612,7 @@ function CompanyProfile() {
             { key: "overview", label: "Overview" },
             { key: "relationship", label: "TECOMSA relationship", count: rel.crm_records.length + rel.odoo_contacts.length },
             { key: "intelligence", label: "Intelligence" },
-            { key: "contacts", label: "Contacts", count: company.contacts.length },
+            { key: "contacts", label: "LeadFinder contacts", count: company.contacts.length },
             { key: "campaigns", label: "Campaigns", count: company.campaigns.length },
             { key: "activity", label: "Activity" },
           ]}

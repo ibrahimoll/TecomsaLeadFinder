@@ -4,8 +4,8 @@ import { ClipboardList } from "lucide-react";
 import { Suspense, useCallback } from "react";
 
 import { RequireCapability } from "@/components/guard";
+import { CrmStateBadge } from "@/components/status-badges";
 import {
-  Badge,
   ButtonLink,
   Checkbox,
   DataTable,
@@ -21,19 +21,13 @@ import {
 } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { useCurrentUser } from "@/lib/auth";
-import { dash, formatDate, formatMoney } from "@/lib/format";
+import { dash, formatDate, formatMoney, location } from "@/lib/format";
 import { useDebouncedSearch, useUrlState } from "@/lib/use-url-state";
 import type { CrmLead, OdooContact, Page, SalespersonRow } from "@/types";
 
 type TabKey = "all" | "open" | "won" | "lost" | "contacts";
 const PAGE_SIZE = 50;
-const KEYS = ["tab", "q", "salesperson_id", "stage", "companies_only", "customers_only", "page"] as const;
-
-function LeadState({ lead }: { lead: CrmLead }) {
-  if (lead.is_won) return <Badge tone="accent" dot>Won</Badge>;
-  if (lead.is_lost) return <Badge tone="danger" dot>Lost</Badge>;
-  return <Badge tone="warning" dot>Open</Badge>;
-}
+const KEYS = ["tab", "q", "salesperson_id", "stage", "companies_only", "page"] as const;
 
 function CompanyCell({ company, fallback }: { company: { id: number; name: string } | null; fallback: string | null }) {
   return company ? <RowLink href={`/companies/${company.id}`}>{company.name}</RowLink> : <span className="text-fg-muted">{dash(fallback)}</span>;
@@ -59,9 +53,7 @@ function CrmView() {
   });
   const contacts = useApi<Page<OdooContact>>(tab === "contacts" ? "/odoo/contacts" : null, {
     q: f.q,
-    salesperson_id: f.salesperson_id,
     companies_only: f.companies_only === "1" || undefined,
-    customers_only: f.customers_only === "1" || undefined,
     page,
     page_size: PAGE_SIZE,
   });
@@ -81,7 +73,7 @@ function CrmView() {
         <Tabs<TabKey>
           label="CRM record types"
           value={tab}
-          onChange={(key) => setF({ tab: key === "all" ? "" : key, stage: "", companies_only: "", customers_only: "" })}
+          onChange={(key) => setF({ tab: key === "all" ? "" : key, stage: "", companies_only: "", salesperson_id: "" })}
           tabs={[
             { key: "all", label: "All CRM records" },
             { key: "open", label: "Open" },
@@ -100,20 +92,18 @@ function CrmView() {
             placeholder={tab === "contacts" ? "Search name, company, email" : "Search opportunity, customer, email"}
             label="Search CRM records"
           />
-          <Select aria-label="Salesperson" className="w-44" value={f.salesperson_id} onChange={(e) => setF({ salesperson_id: e.target.value })}>
-            <option value="">All salespeople</option>
-            {salespeople.data?.map((s) => (
-              <option key={s.salesperson.id} value={s.salesperson.id}>
-                {s.salesperson.name}
-              </option>
-            ))}
-          </Select>
           {tab === "contacts" ? (
-            <>
-              <Checkbox label="Companies only" checked={f.companies_only === "1"} onChange={(e) => setF({ companies_only: e.target.checked ? "1" : "" })} />
-              <Checkbox label="Customers only" checked={f.customers_only === "1"} onChange={(e) => setF({ customers_only: e.target.checked ? "1" : "" })} />
-            </>
+            <Checkbox label="Company records only" checked={f.companies_only === "1"} onChange={(e) => setF({ companies_only: e.target.checked ? "1" : "" })} />
           ) : (
+            <>
+            <Select aria-label="Salesperson" className="w-44" value={f.salesperson_id} onChange={(e) => setF({ salesperson_id: e.target.value })}>
+              <option value="">All salespeople</option>
+              {salespeople.data?.map((s) => (
+                <option key={s.salesperson.id} value={s.salesperson.id}>
+                  {s.salesperson.name}
+                </option>
+              ))}
+            </Select>
             <Select aria-label="Stage" className="w-44" value={f.stage} onChange={(e) => setF({ stage: e.target.value })}>
               <option value="">All stages</option>
               {stages.data?.map((s) => (
@@ -122,6 +112,7 @@ function CrmView() {
                 </option>
               ))}
             </Select>
+            </>
           )}
         </Toolbar>
 
@@ -141,16 +132,15 @@ function CrmView() {
                 cell: (r) => (
                   <div className="leading-tight">
                     <p className="font-medium">{r.contact_name}</p>
-                    <p className="text-xs text-fg-muted">{r.is_company ? "Company" : r.parent_company ? `Person at ${r.parent_company}` : "Person"}</p>
+                    <p className="text-xs text-fg-muted">{r.is_company ? "Company record" : "Contact"}</p>
                   </div>
                 ),
               },
-              { key: "company", header: "LeadFinder company", cell: (r) => <CompanyCell company={r.company} fallback={null} /> },
+              { key: "position", header: "Position", cell: (r) => <span className="text-fg-muted">{dash(r.job_position)}</span> },
+              { key: "company", header: "Company", cell: (r) => <CompanyCell company={r.company} fallback={r.is_company ? null : r.parent_company} /> },
+              { key: "phone", header: "Phone", cell: (r) => <span className="tabular">{dash(r.mobile ?? r.phone)}</span> },
               { key: "email", header: "Email", cell: (r) => dash(r.email) },
-              { key: "phone", header: "Phone", cell: (r) => dash(r.phone ?? r.mobile) },
-              { key: "city", header: "City", cell: (r) => <span className="text-fg-muted">{dash(r.city)}</span> },
-              { key: "customer", header: "Customer", cell: (r) => (r.is_customer ? <Badge tone="accent">Customer</Badge> : "—") },
-              { key: "owner", header: "Salesperson", cell: (r) => dash(r.salesperson_name) },
+              { key: "loc", header: "Location", cell: (r) => <span className="text-fg-muted">{location(r.city, r.country)}</span> },
               { key: "id", header: "Odoo ID", align: "right", cell: (r) => <span className="text-fg-muted">{r.odoo_contact_id ?? "—"}</span> },
             ]}
           />
@@ -176,7 +166,7 @@ function CrmView() {
               },
               { key: "company", header: "Company", cell: (r) => <CompanyCell company={r.company} fallback={r.company_name} /> },
               { key: "stage", header: "Stage", cell: (r) => dash(r.stage) },
-              { key: "state", header: "State", cell: (r) => <LeadState lead={r} /> },
+              { key: "state", header: "State", cell: (r) => <CrmStateBadge lead={r} /> },
               { key: "owner", header: "Salesperson", cell: (r) => dash(r.salesperson_name) },
               { key: "team", header: "Team", cell: (r) => <span className="text-fg-muted">{dash(r.sales_team)}</span> },
               { key: "rev", header: "Expected revenue", align: "right", cell: (r) => formatMoney(r.expected_revenue) },

@@ -50,6 +50,20 @@ class Settings(BaseSettings):
     # Whether Sales Managers (not only Admins) may run Odoo imports.
     managers_can_import: bool = False
 
+    # Automatic company discovery (Phase 1). Free public sources only; no API keys.
+    # Local extracts (Overture per release, OSM per day) are cached here.
+    discovery_cache_dir: str = "storage/discovery"
+    overture_stac_url: str = "https://stac.overturemaps.org/catalog.json"
+    # Pin an Overture release (e.g. "2026-09-23.1"); empty = always the latest.
+    overture_release: str | None = None
+    osm_enabled: bool = True
+    # Comma-separated Overpass instances, tried in order.
+    overpass_url: str = "https://overpass-api.de/api/interpreter,https://overpass.private.coffee/api/interpreter"
+    osm_cache_hours: float = 24
+    discovery_max_requested: int = 500
+    # Run discovery in the request instead of a background thread (tests only).
+    discovery_inline: bool = False
+
     # Reserved for future phases - never required in Phase 0.
     odoo_base_url: str | None = None
     odoo_database: str | None = None

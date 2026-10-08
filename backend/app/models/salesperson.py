@@ -28,5 +28,9 @@ class Salesperson(TimestampMixin, Base):
     email: Mapped[str | None] = mapped_column(String(320))
     odoo_user_id: Mapped[int | None] = mapped_column(Integer, index=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=true())
+    # The import that first created this record; used to undo an import's data.
+    created_by_import_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_runs.id", ondelete="SET NULL"), index=True
+    )
 
     user: Mapped["User | None"] = relationship(lazy="selectin")

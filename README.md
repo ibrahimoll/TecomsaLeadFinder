@@ -3,14 +3,17 @@
 Internal B2B sales intelligence platform for TECOMSA (Frinzo, Odoo ERP and IT Solutions), starting with the
 Lebanese market.
 
-**Current state: Phase 0 (foundation).** LeadFinder has:
+**Current state: Phase 1 (automatic company discovery).** LeadFinder has:
 
 - authentication, users and roles
 - a company database with deterministic duplicate protection
-- an **Odoo import center**: CRM leads/opportunities and contacts from CSV/XLSX, with preview, column mapping,
-  duplicate detection and import history
+- an **Odoo import center**: contacts and CRM leads/opportunities from CSV/XLSX, with automatic column detection,
+  preview, duplicate detection, import history and deletion (with or without the imported data)
 - a TECOMSA relationship status on every company, so companies TECOMSA already knows are never treated as new prospects
 - CRM records and sales-team views, campaigns, contacts, and a full audit trail
+- **Find companies**: automatic discovery of Lebanese companies by industry and area from free public data
+  (Overture Maps Places, plus OpenStreetMap), with every result checked against LeadFinder and TECOMSA's Odoo
+  data before anything is saved
 
 It does **not** call the Odoo API, Lusha or any AI provider, and it never shows simulated results.
 
@@ -86,7 +89,7 @@ On startup the backend runs `alembic upgrade head`. Then:
 | API (direct) | http://localhost:8000 (interactive docs at `/docs` outside production) |
 | PostgreSQL | `localhost:5432` (bound to localhost only) |
 
-Create the first administrator (section 8), then sign in at http://localhost:3000.
+Create the first administrator (section 9), then sign in at http://localhost:3000.
 
 To load **fictional** demo users and companies for development:
 
@@ -114,15 +117,24 @@ Odoo is the source of truth for existing TECOMSA relationships. Until Odoo data 
    - **CRM → Pipeline**: include archived and lost records. Useful fields: Opportunity, Customer, Contact Name,
      Email, Phone, Salesperson, Sales Team, Stage, Type, Expected Revenue, Probability, Active, Lost Reason,
      Created on, Last Updated on. Include the **ID** field so re-imports update records instead of duplicating them.
-   - **Contacts**: include companies and individuals. Useful fields: ID, Name, Is a Company, Related Company,
-     Website, Email, Phone, Mobile, Street, City, Country, Salesperson.
-2. In LeadFinder, go to **Data sources → Odoo imports** and upload the CRM file first, then the contacts file.
-3. Review the **preview**:
-   - detected column mapping (change it if your headers differ)
-   - valid and invalid rows, and duplicates inside the file
-   - new vs updated records, and which LeadFinder companies will be matched or created
-4. **Confirm.** Records are saved and every company's relationship status is recalculated. The run appears in
-   **Import history**.
+   - **Contacts**: include companies and individuals. LeadFinder reads Company Name, Contact Name, Job Position,
+     Phone / Mobile (mobile preferred), Email, Country and City. It also uses ID and Is a Company when present.
+2. In LeadFinder, go to **Data sources → Odoo imports** and choose the file. It is uploaded immediately.
+3. Columns are **detected automatically** from the headers (case, spaces, underscores and hyphens are ignored, so
+   `Company Name`, `company_name` and `COMPANY NAME` are the same). There is no mapping step. A file with no
+   Company Name or Contact Name column is rejected with a message listing the columns that were found.
+4. Check the **preview**: rows detected, ready, duplicates, warnings, and the rows as LeadFinder will save them.
+   A person is never turned into a company: `Mohammad Hassan / General Manager` at `ABC Foods SAL` is stored as a
+   contact of that company (shown in its Contacts tab), and the row's phone and email fill the company's phone and
+   email when those are empty. A contact without a company is kept without one; a row with neither is skipped.
+   A contacts import never creates CRM leads or opportunities: those companies are marked *Existing Odoo contact*.
+   A contacts list uploaded as a CRM file is rejected (a CRM file needs an Opportunity / Lead name column).
+5. Click **Import records.** Every company's relationship status is recalculated.
+6. To undo, use the delete icon in the imports list:
+   - **Delete import only** removes the history entry and stored file and keeps the records.
+   - **Delete import and imported data** also removes the records and companies that came only from that import.
+     Companies used in a campaign or with contacts or notes are kept, and so is anything a later import also
+     contains.
 
 To try it without real data, use the fictional files in `samples/`. Regenerate them with
 `python -m scripts.sample_odoo_files` from `backend/`.
@@ -141,7 +153,35 @@ Relationship statuses, in order of precedence:
 Every status except *Available* and *Not checked* is **protected**. The company profile shows the reason, the owning
 salesperson, the matching CRM records and the matching Odoo contacts.
 
-## 5. Environment variables
+## 5. Finding new companies (Phase 1)
+
+1. Open **Find companies**, choose the country (Lebanon), an industry (or *Other / custom* to type one, e.g.
+   "Plastic packaging manufacturer"), a city or governorate (or all of Lebanon) and how many new companies you want.
+2. Click **Find companies.** The search runs in the background; the page shows each stage as the backend reports it
+   (downloading/using the Overture data, matches found, companies examined, new / known / protected / duplicates).
+3. Every candidate is normalised and checked, in this order: duplicate within the search → same source record
+   already linked to a company → deterministic match against LeadFinder companies (website domain, phone, email
+   domain, name + city, name) → TECOMSA's Odoo contacts and CRM records. Only companies with no match are saved,
+   with their source and source id. Nothing is ever created in the CRM.
+4. The results open on **New**; the other tabs show companies already in LeadFinder, those protected by Odoo
+   (with the reason) and duplicates. Searches stay in **Search history**; running the same search again adds nothing
+   twice. Admins can delete a search, optionally with the companies only it added.
+
+Sources and access (no accounts, no keys, no paid services):
+
+- **Overture Maps Places**: the latest release is found in the STAC catalog, only the GeoParquet file(s) covering
+  the country are read over HTTPS with DuckDB, filtered by bounding box and country code. The Lebanon extract
+  (~50,000 places, ~3 MB) is cached per release in `DISCOVERY_CACHE_DIR`; the first search of a release takes about
+  a minute, later searches about a second.
+- **OpenStreetMap** (Overpass API): one query per country, cached for 24 h. If Overpass is busy the search still
+  completes from Overture and is marked *Partially completed*.
+
+Industries are mapped to source categories and name keywords in
+`backend/app/services/discovery/industries.py`; cities and governorates in `geography.py`. Place data ©
+Overture Maps Foundation and contributors (CDLA Permissive 2.0 and other open licences) and © OpenStreetMap
+contributors (ODbL).
+
+## 6. Environment variables
 
 Copy `.env.example` to `.env`. Never commit `.env`.
 
@@ -167,7 +207,7 @@ Generate secrets with `python -c "import secrets; print(secrets.token_urlsafe(48
 `APP_SECRET`/`JWT_SECRET` fall back to insecure development values. In staging and production the backend refuses to
 start without strong values.
 
-## 6. Running without Docker
+## 7. Running without Docker
 
 Start PostgreSQL 16 yourself and create two databases, `leadfinder` and `leadfinder_test`. Then:
 
@@ -194,7 +234,7 @@ For a production-like frontend, run `npm run build`, copy `.next/static` into `.
 `public/` into `.next/standalone/public`, then run `node .next/standalone/server.js`. The production Docker image
 does exactly this.
 
-## 7. Database migrations
+## 8. Database migrations
 
 Run these commands from `backend/` (or prefix them with `docker compose exec backend`).
 
@@ -210,7 +250,7 @@ alembic downgrade -1                              # roll back the last migration
 Always review autogenerated migrations before committing them. Take a backup before running migrations in production
 (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
-## 8. Creating the initial administrator
+## 9. Creating the initial administrator
 
 ```bash
 docker compose exec backend python -m scripts.create_admin --email you@tecomsa.me --name "Your Name"
@@ -220,7 +260,7 @@ You will be prompted for the password (minimum 10 characters). For non-interacti
 `LEADFINDER_ADMIN_PASSWORD` in the environment of that one command. After that, administrators create all other
 accounts from **Administration → Users**. Self-registration does not exist.
 
-## 9. Running tests
+## 10. Running tests
 
 Tests use the separate `leadfinder_test` database. The development compose file creates it automatically the first
 time the Postgres volume is initialised. Each test run migrates it from scratch (downgrade to base, then upgrade to
@@ -238,14 +278,15 @@ The 71 tests cover:
   import and CRM permissions
 - **Companies and campaigns:** company creation and normalisation (including Lebanese phone numbers and
   `ABC Foods SAL` / `S.A.L.` / `ABC FOODS`), campaigns and linking, audit and activity events
-- **Odoo imports:** CRM and contact imports (XLSX and CSV), preview without writes, manual column mapping, in-file
-  duplicates, idempotent re-imports, import history, invalid and corrupt files
+- **Odoo imports:** CRM and contact imports (XLSX and CSV), automatic header detection and variants, company/person
+  split, preview without writes, in-file duplicates, idempotent re-imports, deleting imports with and without data
+  (no orphans), invalid and corrupt files
 - **Protection:** relationship statuses, protection of manually added duplicates, dashboard counts, company filters
 - **Acceptance:** the full Phase 0 acceptance scenarios
 
 Frontend: `cd frontend && npm run typecheck && npm run build`.
 
-## 10. Roles
+## 11. Roles
 
 | Capability | Admin | Sales Manager | Salesperson |
 | --- | :-: | :-: | :-: |
@@ -259,7 +300,7 @@ Frontend: `cd frontend && npm run typecheck && npm run build`.
 
 All rules are enforced by the backend. The frontend only hides what a role cannot use.
 
-## 11. Phase 0 limitations
+## 12. Current limitations
 
 - Odoo data arrives only through CSV/XLSX imports. There is no Odoo API sync, and relationship status is only as
   current as the latest import.
@@ -267,17 +308,26 @@ All rules are enforced by the backend. The frontend only hides what a role canno
   organisations with the same normalised name are treated as the same company.
 - "Won" is inferred from a stage name containing "Won" or a probability of 100%, because Odoo exports have no explicit
   won flag.
-- No Lusha, AI qualification, company discovery, website research or decision-maker search. Lusha usage stays 0.
+- No Lusha, AI qualification, website research or decision-maker search. Lusha usage stays 0.
+- Discovery is limited by what the free sources contain. Overture has no specific "food manufacturing" category for
+  Lebanon, so industries are matched by category + name keywords: companies whose names say nothing about what they
+  make can be missed. Many localities are in Arabic and are shown as the source gives them.
+- Governorate boundaries are approximated with boxes; cities with a radius around the centre.
+- Discovery runs in a background thread of the backend process; a run interrupted by a restart is marked failed or
+  partially completed at the next start.
 - Campaigns can only move between `DRAFT`, `READY` and `CANCELLED`.
 - The login rate limiter is in-memory per backend process.
 
-## 12. Phase 1 readiness
+## 13. Phase 2 readiness
 
+- **Discovered companies:** every discovered company has its website (when the source has one), category,
+  location and source provenance (`company_sources`), ready for website research and AI qualification.
 - **Protection layer:** `relationship_service` answers "does TECOMSA already know this company?" with a status, reason
-  and owner. Phase 1 calls it before qualifying any company.
+  and owner. Discovery already calls it for every candidate; qualification should too.
 - **Matching:** `matching_service` provides the signals and scores. A future Odoo API sync can write into the same
   `crm_leads` / `odoo_contacts` tables and reuse the same recalculation.
-- **Company records:** `companies.source` and `source_reference` are ready for new sources (Overture Maps, directories).
+- **Sources:** a new discovery source is one provider class returning `Candidate`s
+  (`backend/app/services/discovery/base.py`); normalisation, dedupe, protection and saving are shared.
 - **Intelligence fields:** the company profile's Intelligence tab (Odoo fit, Frinzo fit, research, decision-makers,
   AI reasoning) is ready to populate.
 - **Owners:** salespeople can be linked to LeadFinder users, which enables lead routing to the relationship owner.

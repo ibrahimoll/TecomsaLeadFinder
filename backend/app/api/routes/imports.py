@@ -7,7 +7,7 @@ from app.core.config import get_settings
 from app.core.exceptions import BusinessRuleError
 from app.models.enums import ImportStatus, ImportType
 from app.schemas.common import Page
-from app.schemas.odoo import ImportMappingUpdate, ImportPreview, ImportRunOut
+from app.schemas.odoo import ImportDeleteResult, ImportPreview, ImportRunOut
 from app.services import import_service
 from app.services.pagination import page_response
 
@@ -52,12 +52,6 @@ def get_preview(run_id: int, _: ImportUser, db: DbSession):
     return import_service.build_preview(db, import_service.get_run(db, run_id))
 
 
-@router.put("/{run_id}/mapping", response_model=ImportPreview)
-def update_mapping(run_id: int, payload: ImportMappingUpdate, user: ImportUser, db: DbSession):
-    run = import_service.update_mapping(db, user, run_id, payload.mapping)
-    return import_service.build_preview(db, run)
-
-
 @router.post("/{run_id}/confirm", response_model=ImportRunOut)
 def confirm(run_id: int, user: ImportUser, db: DbSession):
     return import_service.confirm(db, user, run_id)
@@ -66,3 +60,9 @@ def confirm(run_id: int, user: ImportUser, db: DbSession):
 @router.post("/{run_id}/cancel", response_model=ImportRunOut)
 def cancel(run_id: int, user: ImportUser, db: DbSession):
     return import_service.cancel(db, user, run_id)
+
+
+@router.delete("/{run_id}", response_model=ImportDeleteResult)
+def delete_import(run_id: int, user: ImportUser, db: DbSession, with_data: bool = False):
+    """Delete an import from the history. `with_data=true` also removes the records only it created."""
+    return import_service.delete_run(db, user, run_id, with_data=with_data)

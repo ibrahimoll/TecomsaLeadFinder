@@ -7,6 +7,7 @@ from app.api.routes import (
     campaigns,
     companies,
     contacts,
+    discovery,
     imports,
     odoo,
     system,
@@ -14,5 +15,5 @@ from app.api.routes import (
 )
 
 api_router = APIRouter()
-for module in (system, auth, users, companies, contacts, campaigns, activities, audit, imports, odoo):
+for module in (system, auth, users, companies, contacts, campaigns, activities, audit, imports, odoo, discovery):
     api_router.include_router(module.router)

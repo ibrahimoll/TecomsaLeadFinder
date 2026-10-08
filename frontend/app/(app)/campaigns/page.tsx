@@ -84,6 +84,7 @@ function CampaignsView() {
         error={error?.message}
         onRetry={reload}
         rowKey={(c) => c.id}
+        rowHref={(c) => `/campaigns/${c.id}`}
         empty={
           <EmptyState
             icon={<Megaphone className="h-5 w-5" />}

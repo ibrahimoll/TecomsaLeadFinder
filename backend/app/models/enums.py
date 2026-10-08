@@ -72,6 +72,7 @@ class CompanySource(StrEnum):
     MANUAL = "MANUAL"
     ODOO_IMPORT = "ODOO_IMPORT"
     DEMO = "DEMO"
+    DISCOVERY = "DISCOVERY"  # found automatically by a discovery run (e.g. Overture Maps)
 
 
 class ImportType(StrEnum):
@@ -108,11 +109,62 @@ class ActivityType(StrEnum):
 
 
 class ContactSource(StrEnum):
-    """Where a contact came from. Phase 0 only creates MANUAL contacts."""
+    """Where a contact came from."""
 
     MANUAL = "MANUAL"
+    ODOO_IMPORT = "ODOO_IMPORT"  # a person from an Odoo contacts import
 
 
 def sql_in(column: str, enum_cls: type[StrEnum]) -> str:
     values = ", ".join(f"'{member.value}'" for member in enum_cls)
     return f"{column} IN ({values})"
+
+
+class DiscoveryStatus(StrEnum):
+    QUEUED = "QUEUED"
+    SEARCHING = "SEARCHING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    PARTIAL = "PARTIAL"  # partially completed: some results were saved but a source failed
+    FAILED = "FAILED"
+
+
+ACTIVE_DISCOVERY_STATUSES = frozenset(
+    {DiscoveryStatus.QUEUED, DiscoveryStatus.SEARCHING, DiscoveryStatus.PROCESSING}
+)
+
+
+class DiscoveryState(StrEnum):
+    """What LeadFinder concluded about one discovered candidate."""
+
+    AVAILABLE = "AVAILABLE"  # new company with no known relationship: saved to LeadFinder
+    EXISTING_LEADFINDER = "EXISTING_LEADFINDER"  # already in LeadFinder, not protected
+    EXISTING_ODOO_CONTACT = "EXISTING_ODOO_CONTACT"
+    EXISTING_CRM_LEAD = "EXISTING_CRM_LEAD"
+    OPEN_OPPORTUNITY = "OPEN_OPPORTUNITY"
+    CUSTOMER = "CUSTOMER"
+    LOST_OPPORTUNITY = "LOST_OPPORTUNITY"
+    PROTECTED = "PROTECTED"  # another protected relationship (e.g. previously contacted)
+    DUPLICATE = "DUPLICATE"  # the same company as an earlier result in this run
+
+
+PROTECTED_DISCOVERY_STATES = frozenset(
+    {
+        DiscoveryState.EXISTING_ODOO_CONTACT,
+        DiscoveryState.EXISTING_CRM_LEAD,
+        DiscoveryState.OPEN_OPPORTUNITY,
+        DiscoveryState.CUSTOMER,
+        DiscoveryState.LOST_OPPORTUNITY,
+        DiscoveryState.PROTECTED,
+    }
+)
+
+# TECOMSA relationship status -> discovery state.
+DISCOVERY_STATE_FOR_STATUS = {
+    OdooMatchStatus.EXISTING_CONTACT: DiscoveryState.EXISTING_ODOO_CONTACT,
+    OdooMatchStatus.EXISTING_LEAD: DiscoveryState.EXISTING_CRM_LEAD,
+    OdooMatchStatus.EXISTING_OPPORTUNITY: DiscoveryState.OPEN_OPPORTUNITY,
+    OdooMatchStatus.CUSTOMER: DiscoveryState.CUSTOMER,
+    OdooMatchStatus.LOST_OPPORTUNITY: DiscoveryState.LOST_OPPORTUNITY,
+    OdooMatchStatus.PREVIOUSLY_CONTACTED: DiscoveryState.PROTECTED,
+}

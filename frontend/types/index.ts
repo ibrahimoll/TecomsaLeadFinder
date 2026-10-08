@@ -12,7 +12,7 @@ export type OdooStatus =
   | "LOST_OPPORTUNITY"
   | "PREVIOUSLY_CONTACTED"
   | "CHECK_FAILED";
-export type CompanySource = "MANUAL" | "ODOO_IMPORT" | "DEMO";
+export type CompanySource = "MANUAL" | "ODOO_IMPORT" | "DEMO" | "DISCOVERY";
 export type ImportType = "ODOO_CRM" | "ODOO_CONTACTS";
 export type ImportStatus = "PREVIEW" | "COMPLETED" | "FAILED" | "CANCELLED";
 export type ActivityType =
@@ -140,6 +140,7 @@ export interface OdooContact {
   contact_name: string;
   is_company: boolean;
   parent_company: string | null;
+  job_position: string | null;
   website: string | null;
   email: string | null;
   phone: string | null;
@@ -192,11 +193,19 @@ export interface ImportPreview {
   sample_rows: {
     row: number;
     status: "new" | "update" | "warning" | "error" | "duplicate";
+    /** Contacts: company, contact, position, phone, email, country, city. CRM: opportunity, company, contact, salesperson, stage. */
     values: Record<string, string | number | boolean | null>;
     messages: string[];
     company_match: { id: number; name: string; reason: string } | null;
   }[];
   previous_import: { id: number; completed_at: string } | null;
+}
+
+export interface ImportDeleteResult {
+  id: number;
+  with_data: boolean;
+  removed: { crm_records: number; odoo_contacts: number; companies: number; salespeople: number };
+  kept: { records: number; companies: number };
 }
 
 export interface SalespersonRow {
@@ -261,6 +270,7 @@ export interface CompanyDetail extends Company {
     last_interaction: string | null;
   };
   possible_duplicates: DuplicateCandidate[];
+  sources: CompanySourceInfo[];
   lusha_credits_used: number;
   can_edit: boolean;
 }
@@ -370,4 +380,88 @@ export interface SystemStatus {
   managers_can_import: boolean;
   last_odoo_import_at: string | null;
   integrations: { name: string; status: IntegrationState; detail: string }[];
+}
+
+export type DiscoveryStatus = "QUEUED" | "SEARCHING" | "PROCESSING" | "COMPLETED" | "PARTIAL" | "FAILED";
+export type DiscoveryState =
+  | "AVAILABLE"
+  | "EXISTING_LEADFINDER"
+  | "EXISTING_ODOO_CONTACT"
+  | "EXISTING_CRM_LEAD"
+  | "OPEN_OPPORTUNITY"
+  | "CUSTOMER"
+  | "LOST_OPPORTUNITY"
+  | "PROTECTED"
+  | "DUPLICATE";
+export type DiscoveryGroup = "available" | "known" | "protected" | "duplicate" | "all";
+
+export interface DiscoveryOptions {
+  countries: { code: string; name: string }[];
+  areas: Record<string, { key: string; label: string; kind: "city" | "governorate" }[]>;
+  industries: { key: string; label: string }[];
+  counts: number[];
+  sources: { key: string; label: string }[];
+}
+
+export interface DiscoveryRun {
+  id: number;
+  country: string;
+  city: string | null;
+  industry: string | null;
+  custom_query: string | null;
+  query_label: string;
+  requested_count: number;
+  sources: string[];
+  source_version: string | null;
+  status: DiscoveryStatus;
+  progress: { key: string; label: string; detail: string | null; state: "active" | "done" | "failed" }[];
+  started_at: string | null;
+  finished_at: string | null;
+  source_match_count: number;
+  raw_results_count: number;
+  duplicate_count: number;
+  existing_company_count: number;
+  odoo_protected_count: number;
+  new_company_count: number;
+  error_count: number;
+  errors: string[];
+  summary: string | null;
+  creator: UserBrief | null;
+  created_at: string;
+}
+
+export interface DiscoveryResult {
+  id: number;
+  position: number;
+  source: string;
+  external_id: string | null;
+  name: string;
+  category: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  phone: string | null;
+  website: string | null;
+  email: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  state: DiscoveryState;
+  reason: string | null;
+  match_reason: string | null;
+  duplicate_of_id: number | null;
+  company: { id: number; name: string; odoo_status: OdooStatus } | null;
+}
+
+export interface DiscoveryResultsPage extends Page<DiscoveryResult> {
+  counts: Record<DiscoveryGroup, number>;
+}
+
+export interface CompanySourceInfo {
+  source: string;
+  source_label: string;
+  external_id: string;
+  category: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  first_seen_run_id: number | null;
 }

@@ -8,9 +8,11 @@ const config: Config = {
     extend: {
       colors: {
         bg: token("bg"),
+        sidebar: token("sidebar"),
         surface: { DEFAULT: token("surface"), muted: token("surface-muted"), hover: token("surface-hover") },
         border: { DEFAULT: token("border"), strong: token("border-strong") },
         fg: { DEFAULT: token("fg"), muted: token("fg-muted"), subtle: token("fg-subtle") },
+        ink: { DEFAULT: token("ink"), hover: token("ink-hover") },
         accent: { DEFAULT: token("accent"), hover: token("accent-hover"), soft: token("accent-soft") },
         success: { DEFAULT: token("success"), soft: token("success-soft") },
         warning: { DEFAULT: token("warning"), soft: token("warning-soft") },
@@ -19,11 +21,19 @@ const config: Config = {
       },
       borderRadius: { sm: "4px", DEFAULT: "6px", md: "6px", lg: "8px" },
       fontFamily: {
-        sans: ["Inter", "Segoe UI", "ui-sans-serif", "system-ui", "-apple-system", "Roboto", "sans-serif"],
-        mono: ["ui-monospace", "SFMono-Regular", "Consolas", "monospace"],
+        sans: ["var(--font-sans)", "Inter", "Segoe UI", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Consolas", "monospace"],
       },
       fontSize: { "2xs": ["11px", "16px"] },
       transitionDuration: { DEFAULT: "120ms" },
+      keyframes: {
+        "pop-in": { from: { opacity: "0", transform: "translateY(-4px) scale(0.98)" }, to: { opacity: "1", transform: "none" } },
+        "slide-up": { from: { opacity: "0", transform: "translateY(8px)" }, to: { opacity: "1", transform: "none" } },
+      },
+      animation: {
+        "pop-in": "pop-in 120ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "slide-up": "slide-up 160ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+      },
     },
   },
   plugins: [],

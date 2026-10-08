@@ -19,19 +19,19 @@ export function PageHeader({
   meta?: ReactNode;
 }) {
   return (
-    <header className="mb-5">
+    <header className="mb-6">
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav aria-label="Breadcrumb" className="mb-1.5">
-          <ol className="flex flex-wrap items-center gap-1 text-xs text-fg-muted">
+        <nav aria-label="Breadcrumb" className="mb-2">
+          <ol className="flex flex-wrap items-center gap-1 text-xs text-fg-subtle">
             {breadcrumbs.map((crumb, i) => (
               <li key={crumb.label} className="flex items-center gap-1">
                 {i > 0 && <ChevronRight className="h-3 w-3 text-fg-subtle" aria-hidden />}
                 {crumb.href ? (
-                  <Link href={crumb.href} className="hover:text-fg">
+                  <Link href={crumb.href} className="transition-colors hover:text-fg">
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span aria-current="page">{crumb.label}</span>
+                  <span aria-current="page" className="text-fg-muted">{crumb.label}</span>
                 )}
               </li>
             ))}
@@ -40,8 +40,8 @@ export function PageHeader({
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold leading-7 tracking-[-0.01em]">{title}</h1>
-          {description && <p className="mt-0.5 text-[13px] text-fg-muted">{description}</p>}
+          <h1 className="text-[20px] font-semibold leading-7 tracking-[-0.018em]">{title}</h1>
+          {description && <p className="mt-1 max-w-2xl text-[13px] text-fg-muted">{description}</p>}
           {meta && <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-fg-muted">{meta}</div>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -69,12 +69,12 @@ export function Section({
   id?: string;
 }) {
   return (
-    <section id={id} className={clsx("rounded-lg border border-border bg-surface", className)}>
+    <section id={id} className={clsx("rounded-lg border border-border bg-surface shadow-[0_1px_0_rgb(17_17_20/0.03)]", className)}>
       {(title || actions) && (
         <div className="flex min-h-[44px] flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
           <div className="min-w-0">
-            {title && <h2 className="text-[13px] font-semibold">{title}</h2>}
-            {description && <p className="text-xs text-fg-muted">{description}</p>}
+            {title && <h2 className="text-[13px] font-semibold tracking-[-0.005em]">{title}</h2>}
+            {description && <p className="mt-px text-xs text-fg-muted">{description}</p>}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>
@@ -124,7 +124,7 @@ export function Tabs<K extends string>({
   }
 
   return (
-    <div role="tablist" aria-label={label} className="flex gap-4 overflow-x-auto border-b border-border">
+    <div role="tablist" aria-label={label} className="flex gap-5 overflow-x-auto border-b border-border">
       {tabs.map((tab, i) => {
         const selected = tab.key === value;
         return (
@@ -141,13 +141,15 @@ export function Tabs<K extends string>({
             onKeyDown={(e) => onKeyDown(e, i)}
             onClick={() => onChange(tab.key)}
             className={clsx(
-              "-mb-px inline-flex h-9 items-center gap-1.5 whitespace-nowrap border-b-2 text-[13px] font-medium transition-colors",
-              selected ? "border-fg text-fg" : "border-transparent text-fg-muted hover:text-fg",
+              "-mb-px inline-flex h-10 items-center gap-1.5 whitespace-nowrap border-b-[1.5px] text-[13px] font-medium transition-colors",
+              selected ? "border-ink text-fg" : "border-transparent text-fg-muted hover:border-border-strong hover:text-fg",
             )}
           >
             {tab.label}
             {tab.count !== undefined && (
-              <span className="rounded-sm bg-surface-muted px-1 text-2xs tabular text-fg-muted">{tab.count}</span>
+              <span className={clsx("min-w-[18px] rounded-sm px-1 text-center text-[11px] tabular", selected ? "bg-ink text-white" : "bg-surface-muted text-fg-muted")}>
+                {tab.count}
+              </span>
             )}
           </button>
         );

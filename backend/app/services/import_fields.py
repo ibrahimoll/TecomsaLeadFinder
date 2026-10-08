@@ -1,8 +1,8 @@
 """Target fields for Odoo imports, header auto-detection and value conversion.
 
-Aliases cover Odoo's default export labels (English UI) plus common variants, so a
-standard Odoo export maps automatically. Anything else is mapped by the user in the
-preview step.
+Aliases cover Odoo's default export labels (English UI) plus common variants. Headers
+are compared ignoring case, spaces, underscores and hyphens. There is no manual
+mapping: columns that match no alias are ignored.
 """
 
 import hashlib
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from email_validator import EmailNotValidError, validate_email
+from email_validator import EmailNotValidError, EmailSyntaxError, validate_email
 
 from app.models.enums import CrmLeadType, ImportType
 from app.services.normalization import normalize_company_name
@@ -27,6 +27,7 @@ class FieldSpec:
     required: bool = False
     important: bool = False
     max_length: int | None = None
+    internal: bool = False  # detected and used, but not shown in the preview
 
 
 CRM_FIELDS: tuple[FieldSpec, ...] = (
@@ -59,36 +60,52 @@ CRM_FIELDS: tuple[FieldSpec, ...] = (
               ("last activity", "last stage update", "date of last activity", "last action")),
 )
 
+# Odoo contacts: only what TECOMSA needs from the export. `odoo_id`, `parent_company` and
+# `is_company` are read silently when present (stable re-imports, company fallback,
+# telling company rows from people) and are not shown in the preview.
 CONTACT_FIELDS: tuple[FieldSpec, ...] = (
-    FieldSpec("odoo_id", "Odoo ID", "odoo_id", ("id", "external id", "partner id", "contact id", "record id"), important=True),
-    FieldSpec("contact_name", "Name", "text", ("name", "display name", "complete name", "contact name", "partner name"),
-              required=True, max_length=255),
-    FieldSpec("is_company", "Is a company", "company_type", ("is a company", "company type", "is company")),
-    FieldSpec("parent_company", "Parent company", "text",
-              ("company", "related company", "parent", "parent company", "company name", "parent/name",
-               "parent/display name"), important=True, max_length=255),
-    FieldSpec("website", "Website", "text", ("website", "web site", "url"), max_length=500),
-    FieldSpec("email", "Email", "email", ("email", "e-mail")),
-    FieldSpec("phone", "Phone", "text", ("phone", "telephone", "phone number"), max_length=50),
-    FieldSpec("mobile", "Mobile", "text", ("mobile", "mobile phone", "cell"), max_length=50),
-    FieldSpec("address", "Street / address", "text", ("street", "address", "street address", "street2"), max_length=500),
-    FieldSpec("city", "City", "text", ("city",), max_length=100),
-    FieldSpec("country", "Country", "text", ("country", "country/name"), max_length=100),
-    FieldSpec("salesperson", "Salesperson", "text", ("salesperson", "sales person", "user", "salesperson/name", "user/name"),
-              important=True, max_length=200),
-    FieldSpec("is_customer", "Customer flag / rank", "customer", ("customer rank", "is a customer", "customer")),
+    FieldSpec("company_name", "Company Name", "text",
+              ("company name", "company", "organisation", "organization", "organisation name", "organization name",
+               "parent company", "company/name", "company_id", "company id"), max_length=255, important=True),
+    FieldSpec("contact_name", "Contact Name", "text",
+              ("name", "contact name", "contact", "full name", "display name", "complete name", "partner name",
+               "contact/name"), max_length=255, important=True),
+    FieldSpec("job_position", "Job Position", "text",
+              ("job position", "position", "job title", "function", "title", "job"), max_length=200, important=True),
+    FieldSpec("mobile", "Mobile", "text", ("mobile", "mobile number", "mobile phone", "cell", "cell phone"),
+              max_length=50),
+    FieldSpec("phone", "Phone", "text", ("phone", "phone number", "telephone", "tel", "telephone number"),
+              max_length=50),
+    FieldSpec("email", "Email", "email", ("email", "email address", "work email", "e-mail", "mail"), important=True),
+    FieldSpec("country", "Country", "text", ("country", "country name", "country/name", "country_id", "country id"),
+              max_length=100, important=True),
+    FieldSpec("city", "City", "text", ("city", "town"), max_length=100, important=True),
+    FieldSpec("odoo_id", "Odoo ID", "odoo_id", ("id", "external id", "partner id", "contact id", "record id"),
+              internal=True),
+    FieldSpec("parent_company", "Related company", "text",
+              ("related company", "parent", "parent company", "parent/name", "parent/display name", "parent_id",
+               "parent id", "company"), max_length=255, internal=True),
+    FieldSpec("is_company", "Is a company", "company_type", ("is a company", "company type", "is company"),
+              internal=True),
 )
 
 FIELDS: dict[str, tuple[FieldSpec, ...]] = {ImportType.ODOO_CRM: CRM_FIELDS, ImportType.ODOO_CONTACTS: CONTACT_FIELDS}
 
 
 def _norm_header(value: str) -> str:
+    """'Company Name', 'company_name', 'COMPANY-NAME' -> 'companyname'."""
     return re.sub(r"[^a-z0-9/]", "", value.lower())
 
 
 def auto_map(import_type: str, columns: list[str]) -> dict[str, str]:
-    """Map target fields to source columns by alias (first alias match wins, one column per field)."""
+    """Map target fields to source columns by alias (first alias match wins, one column per field).
+
+    Odoo relational headers such as 'Country/Name' also match on their first part ('Country').
+    """
     by_norm = {_norm_header(c): c for c in columns}
+    for c in columns:
+        if "/" in c:
+            by_norm.setdefault(_norm_header(c.split("/", 1)[0]), c)
     mapping: dict[str, str] = {}
     used: set[str] = set()
     for spec in FIELDS[import_type]:
@@ -103,6 +120,7 @@ def auto_map(import_type: str, columns: list[str]) -> dict[str, str]:
 
 # ---- value conversion -------------------------------------------------------
 
+_SIMPLE_EMAIL = re.compile(r"^[^@\s]+@[a-z0-9-]+(\.[a-z0-9-]+)+$")
 _TRUE = {"true", "1", "yes", "y", "x", "t", "✓", "vrai", "oui"}
 _FALSE = {"false", "0", "no", "n", "f", "", "faux", "non"}
 _DATE_FORMATS = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M",
@@ -179,6 +197,12 @@ def convert(spec: FieldSpec, value: Any) -> tuple[Any, str | None]:
         text = _as_text(value).lower()
         try:
             return validate_email(text, check_deliverability=False).normalized.lower(), None
+        except EmailSyntaxError as exc:
+            # Reserved domains (.test, .local, .internal...) are syntactically fine but "not
+            # deliverable"; keep them: they are what the Odoo record says.
+            if "special-use or reserved" in str(exc) and _SIMPLE_EMAIL.match(text):
+                return text, None
+            return None, f"Email '{text[:60]}' is not valid and was ignored"
         except EmailNotValidError:
             return None, f"Email '{text[:60]}' is not valid and was ignored"
     if kind == "lead_type":
@@ -213,3 +237,19 @@ def odoo_int_id(odoo_id: Any) -> int | None:
 
 def odoo_external_id(odoo_id: Any) -> str | None:
     return odoo_id.get("external") if isinstance(odoo_id, dict) else None
+
+
+# What must be detected for a file to be importable at all.
+ESSENTIAL: dict[str, tuple[tuple[str, ...], str]] = {
+    # A CRM record needs its own name: a file with only company/contact columns is a
+    # contacts list and must never be turned into opportunities.
+    ImportType.ODOO_CRM: (("opportunity_name",), "Opportunity or Lead name column"),
+    ImportType.ODOO_CONTACTS: (("company_name", "contact_name", "parent_company"),
+                               "Company Name or Contact Name column"),
+}
+
+
+def missing_essentials(import_type: str, mapping: dict[str, str]) -> str | None:
+    """A readable description of what is missing, or None when the file can be imported."""
+    keys, description = ESSENTIAL[import_type]
+    return None if any(k in mapping for k in keys) else description

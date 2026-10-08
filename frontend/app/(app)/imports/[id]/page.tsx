@@ -1,27 +1,25 @@
 "use client";
 
 import clsx from "clsx";
-import { Check } from "lucide-react";
-import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Check, Trash2 } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { RequireCapability } from "@/components/guard";
+import { DeleteImportDialog } from "@/components/import-table";
 import { ImportStatusBadge } from "@/components/status-badges";
 import {
   Alert,
   Badge,
   Button,
   ButtonLink,
-  ConfirmDialog,
   DataTable,
   DescriptionList,
   EmptyState,
   ErrorState,
   MetricStrip,
   PageHeader,
-  RowLink,
   Section,
-  Select,
   Skeleton,
   type Tone,
 } from "@/components/ui";
@@ -30,49 +28,52 @@ import { IMPORT_TYPE_LABEL } from "@/lib/constants";
 import { formatBytes, formatDateTime } from "@/lib/format";
 import type { ImportPreview, ImportRun } from "@/types";
 
-const SAMPLE_FIELDS: Record<ImportRun["import_type"], { key: string; label: string }[]> = {
+type SampleRow = ImportPreview["sample_rows"][number];
+
+const PREVIEW_COLUMNS: Record<ImportRun["import_type"], { key: string; label: string; width?: string }[]> = {
+  ODOO_CONTACTS: [
+    { key: "company", label: "Company", width: "max-w-[220px]" },
+    { key: "contact", label: "Contact", width: "max-w-[180px]" },
+    { key: "position", label: "Position", width: "max-w-[160px]" },
+    { key: "phone", label: "Phone" },
+    { key: "email", label: "Email", width: "max-w-[220px]" },
+    { key: "country", label: "Country" },
+    { key: "city", label: "City" },
+  ],
   ODOO_CRM: [
-    { key: "opportunity_name", label: "Opportunity" },
-    { key: "company_name", label: "Customer" },
+    { key: "opportunity", label: "Opportunity", width: "max-w-[260px]" },
+    { key: "company", label: "Customer", width: "max-w-[220px]" },
+    { key: "contact", label: "Contact", width: "max-w-[180px]" },
     { key: "salesperson", label: "Salesperson" },
     { key: "stage", label: "Stage" },
   ],
-  ODOO_CONTACTS: [
-    { key: "contact_name", label: "Name" },
-    { key: "parent_company", label: "Company" },
-    { key: "email", label: "Email" },
-    { key: "salesperson", label: "Salesperson" },
-  ],
 };
 
-const ROW_STATUS: Record<string, { tone: Tone; label: string }> = {
-  new: { tone: "success", label: "New" },
+const ROW_STATUS: Record<SampleRow["status"], { tone: Tone; label: string }> = {
+  new: { tone: "success", label: "Ready" },
   update: { tone: "info", label: "Update" },
   warning: { tone: "warning", label: "Warning" },
-  error: { tone: "danger", label: "Error" },
   duplicate: { tone: "neutral", label: "Duplicate" },
+  error: { tone: "danger", label: "Skipped" },
 };
 
-function Stepper({ step }: { step: 1 | 2 | 3 }) {
-  const steps = ["Upload file", "Review & map columns", "Import"];
+function Steps({ step }: { step: 1 | 2 | 3 }) {
   return (
-    <ol className="mb-5 flex flex-wrap items-center gap-2 text-[13px]" aria-label="Import progress">
-      {steps.map((label, i) => {
+    <ol className="mb-5 flex items-center gap-2 text-xs" aria-label="Import progress">
+      {["Upload", "Preview", "Import"].map((label, i) => {
         const n = i + 1;
-        const done = n < step;
-        const current = n === step;
+        const done = n < step || step === 3;
+        const current = n === step && step !== 3;
         return (
           <li key={label} className="flex items-center gap-2" aria-current={current ? "step" : undefined}>
-            {i > 0 && <span className="h-px w-6 bg-border-strong" aria-hidden />}
+            {i > 0 && <span className="h-px w-5 bg-border-strong" aria-hidden />}
             <span
               className={clsx(
-                "flex h-5 w-5 items-center justify-center rounded-full text-2xs font-semibold",
-                done && "bg-fg text-white",
-                current && "bg-accent text-white",
-                !done && !current && "border border-border-strong text-fg-muted",
+                "flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-semibold",
+                done ? "bg-fg text-white" : current ? "bg-accent text-white" : "border border-border-strong text-fg-muted",
               )}
             >
-              {done ? <Check className="h-3 w-3" aria-hidden /> : n}
+              {done ? <Check className="h-2.5 w-2.5" aria-hidden /> : n}
             </span>
             <span className={clsx(current ? "font-medium text-fg" : "text-fg-muted")}>{label}</span>
           </li>
@@ -82,195 +83,158 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
   );
 }
 
-function MappingEditor({ preview, onApplied }: { preview: ImportPreview; onApplied: (p: ImportPreview) => void }) {
-  const initial = useMemo(
-    () => Object.fromEntries(preview.fields.map((f) => [f.key, f.column ?? ""])),
-    [preview.fields],
-  );
-  const [mapping, setMapping] = useState<Record<string, string>>(initial);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  useEffect(() => setMapping(initial), [initial]);
-  const dirty = JSON.stringify(mapping) !== JSON.stringify(initial);
-  const used = new Set(Object.values(mapping).filter(Boolean));
-
-  async function apply() {
-    setSaving(true);
-    setError(null);
-    try {
-      const body = { mapping: Object.fromEntries(Object.entries(mapping).map(([k, v]) => [k, v || null])) };
-      onApplied(await api<ImportPreview>(`/imports/${preview.run.id}/mapping`, { method: "PUT", body }));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not apply the mapping.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
+function DetectedColumns({ preview }: { preview: ImportPreview }) {
+  const found = preview.fields.filter((f) => f.column);
+  const missing = preview.fields.filter((f) => !f.column);
   return (
-    <Section
-      title="Column mapping"
-      description="Detected automatically from the column headers. Adjust if your export uses different names."
-      flush
-      actions={
-        <Button size="sm" onClick={apply} disabled={!dirty || saving}>
-          {saving ? "Re-checking…" : "Apply mapping"}
-        </Button>
-      }
-    >
-      {error && (
-        <div className="px-4 pt-3">
-          <Alert>{error}</Alert>
-        </div>
-      )}
-      <div className="grid grid-cols-1 gap-x-8 gap-y-2 p-4 md:grid-cols-2">
-        {preview.fields.map((field) => (
-          <div key={field.key} className="flex items-center gap-3">
-            <label htmlFor={`map-${field.key}`} className="w-44 shrink-0 text-[13px]">
-              {field.label}
-              {field.required && <span className="ml-0.5 text-danger" aria-label="required">*</span>}
-            </label>
-            <Select
-              id={`map-${field.key}`}
-              value={mapping[field.key] ?? ""}
-              onChange={(e) => setMapping((m) => ({ ...m, [field.key]: e.target.value }))}
-              className={clsx(!mapping[field.key] && (field.required || field.important) && "border-warning/60")}
-            >
-              <option value="">Not mapped</option>
-              {preview.run.detected_columns.map((column) => (
-                <option key={column} value={column} disabled={used.has(column) && mapping[field.key] !== column}>
-                  {column}
-                </option>
-              ))}
-            </Select>
-          </div>
+    <div className="space-y-1.5 text-[13px]">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-fg-muted">Detected</span>
+        {found.map((f) => (
+          <span key={f.key} className="inline-flex h-6 items-center gap-1 rounded-sm border border-border bg-surface px-1.5 text-xs">
+            <span className="font-medium">{f.label}</span>
+            {f.column !== f.label && <span className="text-fg-muted">← {f.column}</span>}
+          </span>
         ))}
       </div>
-      {preview.unmapped_columns.length > 0 && (
-        <p className="border-t border-border px-4 py-2.5 text-xs text-fg-muted">
-          Ignored columns: {preview.unmapped_columns.join(", ")}
+      {(missing.length > 0 || preview.unmapped_columns.length > 0) && (
+        <p className="text-xs text-fg-muted">
+          {missing.length > 0 && <>Not in this file: {missing.map((f) => f.label).join(", ")}. </>}
+          {preview.unmapped_columns.length > 0 && <>Ignored columns: {preview.unmapped_columns.join(", ")}.</>}
         </p>
       )}
-    </Section>
+    </div>
   );
 }
 
 function IssuesList({ run }: { run: ImportRun }) {
   if (run.issues.length === 0) return null;
   const tone = { error: "danger", warning: "warning", duplicate: "neutral" } as const;
+  const label = { error: "Skipped", warning: "Warning", duplicate: "Duplicate" } as const;
   return (
-    <Section title="Row issues" description={run.issues.length >= 200 ? "Showing the first 200 issues." : undefined} flush>
-      <ul className="max-h-72 divide-y divide-border overflow-y-auto">
+    <details className="group rounded-lg border border-border bg-surface">
+      <summary className="flex cursor-pointer select-none items-center justify-between px-4 py-2.5 text-[13px] font-medium hover:bg-surface-hover/60">
+        Row notes ({run.issues.length >= 200 ? "first 200" : run.issues.length})
+        <span className="text-xs font-normal text-fg-muted group-open:hidden">Show</span>
+        <span className="hidden text-xs font-normal text-fg-muted group-open:inline">Hide</span>
+      </summary>
+      <ul className="max-h-72 divide-y divide-border overflow-y-auto border-t border-border">
         {run.issues.map((issue, i) => (
           <li key={i} className="flex items-start gap-3 px-4 py-2 text-[13px]">
-            <span className="w-16 shrink-0 tabular text-fg-muted">Row {issue.row}</span>
-            <Badge tone={tone[issue.level]}>{issue.level}</Badge>
+            <span className="w-14 shrink-0 tabular text-fg-muted">Row {issue.row}</span>
+            <Badge tone={tone[issue.level]}>{label[issue.level]}</Badge>
             <span className="min-w-0 break-words">{issue.message}</span>
           </li>
         ))}
       </ul>
-    </Section>
+    </details>
   );
 }
 
-function PreviewView({
-  preview,
-  setPreview,
-  onDone,
-}: {
-  preview: ImportPreview;
-  setPreview: (p: ImportPreview) => void;
-  onDone: () => Promise<void>;
-}) {
+function PreviewView({ preview, onDone }: { preview: ImportPreview; onDone: () => Promise<void> }) {
+  const router = useRouter();
   const run = preview.run;
-  const [dialog, setDialog] = useState<"confirm" | "cancel" | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"import" | "discard" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const fields = SAMPLE_FIELDS[run.import_type];
+  const columns = PREVIEW_COLUMNS[run.import_type];
 
-  async function act(action: "confirm" | "cancel") {
-    setBusy(true);
+  async function importRecords() {
+    setBusy("import");
     setError(null);
     try {
-      await api<ImportRun>(`/imports/${run.id}/${action}`, { method: "POST" });
-      setDialog(null);
-      await onDone();
+      await api<ImportRun>(`/imports/${run.id}/confirm`, { method: "POST" });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "The request failed.");
-      setBusy(false);
-      setDialog(null);
-      await onDone(); // an unexpected failure is recorded on the run; show it
+      setError(err instanceof ApiError ? err.message : "The import did not complete.");
+    }
+    await onDone(); // shows the result, or the recorded failure
+    setBusy(null);
+  }
+
+  async function discard() {
+    setBusy("discard");
+    try {
+      await api(`/imports/${run.id}`, { method: "DELETE" });
+      router.push("/data-sources/odoo");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "The preview could not be discarded.");
+      setBusy(null);
     }
   }
 
   return (
     <>
-      <Stepper step={2} />
-      <div className="space-y-5">
+      <Steps step={2} />
+      <div className="space-y-4">
         {error && <Alert title="Import not completed">{error}</Alert>}
         {preview.previous_import && (
           <Alert tone="warning" title="This exact file was imported before">
-            It was imported on {formatDateTime(preview.previous_import.completed_at)} (import #{preview.previous_import.id}). Importing it
-            again only refreshes the same records.
-          </Alert>
-        )}
-        {preview.missing_important.length > 0 && (
-          <Alert tone="warning" title="Some useful fields are not mapped">
-            {preview.missing_important.join(", ")}. Map them below if the file contains them.
+            Imported on {formatDateTime(preview.previous_import.completed_at)}. Importing it again updates the same records instead of
+            duplicating them.
           </Alert>
         )}
 
         <MetricStrip
           items={[
-            { label: "Rows in file", value: run.row_count },
-            { label: "Ready to import", value: run.valid_count },
-            { label: "New records", value: preview.new_records },
-            { label: "Updates", value: preview.existing_records },
-            { label: "Duplicates skipped", value: run.duplicate_count },
-            { label: "Errors", value: run.error_count },
-            { label: "Warnings", value: run.warning_count },
+            { label: "Rows detected", value: run.row_count },
+            {
+              label: "Ready",
+              value: run.valid_count,
+              hint: `${preview.new_records.toLocaleString()} new · ${preview.existing_records.toLocaleString()} already in LeadFinder`,
+            },
+            { label: "Duplicates", value: run.duplicate_count, hint: "Repeated rows, skipped" },
+            { label: "Warnings", value: run.warning_count, hint: "Imported with a note" },
+            ...(run.error_count ? [{ label: "Skipped", value: run.error_count, hint: "No company or contact name" }] : []),
           ]}
         />
-        <p className="text-[13px] text-fg-muted">
-          Companies: <span className="font-medium text-fg">{preview.companies_matched}</span> match existing LeadFinder companies,{" "}
-          <span className="font-medium text-fg">{preview.companies_new}</span> will be created. Matching uses Odoo ID, website and email
-          domain, phone and normalised name.
-        </p>
 
-        <MappingEditor preview={preview} onApplied={setPreview} />
+        <DetectedColumns preview={preview} />
 
-        <Section title="Sample rows" description={`First ${preview.sample_rows.length} rows as LeadFinder will read them.`} flush>
+        <Section
+          title="Preview"
+          description={
+            <>
+              {preview.sample_rows.length < run.row_count
+                ? `First ${preview.sample_rows.length} of ${run.row_count.toLocaleString()} rows. `
+                : ""}
+              {preview.companies_matched.toLocaleString()} matching LeadFinder{" "}
+              {preview.companies_matched === 1 ? "company" : "companies"}, {preview.companies_new.toLocaleString()} new{" "}
+              {preview.companies_new === 1 ? "company" : "companies"} will be created.
+            </>
+          }
+          flush
+        >
           <DataTable
-            caption="Sample rows"
+            caption="Preview of the rows to import"
             rows={preview.sample_rows}
             rowKey={(r) => r.row}
-            empty={<EmptyState compact title="No rows" />}
+            empty={<EmptyState compact title="The file has no rows" />}
             columns={[
-              { key: "row", header: "Row", align: "right", cell: (r) => r.row },
-              { key: "status", header: "Result", cell: (r) => <Badge tone={ROW_STATUS[r.status]!.tone} dot>{ROW_STATUS[r.status]!.label}</Badge> },
-              ...fields.map((f) => ({
-                key: f.key,
-                header: f.label,
-                cell: (r: ImportPreview["sample_rows"][number]) => (
-                  <span className="block max-w-[220px] truncate">{r.values[f.key] == null ? "—" : String(r.values[f.key])}</span>
-                ),
+              { key: "row", header: "#", align: "right", cell: (r) => <span className="text-fg-subtle">{r.row}</span> },
+              ...columns.map((c) => ({
+                key: c.key,
+                header: c.label,
+                cell: (r: SampleRow) => {
+                  const value = r.values[c.key];
+                  return value == null || value === "" ? (
+                    <span className="text-fg-subtle">—</span>
+                  ) : (
+                    <span className={clsx("block truncate", c.width)} title={String(value)}>
+                      {String(value)}
+                    </span>
+                  );
+                },
               })),
               {
-                key: "match",
-                header: "LeadFinder company",
-                cell: (r) =>
-                  r.company_match ? (
-                    <span title={r.company_match.reason}>
-                      <RowLink href={`/companies/${r.company_match.id}`}>{r.company_match.name}</RowLink>
-                    </span>
-                  ) : (
-                    <span className="text-fg-muted">{r.status === "error" ? "—" : "New / none"}</span>
-                  ),
-              },
-              {
-                key: "notes",
-                header: "Notes",
-                cell: (r) => <span className="block max-w-[280px] truncate text-xs text-fg-muted" title={r.messages.join("\n")}>{r.messages.join("; ") || "—"}</span>,
+                key: "status",
+                header: "Status",
+                cell: (r) => (
+                  <span className="block py-1 leading-tight" title={r.messages.join("\n") || undefined}>
+                    <Badge tone={ROW_STATUS[r.status].tone} dot>
+                      {ROW_STATUS[r.status].label}
+                    </Badge>
+                    {r.messages[0] && <span className="mt-0.5 block max-w-[200px] truncate text-xs text-fg-muted">{r.messages[0]}</span>}
+                  </span>
+                ),
               },
             ]}
           />
@@ -278,68 +242,49 @@ function PreviewView({
 
         <IssuesList run={run} />
 
-        <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-bg/95 px-4 py-3 md:-mx-8 md:px-8">
+        <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-bg/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
           <span className="mr-auto text-[13px] text-fg-muted">
-            {run.valid_count.toLocaleString()} of {run.row_count.toLocaleString()} rows will be imported.
+            <span className="font-medium text-fg">{run.valid_count.toLocaleString()}</span> of {run.row_count.toLocaleString()} rows will be
+            imported. Company statuses are recalculated afterwards.
           </span>
-          <Button variant="secondary" onClick={() => setDialog("cancel")} disabled={busy}>
-            Cancel import
+          <Button variant="ghost" onClick={discard} loading={busy === "discard"} disabled={busy !== null}>
+            Discard
           </Button>
-          <Button onClick={() => setDialog("confirm")} disabled={busy || run.valid_count === 0}>
-            Import {run.valid_count.toLocaleString()} records
+          <Button onClick={importRecords} loading={busy === "import"} disabled={busy !== null || run.valid_count === 0}>
+            Import records
           </Button>
         </div>
       </div>
-
-      <ConfirmDialog
-        open={dialog === "confirm"}
-        title={`Import ${run.valid_count.toLocaleString()} records?`}
-        confirmLabel="Import"
-        busy={busy}
-        onConfirm={() => act("confirm")}
-        onClose={() => setDialog(null)}
-      >
-        {preview.new_records} new and {preview.existing_records} updated {IMPORT_TYPE_LABEL[run.import_type].toLowerCase()}.{" "}
-        {run.duplicate_count + run.error_count} rows will be skipped. Every company&apos;s TECOMSA relationship status is recalculated
-        afterwards.
-      </ConfirmDialog>
-      <ConfirmDialog
-        open={dialog === "cancel"}
-        title="Cancel this import?"
-        confirmLabel="Cancel import"
-        tone="danger"
-        busy={busy}
-        onConfirm={() => act("cancel")}
-        onClose={() => setDialog(null)}
-      >
-        Nothing from this file will be imported. The upload stays in the import history as cancelled.
-      </ConfirmDialog>
     </>
   );
 }
 
 function ResultView({ run }: { run: ImportRun }) {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+  const completed = run.status === "COMPLETED";
   return (
     <>
-      <Stepper step={run.status === "COMPLETED" ? 3 : 2} />
+      <Steps step={completed ? 3 : 2} />
       <div className="space-y-5">
-        {run.status === "COMPLETED" && (
-          <Alert tone="success" title="Import completed">
-            Company relationship statuses have been recalculated from the latest Odoo data.
+        {completed && (
+          <Alert tone="success" title={`Imported ${(run.inserted_count + run.updated_count).toLocaleString()} records`}>
+            {run.inserted_count.toLocaleString()} new, {run.updated_count.toLocaleString()} updated, {run.skipped_count.toLocaleString()}{" "}
+            skipped. Company relationship statuses were recalculated.
           </Alert>
         )}
         {run.status === "FAILED" && (
           <Alert title="Import failed: no records were saved">
-            {run.failure_reason ?? "Unknown error."} Fix the file or mapping and upload it again.
+            {run.failure_reason ?? "Unknown error."} Fix the file and upload it again.
           </Alert>
         )}
         {run.status === "CANCELLED" && <Alert tone="info" title="This import was cancelled">No records were imported.</Alert>}
 
-        {run.status === "COMPLETED" && (
+        {completed && (
           <MetricStrip
             items={[
               { label: "Rows in file", value: run.row_count },
-              { label: "Inserted", value: run.inserted_count },
+              { label: "New", value: run.inserted_count },
               { label: "Updated", value: run.updated_count },
               { label: "Skipped", value: run.skipped_count },
               { label: "Companies created", value: run.companies_created, href: "/companies?source=ODOO_IMPORT" },
@@ -361,12 +306,21 @@ function ResultView({ run }: { run: ImportRun }) {
           />
         </Section>
         <IssuesList run={run} />
-        <div className="flex flex-wrap gap-2">
-          <ButtonLink href="/companies?protected=true" variant="secondary">Protected companies</ButtonLink>
-          <ButtonLink href="/crm" variant="secondary">CRM records</ButtonLink>
+        <div className="flex flex-wrap items-center gap-2">
           <ButtonLink href="/data-sources/odoo">Import another file</ButtonLink>
+          <ButtonLink href="/companies" variant="secondary">
+            View companies
+          </ButtonLink>
+          <Button variant="danger" className="ml-auto" onClick={() => setDeleting(true)}>
+            <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete import
+          </Button>
         </div>
       </div>
+      <DeleteImportDialog
+        run={deleting ? run : null}
+        onClose={() => setDeleting(false)}
+        onDeleted={() => router.push("/data-sources/odoo")}
+      />
     </>
   );
 }
@@ -375,15 +329,13 @@ function ImportDetail() {
   const { id } = useParams<{ id: string }>();
   const run = useApi<ImportRun>(`/imports/${id}`);
   const isPreview = run.data?.status === "PREVIEW";
-  const previewReq = useApi<ImportPreview>(isPreview ? `/imports/${id}/preview` : null);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
-  useEffect(() => setPreview(previewReq.data), [previewReq.data]);
+  const preview = useApi<ImportPreview>(isPreview ? `/imports/${id}/preview` : null);
 
-  const error = run.error ?? previewReq.error;
+  const error = run.error ?? preview.error;
   if (error) return <Section><ErrorState message={error.message} onRetry={run.reload} /></Section>;
-  if (!run.data || (isPreview && !preview)) {
+  if (!run.data || (isPreview && !preview.data)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" aria-busy="true">
         <Skeleton className="h-8 w-80" />
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-72 w-full" />
@@ -391,11 +343,11 @@ function ImportDetail() {
     );
   }
 
-  const r = preview?.run ?? run.data;
+  const r = run.data;
   return (
     <>
       <PageHeader
-        breadcrumbs={[{ label: "Data sources" }, { label: "Odoo", href: "/data-sources/odoo" }, { label: `Import #${r.id}` }]}
+        breadcrumbs={[{ label: "Data sources" }, { label: "Odoo", href: "/data-sources/odoo" }, { label: r.original_filename }]}
         title={r.original_filename}
         meta={
           <>
@@ -407,11 +359,7 @@ function ImportDetail() {
           </>
         }
       />
-      {isPreview && preview ? (
-        <PreviewView preview={preview} setPreview={setPreview} onDone={run.reload} />
-      ) : (
-        <ResultView run={run.data} />
-      )}
+      {isPreview && preview.data ? <PreviewView preview={preview.data} onDone={run.reload} /> : <ResultView run={r} />}
     </>
   );
 }

@@ -34,6 +34,11 @@ class Contact(TimestampMixin, Base):
     )
     # The provider's own identifier for this contact (kept separate from our id).
     source_reference: Mapped[str | None] = mapped_column(String(255))
+    # The Odoo contact this person was imported from. Deleting that Odoo record (e.g. by
+    # deleting its import with data) deletes this contact too.
+    odoo_contact_id: Mapped[int | None] = mapped_column(
+        ForeignKey("odoo_contacts.id", ondelete="CASCADE"), unique=True
+    )
     data_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 

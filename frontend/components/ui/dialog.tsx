@@ -15,6 +15,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   tone = "primary",
   busy,
+  confirmDisabled,
   onConfirm,
   onClose,
 }: {
@@ -24,6 +25,7 @@ export function ConfirmDialog({
   confirmLabel?: string;
   tone?: "primary" | "danger";
   busy?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -44,7 +46,7 @@ export function ConfirmDialog({
         if (busy) e.preventDefault();
       }}
       aria-labelledby="confirm-title"
-      className="w-[min(440px,calc(100vw-2rem))] rounded-lg border border-border bg-surface p-0 text-fg"
+      className="elevated w-[min(460px,calc(100vw-2rem))] rounded-lg border-0 bg-surface p-0 text-fg"
     >
       <div className="px-5 pb-4 pt-5">
         <h2 id="confirm-title" className="text-[15px] font-semibold">
@@ -52,12 +54,18 @@ export function ConfirmDialog({
         </h2>
         {children && <div className="mt-2 text-[13px] text-fg-muted">{children}</div>}
       </div>
-      <div className="flex justify-end gap-2 border-t border-border bg-surface-muted/60 px-5 py-3">
+      <div className="flex justify-end gap-2 border-t border-border bg-surface-muted/50 px-5 py-3">
         <Button variant="secondary" onClick={onClose} disabled={busy}>
           Cancel
         </Button>
-        <Button variant={tone === "danger" ? "danger" : "primary"} onClick={onConfirm} disabled={busy} autoFocus>
-          {busy ? "Working…" : confirmLabel}
+        <Button
+          variant={tone === "danger" ? "danger-solid" : "primary"}
+          onClick={onConfirm}
+          loading={busy}
+          disabled={confirmDisabled}
+          autoFocus
+        >
+          {confirmLabel}
         </Button>
       </div>
     </dialog>

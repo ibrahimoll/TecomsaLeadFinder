@@ -50,7 +50,7 @@ function LinkUser({ row, users, onSaved }: { row: SalespersonRow; users: User[];
 
 export default function SalesTeamPage() {
   const me = useCurrentUser();
-  const { data, error, loading, reload } = useApi<SalespersonRow[]>("/salespeople");
+  const { data, error, loading, reload } = useApi<SalespersonRow[]>(me.capabilities.view_crm ? "/salespeople" : null);
   const users = useApi<Page<User>>(me.capabilities.manage_users ? "/users" : null, { page_size: 100, is_active: true });
 
   return (

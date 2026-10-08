@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.models.enums import CrmLeadType, ImportStatus, ImportType
 from app.schemas.common import EntityRef, OutModel, UserBrief
@@ -49,6 +49,7 @@ class OdooContactOut(OutModel):
     contact_name: str
     is_company: bool
     parent_company: str | None
+    job_position: str | None
     website: str | None
     email: str | None
     phone: str | None
@@ -118,5 +119,8 @@ class ImportPreview(BaseModel):
     previous_import: dict[str, Any] | None
 
 
-class ImportMappingUpdate(BaseModel):
-    mapping: dict[str, str | None] = Field(max_length=60)
+class ImportDeleteResult(BaseModel):
+    id: int
+    with_data: bool
+    removed: dict[str, int]
+    kept: dict[str, int]

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,11 +13,29 @@ from app.core.exceptions import AppError
 logger = logging.getLogger("leadfinder")
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Discovery runs execute in background threads; any left "running" by a previous
+    # process can never finish, so mark them as interrupted.
+    from app.db.session import SessionLocal
+    from app.services.discovery.service import fail_interrupted_runs
+
+    try:
+        with SessionLocal() as db:
+            count = fail_interrupted_runs(db)
+            if count:
+                logger.warning("Marked %s interrupted discovery run(s)", count)
+    except Exception:  # never block startup on this
+        logger.exception("Could not check for interrupted discovery runs")
+    yield
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     logging.basicConfig(level=logging.INFO)
 
     app = FastAPI(
+        lifespan=lifespan,
         title="TECOMSA LeadFinder AI API",
         version=__version__,
         # Interactive docs are only exposed outside production.
@@ -29,7 +48,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
 

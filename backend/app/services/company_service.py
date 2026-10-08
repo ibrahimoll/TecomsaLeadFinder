@@ -4,7 +4,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError, PermissionDeniedError
-from app.models import Campaign, CampaignCompany, Company, User
+from app.models import Campaign, CampaignCompany, Company, CompanySourceRecord, User
 from app.models.enums import PROTECTED_STATUSES, ActivityType, CompanySource, OdooMatchStatus
 from app.schemas.company import CompanyCreate, CompanyUpdate
 from app.services import (
@@ -18,9 +18,9 @@ from app.services import (
 from app.services.audit_service import AuditAction
 from app.services.matching_service import MatchSignals
 from app.services.normalization import (
+    company_domain,
     email_domain,
     normalize_company_name,
-    normalize_domain,
     normalize_phone,
     normalize_website,
 )
@@ -104,7 +104,7 @@ def create_company(db: Session, actor: User, data: CompanyCreate) -> Company:
         name=data.name,
         normalized_name=normalize_company_name(data.name),
         website=normalize_website(data.website),
-        domain=normalize_domain(data.website),
+        domain=company_domain(data.website),
         main_phone=data.main_phone,
         main_phone_normalized=normalize_phone(data.main_phone, data.country),
         source=CompanySource.MANUAL,
@@ -155,7 +155,7 @@ def update_company(db: Session, actor: User, company_id: int, data: CompanyUpdat
         new_values["normalized_name"] = normalize_company_name(changes["name"])
     if "website" in changes:
         new_values["website"] = normalize_website(changes["website"])
-        new_values["domain"] = normalize_domain(changes["website"])
+        new_values["domain"] = company_domain(changes["website"])
     if "main_phone" in changes or "country" in changes:
         phone = changes.get("main_phone", company.main_phone)
         new_values["main_phone"] = phone
@@ -245,6 +245,13 @@ def get_company_detail(db: Session, user: User, company_id: int) -> dict[str, An
             "last_interaction": max(activity_dates) if activity_dates else None,
         },
         "possible_duplicates": find_duplicates(db, _signals(company), exclude_id=company.id),
+        "sources": [
+            {"source": r.source, "source_label": {"OVERTURE": "Overture Maps", "OSM": "OpenStreetMap"}.get(r.source, r.source),
+             "external_id": r.external_id, "category": (r.data or {}).get("category"), "first_seen_at": r.first_seen_at,
+             "last_seen_at": r.last_seen_at, "first_seen_run_id": r.first_seen_run_id}
+            for r in db.scalars(select(CompanySourceRecord).where(CompanySourceRecord.company_id == company.id)
+                                .order_by(CompanySourceRecord.first_seen_at))
+        ],
         "lusha_credits_used": lusha_usage_service.total_credits(db, company_id=company.id),
         "can_edit": permissions.can_edit_company(user, company),
     }

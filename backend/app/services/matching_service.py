@@ -18,9 +18,9 @@ from sqlalchemy.orm import Session
 
 from app.models import Company
 from app.services.normalization import (
+    company_domain,
     email_domain,
     normalize_company_name,
-    normalize_domain,
     normalize_phone,
 )
 
@@ -43,7 +43,7 @@ class MatchSignals:
 
     def __post_init__(self) -> None:
         self.normalized_name = normalize_company_name(self.name) if self.name else None
-        self.domain = normalize_domain(self.website) if self.website else None
+        self.domain = company_domain(self.website)
         self.email_domain = email_domain(self.email)
         self.phone_normalized = normalize_phone(self.phone, self.country)
 

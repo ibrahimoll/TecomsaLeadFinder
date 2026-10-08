@@ -34,6 +34,8 @@ services:
     volumes:
       # Uploaded Odoo export files (import source audit trail; not the live datastore)
       - imports:/app/storage/imports
+      # Cached discovery source extracts (Overture per release, OpenStreetMap per day)
+      - discovery:/app/storage/discovery
     depends_on:
       db:
         condition: service_healthy
@@ -77,3 +79,4 @@ services:
 volumes:
   pgdata:
   imports:
+  discovery:

@@ -43,6 +43,7 @@ class OdooContact(TimestampMixin, Base):
     contact_name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_company: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
     parent_company: Mapped[str | None] = mapped_column(String(255))
+    job_position: Mapped[str | None] = mapped_column(String(200))
     website: Mapped[str | None] = mapped_column(String(500))
     domain: Mapped[str | None] = mapped_column(String(255), index=True)
     email: Mapped[str | None] = mapped_column(String(320))
@@ -63,7 +64,14 @@ class OdooContact(TimestampMixin, Base):
     company_id: Mapped[int | None] = mapped_column(
         ForeignKey("companies.id", ondelete="SET NULL"), index=True
     )
-    import_run_id: Mapped[int | None] = mapped_column(ForeignKey("import_runs.id", ondelete="SET NULL"))
+    # The latest import that contained this record.
+    import_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_runs.id", ondelete="SET NULL"), index=True
+    )
+    # The import that first created this record; used to undo an import's data.
+    created_by_import_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_runs.id", ondelete="SET NULL"), index=True
+    )
     imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     salesperson: Mapped["Salesperson | None"] = relationship(lazy="selectin")
@@ -119,7 +127,14 @@ class CrmLead(TimestampMixin, Base):
     company_id: Mapped[int | None] = mapped_column(
         ForeignKey("companies.id", ondelete="SET NULL"), index=True
     )
-    import_run_id: Mapped[int | None] = mapped_column(ForeignKey("import_runs.id", ondelete="SET NULL"))
+    # The latest import that contained this record.
+    import_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_runs.id", ondelete="SET NULL"), index=True
+    )
+    # The import that first created this record; used to undo an import's data.
+    created_by_import_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_runs.id", ondelete="SET NULL"), index=True
+    )
     imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     salesperson: Mapped["Salesperson | None"] = relationship(lazy="selectin")

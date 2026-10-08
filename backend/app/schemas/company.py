@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models.enums import CampaignCompanyStatus, CampaignStatus, CompanySource, Division, OdooMatchStatus
 from app.schemas.common import InModel, OutModel, UserBrief, require_value, validate_phone
 from app.schemas.contact import ContactOut
+from app.schemas.discovery import CompanySourceOut
 from app.schemas.odoo import CrmLeadOut, OdooContactOut, SalespersonBrief
 from app.services.normalization import normalize_domain
 
@@ -129,5 +130,6 @@ class CompanyDetail(CompanyOut):
     odoo_match: OdooMatchOut | None
     relationship: Relationship
     possible_duplicates: list[DuplicateCandidate]
+    sources: list[CompanySourceOut]
     lusha_credits_used: int
     can_edit: bool

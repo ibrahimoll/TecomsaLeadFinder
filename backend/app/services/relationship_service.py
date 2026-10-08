@@ -7,8 +7,8 @@ company records are protected together.
 
 Precedence (first match wins):
   CUSTOMER > EXISTING_OPPORTUNITY > EXISTING_LEAD > LOST_OPPORTUNITY > EXISTING_CONTACT > AVAILABLE
-NOT_CHECKED is used while no Odoo import has completed: without Odoo data LeadFinder
-cannot honestly call a company available.
+NOT_CHECKED is used while there is no Odoo data: without it LeadFinder cannot honestly
+call a company available.
 """
 
 from collections import defaultdict
@@ -83,19 +83,19 @@ def decide(evidence: Evidence, has_odoo_data: bool) -> Decision:
     won = next((lead for lead in leads if lead.is_won), None)
     if won:
         return Decision(OdooMatchStatus.CUSTOMER,
-                        f"Won opportunity '{won.opportunity_name}' ({won.stage or 'won'}){_owner(won)}.{more}",
+                        f"Existing customer: won opportunity '{won.opportunity_name}' ({won.stage or 'won'}){_owner(won)}.{more}",
                         won.salesperson_id, odoo_lead_id=won.odoo_lead_id)
     customer = next((c for c in contacts if c.is_customer), None)
     if customer:
-        return Decision(OdooMatchStatus.CUSTOMER, f"Marked as a customer in Odoo contact '{customer.contact_name}'.",
+        return Decision(OdooMatchStatus.CUSTOMER, f"Existing customer: marked as a customer in Odoo contact '{customer.contact_name}'.",
                         customer.salesperson_id, odoo_partner_id=customer.odoo_contact_id)
     for lead_type, status in ((CrmLeadType.OPPORTUNITY, OdooMatchStatus.EXISTING_OPPORTUNITY),
                               (CrmLeadType.LEAD, OdooMatchStatus.EXISTING_LEAD)):
         lead = next((x for x in leads if x.is_open and x.lead_type == lead_type), None)
         if lead:
-            kind = "opportunity" if lead_type == CrmLeadType.OPPORTUNITY else "lead"
+            kind = "Open opportunity" if lead_type == CrmLeadType.OPPORTUNITY else "Existing CRM lead"
             stage = f" in stage {lead.stage}" if lead.stage else ""
-            return Decision(status, f"Open {kind} '{lead.opportunity_name}'{stage}{_owner(lead)}.{more}",
+            return Decision(status, f"{kind} '{lead.opportunity_name}'{stage}{_owner(lead)}.{more}",
                             lead.salesperson_id, odoo_lead_id=lead.odoo_lead_id)
     lost = next((lead for lead in leads if lead.is_lost), None)
     if lost:
@@ -107,12 +107,16 @@ def decide(evidence: Evidence, has_odoo_data: bool) -> Decision:
         contact = next((c for c in contacts if c.is_company), contacts[0])
         ref = f" (#{contact.odoo_contact_id})" if contact.odoo_contact_id else ""
         sp = next((c.salesperson_id for c in contacts if c.salesperson_id), None)
+        people = sum(1 for c in contacts if not c.is_company)
+        who = f"; {people} contact{'s' if people != 1 else ''} on file" if people else ""
         return Decision(OdooMatchStatus.EXISTING_CONTACT,
-                        f"Exists in Odoo contacts as '{contact.contact_name}'{ref}.", sp,
+                        f"Existing Odoo contact: the company is already in TECOMSA's Odoo contacts "
+                        f"('{contact.organisation_name or contact.contact_name}'{ref}{who}). "
+                        f"No CRM lead or opportunity.", sp,
                         odoo_partner_id=contact.odoo_contact_id)
     if leads:  # e.g. an active record with no usable state; still protect it
         lead = leads[0]
-        return Decision(OdooMatchStatus.EXISTING_LEAD, f"CRM record '{lead.opportunity_name}'{_owner(lead)}.",
+        return Decision(OdooMatchStatus.EXISTING_LEAD, f"Existing CRM lead '{lead.opportunity_name}'{_owner(lead)}.",
                         lead.salesperson_id, odoo_lead_id=lead.odoo_lead_id)
     if has_odoo_data:
         return Decision(OdooMatchStatus.AVAILABLE, "No match in imported Odoo contacts or CRM records.")
@@ -120,7 +124,12 @@ def decide(evidence: Evidence, has_odoo_data: bool) -> Decision:
 
 
 def has_odoo_data(db: Session) -> bool:
-    return bool(db.scalar(select(exists().where(ImportRun.status == ImportStatus.COMPLETED))))
+    """Odoo data exists (an import completed, or imported records remain after its history was deleted)."""
+    return any(db.scalar(select(check)) for check in (
+        exists().where(ImportRun.status == ImportStatus.COMPLETED),
+        exists().where(CrmLead.id.is_not(None)),
+        exists().where(OdooContact.id.is_not(None)),
+    ))
 
 
 def _apply(db: Session, company: Company, decision: Decision, now: datetime) -> bool:
@@ -188,3 +197,23 @@ def refresh_all(db: Session) -> int:
     for company in db.scalars(select(Company)).all():
         changed += _apply(db, company, decide(index.evidence(company), available), now)
     return changed
+
+
+# ---- Bulk checks for discovery (one index for a whole run, no per-row queries) ----
+
+
+class OdooIndex:
+    """Odoo evidence lookup for many companies or not-yet-saved candidates at once."""
+
+    def __init__(self, db: Session):
+        self._index = _Index(db.scalars(select(CrmLead)).all(), db.scalars(select(OdooContact)).all())
+        self.has_data = has_odoo_data(db)
+
+    def decide(self, company: Company) -> Decision:
+        """Decision for a company; `company` may be transient (not saved, no id)."""
+        return decide(self._index.evidence(company), self.has_data)
+
+
+def apply_decision(db: Session, company: Company, decision: Decision) -> bool:
+    """Persist a decision computed with OdooIndex (writes history when it changes)."""
+    return _apply(db, company, decision, datetime.now(timezone.utc))

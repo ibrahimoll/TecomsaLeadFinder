@@ -1,366 +1,246 @@
 "use client";
 
-import { Building2, Download, Megaphone, Plus, X } from "lucide-react";
-import { Suspense, useCallback, useState } from "react";
+import { Building2, FilterX, Trash2 } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
 
-import { CrmStatusBadge } from "@/components/status-badges";
-import {
-  Alert,
-  Avatar,
-  Badge,
-  Button,
-  ButtonLink,
-  Checkbox,
-  ConfirmDialog,
-  DataTable,
-  EmptyState,
-  Field,
-  PageHeader,
-  Pagination,
-  RowLink,
-  SearchInput,
-  Section,
-  Select,
-  SelectionBar,
-  Toolbar,
-} from "@/components/ui";
+import { Avatar, Button, ConfirmDialog, CountUp, DataTable, EmptyState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Toolbar, toast } from "@/components/ui";
 import { api, ApiError, useApi } from "@/lib/api";
-import { countryNames, ODOO_STATUS_LABEL, ODOO_STATUSES, SOURCE_LABEL } from "@/lib/constants";
-import { downloadCsv } from "@/lib/csv";
-import { dash, formatDate, location } from "@/lib/format";
+import { isPrivileged, useCurrentUser } from "@/lib/auth";
+import { COMPANY_STATUS, COMPANY_STATUSES, place } from "@/lib/companies";
 import { useDebouncedSearch, useUrlState } from "@/lib/use-url-state";
-import type { Campaign, Company, CompanySource, OdooStatus, Page } from "@/types";
+import type { Page } from "@/types";
+import type { Company, CompanyStatus } from "@/types/v2";
 
 const PAGE_SIZE = 50;
-const KEYS = ["q", "crm_status", "protected", "source", "country", "sort", "page"] as const;
-type FilterKey = "protected" | "crm_status" | "source" | "country";
+const KEYS = ["q", "status", "country", "region", "city", "industry", "page"] as const;
 
-/** Human-readable active filters, shown as removable tokens (Linear-style filter bar). */
-function filterTokens(f: Record<(typeof KEYS)[number], string>): { key: FilterKey; field: string; value: string }[] {
-  const tokens: { key: FilterKey; field: string; value: string }[] = [];
-  if (f.protected) tokens.push({ key: "protected", field: "Relationship", value: f.protected === "true" ? "Protected" : "Not protected" });
-  if (f.crm_status) tokens.push({ key: "crm_status", field: "Status", value: ODOO_STATUS_LABEL[f.crm_status as OdooStatus] ?? f.crm_status });
-  if (f.source) tokens.push({ key: "source", field: "Source", value: SOURCE_LABEL[f.source as CompanySource] ?? f.source });
-  if (f.country) tokens.push({ key: "country", field: "Country", value: f.country });
-  return tokens;
-}
-
-function exportCompanies(companies: Company[]) {
-  downloadCsv(
-    `leadfinder-companies-${new Date().toISOString().slice(0, 10)}.csv`,
-    ["Company", "Website", "Phone", "Email", "City", "Country", "Industry", "Relationship", "Source", "Owner"],
-    companies.map((c) => [
-      c.name, c.website, c.main_phone, c.main_email, c.city, c.country, c.industry,
-      ODOO_STATUS_LABEL[c.odoo_status], c.source_label, c.salesperson?.name,
-    ]),
-  );
-}
-
-function AddToCampaignDialog({ companies, onClose, onDone }: { companies: Company[]; onClose: () => void; onDone: (msg: string) => void }) {
-  const campaigns = useApi<Page<Campaign>>(companies.length ? "/campaigns" : null, { page_size: 100 });
-  const open = (campaigns.data?.items ?? []).filter((c) => c.status === "DRAFT" || c.status === "READY");
-  const [campaignId, setCampaignId] = useState("");
-  const [includeProtected, setIncludeProtected] = useState(false);
+function CompaniesView() {
+  const [filters, setFilters] = useUrlState(KEYS);
+  const [search, setSearch] = useDebouncedSearch(filters.q, (q) => setFilters({ q }));
+  const page = Number(filters.page) || 1;
+  const { data, error, loading, reload } = useApi<Page<Company>>("/companies", {
+    q: filters.q,
+    status: filters.status,
+    country: filters.country,
+    region: filters.region,
+    city: filters.city,
+    industry: filters.industry,
+    page,
+    page_size: PAGE_SIZE,
+  });
+  const filtered = KEYS.some((k) => k !== "page" && filters[k]);
+  const user = useCurrentUser();
+  const [deleting, setDeleting] = useState<Company | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const protectedCount = companies.filter((c) => c.is_protected).length;
-  const targets = includeProtected ? companies : companies.filter((c) => !c.is_protected);
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const canDelete = isPrivileged(user);
+  // Only delete what is on screen: a filter or page change drops the selection.
+  const view = KEYS.map((k) => filters[k]).join("|");
+  useEffect(() => setSelected(new Set()), [view]);
 
-  async function add() {
-    setBusy(true);
-    setError(null);
-    let added = 0;
-    let already = 0;
+  async function changeStatus(company: Company, status: CompanyStatus) {
     try {
-      for (const company of targets) {
-        try {
-          await api(`/campaigns/${campaignId}/companies/${company.id}`, { method: "POST" });
-          added += 1;
-        } catch (err) {
-          if (err instanceof ApiError && err.status === 409) already += 1;
-          else throw err;
-        }
-      }
-      const name = open.find((c) => String(c.id) === campaignId)?.name ?? "the campaign";
-      onDone(
-        `Added ${added} ${added === 1 ? "company" : "companies"} to ${name}` +
-          (already ? `; ${already} already there` : "") +
-          (!includeProtected && protectedCount ? `; ${protectedCount} protected skipped` : "") + ".",
-      );
+      await api(`/companies/${company.id}/status`, { method: "PATCH", body: { status } });
+      toast.success(`${company.name}: ${COMPANY_STATUS[status].label}`);
+      await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not add the companies.");
+      toast.error(err instanceof ApiError ? err.message : "Could not change the status");
+    }
+  }
+
+  async function remove() {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await api(`/companies/${deleting.id}`, { method: "DELETE" });
+      toast.success(`${deleting.name} deleted`);
+      setDeleting(null);
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not delete the company");
     } finally {
       setBusy(false);
     }
   }
 
-  return (
-    <ConfirmDialog
-      open={companies.length > 0}
-      title={`Add ${companies.length} ${companies.length === 1 ? "company" : "companies"} to a campaign`}
-      confirmLabel={`Add ${targets.length}`}
-      busy={busy}
-      confirmDisabled={!campaignId || targets.length === 0}
-      onConfirm={add}
-      onClose={onClose}
-    >
-      <div className="space-y-3 text-fg">
-        {error && <Alert>{error}</Alert>}
-        <Field label="Campaign" htmlFor="bulk-campaign" hint={open.length === 0 && !campaigns.loading ? "No draft or ready campaigns. Create one first." : undefined}>
-          <Select id="bulk-campaign" value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
-            <option value="">{campaigns.loading ? "Loading…" : "Choose a campaign"}</option>
-            {open.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {protectedCount > 0 && (
-          <Checkbox
-            checked={includeProtected}
-            onChange={(e) => setIncludeProtected(e.target.checked)}
-            label={
-              <span>
-                Include {protectedCount} protected {protectedCount === 1 ? "company" : "companies"}{" "}
-                <span className="text-fg-muted">(already known in Odoo)</span>
-              </span>
-            }
-          />
-        )}
-      </div>
-    </ConfirmDialog>
-  );
-}
-
-function CompaniesView() {
-  const [filters, setFilters] = useUrlState(KEYS);
-  const commitSearch = useCallback((q: string) => setFilters({ q }), [setFilters]);
-  const [search, setSearch] = useDebouncedSearch(filters.q, commitSearch);
-  const page = Number(filters.page) || 1;
-  const [selected, setSelected] = useState<Map<number, Company>>(new Map());
-  const [adding, setAdding] = useState<Company[]>([]);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const { data, error, loading, reload } = useApi<Page<Company>>("/companies", {
-    q: filters.q,
-    crm_status: filters.crm_status,
-    protected: filters.protected,
-    source: filters.source,
-    country: filters.country,
-    sort: filters.sort || "created",
-    page,
-    page_size: PAGE_SIZE,
-  });
-  const tokens = filterTokens(filters);
-  const filtered = Boolean(filters.q || tokens.length);
-
-  const selection = {
-    selected: new Set(selected.keys()),
-    onChange: (ids: Set<number>) => {
-      const next = new Map<number, Company>();
-      ids.forEach((id) => {
-        const company = selected.get(id) ?? data?.items.find((c) => c.id === id);
-        if (company) next.set(id, company);
-      });
-      setSelected(next);
-    },
-  };
+  // ponytail: one DELETE per company (no bulk endpoint); fine for a page of 50, add a bulk route if selections grow.
+  async function removeSelected() {
+    const ids = [...selected];
+    setBusy(true);
+    const results = await Promise.allSettled(ids.map((id) => api(`/companies/${id}`, { method: "DELETE" })));
+    const failed = new Set(ids.filter((_, i) => results[i].status === "rejected"));
+    const done = ids.length - failed.size;
+    if (done) toast.success(`${done} compan${done === 1 ? "y" : "ies"} deleted`);
+    if (failed.size) toast.error(`${failed.size} could not be deleted; they are still selected`);
+    setSelected(failed);
+    setConfirmBulk(false);
+    setBusy(false);
+    await reload();
+  }
 
   return (
     <>
-      {notice && (
-        <div className="mb-4">
-          <Alert tone="success">{notice}</Alert>
-        </div>
-      )}
+      <PageHeader
+        title="Companies"
+        description={
+          <>
+            Every company LeadFinder knows, from all searches
+            {data && (
+              <>
+                {" · "}
+                <span className="font-medium tabular text-fg">
+                  <CountUp value={data.total} reveal="companies:total" />
+                </span>{" "}
+                {filtered ? "match" : "in total"}
+              </>
+            )}
+          </>
+        }
+      />
       <Section flush>
-        <Toolbar
-          end={
-            <Select
-              aria-label="Sort by"
-              className="w-[150px]"
-              value={filters.sort || "created"}
-              onChange={(e) => setFilters({ sort: e.target.value === "created" ? "" : e.target.value })}
+        <Toolbar>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search by name or domain" className="w-64" label="Search companies" />
+          <FilterInput label="Country" value={filters.country} onCommit={(country) => setFilters({ country })} />
+          <FilterInput label="Region" value={filters.region} onCommit={(region) => setFilters({ region })} />
+          <FilterInput label="City" value={filters.city} onCommit={(city) => setFilters({ city })} />
+          <FilterInput label="Industry" value={filters.industry} onCommit={(industry) => setFilters({ industry })} />
+          <Select aria-label="Status" value={filters.status} onChange={(e) => setFilters({ status: e.target.value })} className="w-44">
+            <option value="">All statuses</option>
+            {COMPANY_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {COMPANY_STATUS[s].label}
+              </option>
+            ))}
+          </Select>
+          {filtered && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="animate-pop-in"
+              onClick={() => setFilters({ q: "", status: "", country: "", region: "", city: "", industry: "", page: "" })}
             >
-              <option value="created">Newest first</option>
-              <option value="updated">Recently updated</option>
-              <option value="name">Name A–Z</option>
-              <option value="status">Relationship</option>
-            </Select>
-          }
-        >
-          <SearchInput className="w-full sm:w-64" value={search} onChange={setSearch} placeholder="Search name, domain or city" label="Search companies" />
-          <Select aria-label="Relationship" className="w-[160px]" value={filters.protected} onChange={(e) => setFilters({ protected: e.target.value, crm_status: "" })}>
-            <option value="">Relationship</option>
-            <option value="true">Protected (in Odoo)</option>
-            <option value="false">Not protected</option>
-          </Select>
-          <Select aria-label="Status" className="w-[160px]" value={filters.crm_status} onChange={(e) => setFilters({ crm_status: e.target.value, protected: "" })}>
-            <option value="">Status</option>
-            {ODOO_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {ODOO_STATUS_LABEL[s]}
-              </option>
-            ))}
-          </Select>
-          <Select aria-label="Source" className="w-[132px]" value={filters.source} onChange={(e) => setFilters({ source: e.target.value })}>
-            <option value="">Source</option>
-            {(Object.keys(SOURCE_LABEL) as CompanySource[]).map((s) => (
-              <option key={s} value={s}>
-                {SOURCE_LABEL[s]}
-              </option>
-            ))}
-          </Select>
-          <Select aria-label="Country" className="w-[140px]" value={filters.country} onChange={(e) => setFilters({ country: e.target.value })}>
-            <option value="">Country</option>
-            {countryNames().map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
+              <FilterX className="h-3.5 w-3.5" aria-hidden /> Clear filters
+            </Button>
+          )}
         </Toolbar>
-
-        {tokens.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-surface-muted/40 px-4 py-2" aria-label="Active filters">
-            {tokens.map((t) => (
-              <span key={t.key} className="inline-flex h-6 items-center overflow-hidden rounded-sm border border-border bg-surface text-xs shadow-[0_1px_0_rgb(17_17_20/0.03)]">
-                <span className="px-2 text-fg-muted">{t.field}</span>
-                <span className="border-l border-border px-2 font-medium text-fg">{t.value}</span>
-                <button
-                  type="button"
-                  onClick={() => setFilters({ [t.key]: "" })}
-                  className="flex h-full items-center border-l border-border px-1.5 text-fg-subtle hover:bg-surface-hover hover:text-fg"
-                  aria-label={`Remove ${t.field} filter`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            <button
-              type="button"
-              className="ml-1 text-xs text-fg-muted hover:text-fg"
-              onClick={() => {
-                setSearch("");
-                setFilters({ q: "", crm_status: "", protected: "", source: "", country: "" });
-              }}
-            >
-              Clear all
-            </button>
-            {data && <span className="ml-auto text-xs tabular text-fg-muted">{data.total.toLocaleString()} results</span>}
-          </div>
-        )}
-
-        <DataTable<Company, number>
+        <DataTable
           caption="Companies"
           rows={data?.items}
+          rowKey={(c) => c.id}
           loading={loading}
           error={error?.message}
           onRetry={reload}
-          rowKey={(c) => c.id}
           rowHref={(c) => `/companies/${c.id}`}
-          selection={selection}
-          sort={filters.sort || "created"}
-          onSort={(key) => setFilters({ sort: key === "created" ? "" : key })}
+          selection={canDelete ? { selected, onChange: setSelected } : undefined}
           empty={
             <EmptyState
               icon={<Building2 />}
               title={filtered ? "No companies match these filters" : "No companies yet"}
-              description={
-                filtered ? "Try a different search, or remove a filter." : "Import TECOMSA's Odoo contacts, or add a company manually."
-              }
-              action={
-                !filtered && (
-                  <>
-                    <ButtonLink href="/data-sources/odoo" variant="secondary" size="sm">
-                      Import Odoo contacts
-                    </ButtonLink>
-                    <ButtonLink href="/companies/new" size="sm">
-                      Add company
-                    </ButtonLink>
-                  </>
-                )
-              }
+              description={filtered ? undefined : "Companies found through Find Leads appear here automatically."}
             />
           }
           columns={[
             {
               key: "name",
               header: "Company",
-              sortKey: "name",
               cell: (c) => (
-                <div className="flex min-w-[220px] max-w-[320px] items-center gap-2.5">
-                  <Avatar name={c.name} size="sm" />
-                  <div className="min-w-0 leading-tight">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate">
-                        <RowLink href={`/companies/${c.id}`}>{c.name}</RowLink>
-                      </span>
-                      {c.source === "DEMO" && <Badge tone="warning">Demo</Badge>}
-                    </span>
-                    {c.domain && <p className="truncate text-[11.5px] text-fg-subtle">{c.domain}</p>}
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Avatar name={c.name} size="md" domain={c.domain} />
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{c.name}</p>
+                    {c.domain && <p className="truncate text-xs text-fg-muted">{c.domain}</p>}
                   </div>
                 </div>
               ),
             },
-            { key: "crm", header: "Relationship", sortKey: "status", cell: (c) => <CrmStatusBadge status={c.odoo_status} /> },
-            { key: "phone", header: "Phone", cell: (c) => <span className="tabular text-fg-muted">{dash(c.main_phone)}</span> },
+            { key: "industry", header: "Industry", cell: (c) => c.industry ?? <span className="text-fg-subtle">—</span> },
+            { key: "location", header: "Location", cell: (c) => place(c.headquarters_city, c.headquarters_region, c.headquarters_country) },
+            { key: "size", header: "Employees", align: "right", cell: (c) => (c.employee_count_estimate ? c.employee_count_estimate.toLocaleString() : "—") },
             {
-              key: "email",
-              header: "Email",
-              cell: (c) => <span className="block max-w-[200px] truncate text-fg-muted" title={c.main_email ?? undefined}>{dash(c.main_email)}</span>,
+              key: "status",
+              header: "Status",
+              cell: (c) => (
+                <Select aria-label={`Status of ${c.name}`} value={c.status} onChange={(e) => changeStatus(c, e.target.value as CompanyStatus)} className="h-8 w-44 text-[12.5px]">
+                  {COMPANY_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {COMPANY_STATUS[s].label}
+                    </option>
+                  ))}
+                </Select>
+              ),
             },
-            { key: "loc", header: "Location", cell: (c) => <span className="text-fg-muted">{location(c.city, c.country)}</span> },
-            { key: "owner", header: "Owner", cell: (c) => <span className="text-fg-muted">{c.salesperson?.name ?? "—"}</span> },
-            { key: "created", header: "Added", sortKey: "created", cell: (c) => <span className="tabular text-fg-subtle">{formatDate(c.created_at)}</span> },
+            ...(canDelete
+              ? [
+                  {
+                    key: "delete",
+                    header: "",
+                    align: "right" as const,
+                    cell: (c: Company) => (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete ${c.name}`}
+                        className="opacity-40 transition-opacity hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+                        onClick={() => setDeleting(c)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    ),
+                  },
+                ]
+              : []),
           ]}
         />
-        {data && (
+        {data && data.total > 0 && (
           <div className="border-t border-border">
             <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPage={(p) => setFilters({ page: String(p) })} />
           </div>
         )}
       </Section>
-
-      <SelectionBar count={selected.size} onClear={() => setSelected(new Map())}>
-        <Button variant="ghost" size="sm" onClick={() => setAdding([...selected.values()])}>
-          <Megaphone className="h-3.5 w-3.5" aria-hidden /> Add to campaign
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => exportCompanies([...selected.values()])}>
-          <Download className="h-3.5 w-3.5" aria-hidden /> Export CSV
+      <SelectionBar count={selected.size} onClear={() => setSelected(new Set())}>
+        <Button variant="ghost" size="sm" onClick={() => setConfirmBulk(true)}>
+          <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete
         </Button>
       </SelectionBar>
-
-      <AddToCampaignDialog
-        companies={adding}
-        onClose={() => setAdding([])}
-        onDone={(msg) => {
-          setAdding([]);
-          setSelected(new Map());
-          setNotice(msg);
-          void reload();
-        }}
-      />
+      <ConfirmDialog
+        open={confirmBulk}
+        title={`Delete ${selected.size} compan${selected.size === 1 ? "y" : "ies"}?`}
+        confirmLabel={`Delete ${selected.size}`}
+        tone="danger"
+        busy={busy}
+        onConfirm={removeSelected}
+        onClose={() => setConfirmBulk(false)}
+      >
+        Removes these companies, their locations and search results; Find Leads will not add them again. People and
+        source records are kept. To only hide them, set their status to Archived.
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={deleting !== null}
+        title={`Delete ${deleting?.name ?? "company"}?`}
+        confirmLabel="Delete company"
+        tone="danger"
+        busy={busy}
+        onConfirm={remove}
+        onClose={() => setDeleting(null)}
+      >
+        Removes the company, its locations and search results; Find Leads will not add it again. People and
+        source records are kept. To only hide it, set its status to Archived.
+      </ConfirmDialog>
     </>
   );
 }
 
+/** Text filter committed to the URL as you type (debounced). */
+function FilterInput({ label, value, onCommit }: { label: string; value: string; onCommit: (value: string) => void }) {
+  const [text, setText] = useDebouncedSearch(value, onCommit);
+  return <Input aria-label={label} placeholder={label} value={text} onChange={(e) => setText(e.target.value)} className="w-36" />;
+}
+
 export default function CompaniesPage() {
   return (
-    <>
-      <PageHeader
-        title="Companies"
-        description="Every company LeadFinder knows. Protected companies already have a relationship in TECOMSA's Odoo."
-        actions={
-          <ButtonLink href="/companies/new">
-            <Plus className="h-3.5 w-3.5" aria-hidden /> Add company
-          </ButtonLink>
-        }
-      />
-      <Suspense>
-        <CompaniesView />
-      </Suspense>
-    </>
+    <Suspense>
+      <CompaniesView />
+    </Suspense>
   );
 }

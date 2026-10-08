@@ -88,6 +88,11 @@ export const ACTIVITY_LABEL: Record<ActivityType, string> = {
   COMPANY_ADDED_TO_CAMPAIGN: "Added to campaign",
   CONTACT_ADDED: "Contact added",
   NOTE_ADDED: "Note",
+  OPPORTUNITY_CREATED: "Opportunity created",
+  CONTACTED: "Contacted",
+  ACTIVITY_PLANNED: "Follow-up planned",
+  STATUS_CHANGED: "Status changed",
+  LEAD_REASSIGNED: "Lead reassigned",
 };
 
 export const INDUSTRIES = [

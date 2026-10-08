@@ -1,0 +1,1346 @@
+[
+ {
+  "kind": "exact",
+  "query": "Alcadel",
+  "expected_id": 383,
+  "expected": "Alcadel"
+ },
+ {
+  "kind": "exact",
+  "query": "Le Telegraphe de Belle Vue",
+  "expected_id": 176,
+  "expected": "Le Telegraphe de Belle Vue"
+ },
+ {
+  "kind": "exact",
+  "query": "Louis Vuitton",
+  "expected_id": 277,
+  "expected": "Louis Vuitton"
+ },
+ {
+  "kind": "exact",
+  "query": "Michael Kors",
+  "expected_id": 274,
+  "expected": "Michael Kors"
+ },
+ {
+  "kind": "exact",
+  "query": "Al Zaim Trading Co. - Auto Spare Parts",
+  "expected_id": 388,
+  "expected": "Al Zaim Trading Co. - Auto Spare Parts"
+ },
+ {
+  "kind": "exact",
+  "query": "Garderie Le Meunier",
+  "expected_id": 261,
+  "expected": "Garderie Le Meunier"
+ },
+ {
+  "kind": "exact",
+  "query": "Loris Restaurant",
+  "expected_id": 177,
+  "expected": "Loris Restaurant"
+ },
+ {
+  "kind": "exact",
+  "query": "Antonine International School",
+  "expected_id": 258,
+  "expected": "Antonine International School"
+ },
+ {
+  "kind": "exact",
+  "query": "Moor Chocolate Factory",
+  "expected_id": 42,
+  "expected": "Moor Chocolate Factory"
+ },
+ {
+  "kind": "exact",
+  "query": "Collège de la Sainte Famille Française",
+  "expected_id": 249,
+  "expected": "Collège de la Sainte Famille Française"
+ },
+ {
+  "kind": "exact",
+  "query": "AtaBuild Lebanon Luxury Real Estate",
+  "expected_id": 370,
+  "expected": "AtaBuild Lebanon Luxury Real Estate"
+ },
+ {
+  "kind": "exact",
+  "query": "Iman High School",
+  "expected_id": 251,
+  "expected": "Iman High School"
+ },
+ {
+  "kind": "legal",
+  "query": "LESBG Loueizeh Baabda SAL",
+  "expected_id": 260,
+  "expected": "LESBG Loueizeh Baabda"
+ },
+ {
+  "kind": "legal",
+  "query": "Mike iStore SAL",
+  "expected_id": 400,
+  "expected": "Mike iStore"
+ },
+ {
+  "kind": "legal",
+  "query": "Hajj Medical Center-Medical & Dental Clinics Naccache - Dr. Marcel Hajj, Dr. Gregory Hage (Allergy-Diet-Fat Free-Exosome) SAL",
+  "expected_id": 354,
+  "expected": "Hajj Medical Center-Medical & Dental Clinics Naccache - Dr. Marcel Hajj, Dr. Gregory Hage (Allergy-Diet-Fat Free-Exosome)"
+ },
+ {
+  "kind": "legal",
+  "query": "Copharma Lebanon SAL",
+  "expected_id": 312,
+  "expected": "Copharma Lebanon"
+ },
+ {
+  "kind": "legal",
+  "query": "Marina Frozen Fries SAL",
+  "expected_id": 12,
+  "expected": "Marina Frozen Fries شركة مارينا للبطاطا المجلدة"
+ },
+ {
+  "kind": "legal",
+  "query": "ESA Business School SAL",
+  "expected_id": 246,
+  "expected": "ESA Business School"
+ },
+ {
+  "kind": "legal",
+  "query": "Ferragamo SAL",
+  "expected_id": 280,
+  "expected": "Ferragamo"
+ },
+ {
+  "kind": "legal",
+  "query": "Balamand Village SAL",
+  "expected_id": 366,
+  "expected": "Balamand Village"
+ },
+ {
+  "kind": "brand",
+  "query": "Al-Hayat",
+  "expected_id": 257,
+  "expected": "Al-Hayat International School"
+ },
+ {
+  "kind": "brand",
+  "query": "Canadian",
+  "expected_id": 128,
+  "expected": "Lebanese Canadian University"
+ },
+ {
+  "kind": "brand",
+  "query": "Magic Carpet",
+  "expected_id": 323,
+  "expected": "Magic Carpet Liban"
+ },
+ {
+  "kind": "brand",
+  "query": "Eye Optical",
+  "expected_id": 360,
+  "expected": "Eye Style Optical Shop"
+ },
+ {
+  "kind": "brand",
+  "query": "Btina",
+  "expected_id": 250,
+  "expected": "College Saint-Elie Btina"
+ },
+ {
+  "kind": "brand",
+  "query": "ACT",
+  "expected_id": 256,
+  "expected": "ACT College ACTC.Center مركز تقنيات المعلوماتية المتطورة"
+ },
+ {
+  "kind": "brand",
+  "query": "Rami",
+  "expected_id": 170,
+  "expected": "Rami Hotel"
+ },
+ {
+  "kind": "brand",
+  "query": "Arabia",
+  "expected_id": 294,
+  "expected": "Arabia Insurance Company"
+ },
+ {
+  "kind": "arabic",
+  "query": "بنك بيمو",
+  "expected_id": 413,
+  "expected": "بنك بيمو"
+ },
+ {
+  "kind": "arabic",
+  "query": "البنك التجاري للشرق الأدنى",
+  "expected_id": 410,
+  "expected": "البنك التجاري للشرق الأدنى"
+ },
+ {
+  "kind": "arabic",
+  "query": "فيدلتي انشورنس اندريانشورنس كومباني ش.م.ل",
+  "expected_id": 297,
+  "expected": "Fidelity Assurance and Reinsurance"
+ },
+ {
+  "kind": "arabic",
+  "query": "مكتب مريم حيدر للمحاسبة",
+  "expected_id": 425,
+  "expected": "Mariam Haidar Accounting Office مكتب مريم حيدر للمحاسبة"
+ },
+ {
+  "kind": "french",
+  "query": "Partners Assurances",
+  "expected_id": 296,
+  "expected": "Partners Insurance"
+ },
+ {
+  "kind": "french",
+  "query": "Lancaster Tamar Hôtel",
+  "expected_id": 183,
+  "expected": "Lancaster Tamar Hotel"
+ },
+ {
+  "kind": "french",
+  "query": "Lycee santa maria Ecole",
+  "expected_id": 266,
+  "expected": "Lycee santa maria school"
+ },
+ {
+  "kind": "french",
+  "query": "N-Jam Music Ecole",
+  "expected_id": 231,
+  "expected": "N-Jam Music School"
+ },
+ {
+  "kind": "french",
+  "query": "Cedrus Banque Dora Branch",
+  "expected_id": 421,
+  "expected": "Cedrus Bank Dora Branch"
+ },
+ {
+  "kind": "french",
+  "query": "Central Banque Real Estate",
+  "expected_id": 424,
+  "expected": "Central Bank Real Estate"
+ },
+ {
+  "kind": "french",
+  "query": "Herro Group Assurances Consultants",
+  "expected_id": 429,
+  "expected": "Herro Group Insurance Consultants"
+ },
+ {
+  "kind": "french",
+  "query": "Securité Insurance",
+  "expected_id": 428,
+  "expected": "Securité Assurance"
+ },
+ {
+  "kind": "domain",
+  "query": "calzedonia.com",
+  "expected_id": 279,
+  "expected": "Calzedonia"
+ },
+ {
+  "kind": "domain",
+  "query": "vending-lb.com",
+  "expected_id": 340,
+  "expected": "Mega Vending SARL - Lebanon"
+ },
+ {
+  "kind": "domain",
+  "query": "holmedgroup.com",
+  "expected_id": 309,
+  "expected": "Holmed Group"
+ },
+ {
+  "kind": "domain",
+  "query": "nadadebs.com",
+  "expected_id": 102,
+  "expected": "Nada Debs"
+ },
+ {
+  "kind": "domain",
+  "query": "ayoubcomputers.com",
+  "expected_id": 275,
+  "expected": "Ayoub Computers"
+ },
+ {
+  "kind": "domain",
+  "query": "balamand.edu.lb",
+  "expected_id": 263,
+  "expected": "University of Balamand"
+ },
+ {
+  "kind": "domain",
+  "query": "kissproofbeirut.com",
+  "expected_id": 192,
+  "expected": "Kissproof Beirut"
+ },
+ {
+  "kind": "domain",
+  "query": "netcoceramictiles.com",
+  "expected_id": 93,
+  "expected": "Netco ceramic tiles"
+ },
+ {
+  "kind": "url",
+  "query": "https://halwany.com/about",
+  "expected_id": 342,
+  "expected": "HCP - Halwany Consumer Products sal"
+ },
+ {
+  "kind": "url",
+  "query": "https://boutiques.valentino.com/about",
+  "expected_id": 278,
+  "expected": "Valentino"
+ },
+ {
+  "kind": "url",
+  "query": "https://lindachocolate.com/about",
+  "expected_id": 40,
+  "expected": "Linda Chocolate Factory"
+ },
+ {
+  "kind": "url",
+  "query": "https://marmikhaelvillage.com/about",
+  "expected_id": 371,
+  "expected": "Mar Mikhael Village"
+ },
+ {
+  "kind": "url",
+  "query": "https://expeditors.com/about",
+  "expected_id": 381,
+  "expected": "Expeditors"
+ },
+ {
+  "kind": "url",
+  "query": "https://alnajjarmills.com/about",
+  "expected_id": 334,
+  "expected": "Najjar Foods"
+ },
+ {
+  "kind": "partial",
+  "query": "Rawabi Chatura",
+  "expected_id": 26,
+  "expected": "Rawabi Chatura - Halwani"
+ },
+ {
+  "kind": "partial",
+  "query": "Center for",
+  "expected_id": 344,
+  "expected": "Center for Strategic Studies"
+ },
+ {
+  "kind": "partial",
+  "query": "Consulting Center",
+  "expected_id": 346,
+  "expected": "Consulting Center for Studies and Documentation"
+ },
+ {
+  "kind": "partial",
+  "query": "CODERS® -",
+  "expected_id": 328,
+  "expected": "CODERS® - ERP systems and solutions - Microsoft Dynamics - Microsoft Gold Partner"
+ },
+ {
+  "kind": "partial",
+  "query": "A S",
+  "expected_id": 380,
+  "expected": "A S L - Air Sea Land"
+ },
+ {
+  "kind": "partial",
+  "query": "Koub /",
+  "expected_id": 119,
+  "expected": "Koub / Golden Glass"
+ },
+ {
+  "kind": "partial",
+  "query": "El FIL",
+  "expected_id": 374,
+  "expected": "El FIL Shipping SAL"
+ },
+ {
+  "kind": "partial",
+  "query": "The Net",
+  "expected_id": 373,
+  "expected": "The Net Global"
+ },
+ {
+  "kind": "typo",
+  "query": "SNA Lbanon",
+  "expected_id": 298,
+  "expected": "SNA Lebanon"
+ },
+ {
+  "kind": "typo",
+  "query": "Estwood Schools",
+  "expected_id": 242,
+  "expected": "Eastwood Schools"
+ },
+ {
+  "kind": "typo",
+  "query": "Montelybano SAL",
+  "expected_id": 369,
+  "expected": "Montelibano SAL"
+ },
+ {
+  "kind": "typo",
+  "query": "Verge Technologyes",
+  "expected_id": 332,
+  "expected": "Verge Technologies"
+ },
+ {
+  "kind": "typo",
+  "query": "S-Gestyon",
+  "expected_id": 368,
+  "expected": "S-Gestion"
+ },
+ {
+  "kind": "typo",
+  "query": "Omrs Meat",
+  "expected_id": 30,
+  "expected": "Omars Meat"
+ },
+ {
+  "kind": "typo",
+  "query": "Ricki",
+  "expected_id": 392,
+  "expected": "Ricky"
+ },
+ {
+  "kind": "typo",
+  "query": "Rababy Optycal",
+  "expected_id": 362,
+  "expected": "Rababy Optical"
+ },
+ {
+  "kind": "typo",
+  "query": "Caraty Agency",
+  "expected_id": 302,
+  "expected": "Carati Agency"
+ },
+ {
+  "kind": "typo",
+  "query": "CSCBnk SAL",
+  "expected_id": 293,
+  "expected": "CSCBank SAL"
+ },
+ {
+  "kind": "natural",
+  "query": "school called AUT in Byblos (Jbeil)",
+  "expected_id": 239,
+  "expected": "AUT"
+ },
+ {
+  "kind": "natural",
+  "query": "bank called Ibdaa Microfinance in Beirut",
+  "expected_id": 426,
+  "expected": "Ibdaa Microfinance"
+ },
+ {
+  "kind": "natural",
+  "query": "hotel called Mazaj Restaurant in Zahle",
+  "expected_id": 179,
+  "expected": "Mazaj Restaurant"
+ },
+ {
+  "kind": "natural",
+  "query": "car dealer called Lamborghini Beirut in Beirut",
+  "expected_id": 382,
+  "expected": "Lamborghini Beirut"
+ },
+ {
+  "kind": "natural",
+  "query": "telecom company called Atcell in عمروسية الشويفات",
+  "expected_id": 397,
+  "expected": "Atcell"
+ },
+ {
+  "kind": "natural",
+  "query": "school called LaMi Conservatoire in قبيات",
+  "expected_id": 248,
+  "expected": "LaMi Conservatoire"
+ },
+ {
+  "kind": "natural",
+  "query": "technology company called BMB in Beirut",
+  "expected_id": 324,
+  "expected": "BMB"
+ },
+ {
+  "kind": "natural",
+  "query": "bank called Creditbank in Beirut",
+  "expected_id": 415,
+  "expected": "Creditbank"
+ },
+ {
+  "kind": "natural",
+  "query": "insurance company called Lions Agency in Beirut",
+  "expected_id": 299,
+  "expected": "Lions Agency"
+ },
+ {
+  "kind": "natural",
+  "query": "logistics company called Tilia Express in Tripoli",
+  "expected_id": 377,
+  "expected": "Tilia Express"
+ },
+ {
+  "kind": "natural",
+  "query": "telecom company called Cell And More in قبة الشويفات",
+  "expected_id": 399,
+  "expected": "Cell And More"
+ },
+ {
+  "kind": "natural",
+  "query": "store called Kiko Milano in Beirut",
+  "expected_id": 281,
+  "expected": "Kiko Milano"
+ },
+ {
+  "kind": "natural",
+  "query": "distributor called Exotica Nursery in Jounieh",
+  "expected_id": 335,
+  "expected": "Exotica Nursery"
+ },
+ {
+  "kind": "natural",
+  "query": "bank called Western Union in منصورية",
+  "expected_id": 430,
+  "expected": "Western Union"
+ },
+ {
+  "kind": "brand_country",
+  "query": "Indian Motorcycle Lebanon",
+  "expected_id": 389,
+  "expected": "Indian Motorcycle"
+ },
+ {
+  "kind": "brand_country",
+  "query": "ATWI Automobile Lebanon",
+  "expected_id": 385,
+  "expected": "ATWI Automobile"
+ },
+ {
+  "kind": "brand_country",
+  "query": "Kova coffee Lebanon",
+  "expected_id": 5,
+  "expected": "Kova coffee"
+ },
+ {
+  "kind": "brand_country",
+  "query": "Dar al-Mashari' Lebanon",
+  "expected_id": 352,
+  "expected": "Dar al-Mashari'"
+ },
+ {
+  "kind": "brand_country",
+  "query": "International College Lebanon",
+  "expected_id": 269,
+  "expected": "International College"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Linkers Insurance Brokers",
+  "expected_id": null,
+  "expected": "Linkers Insurance Brokers",
+  "source": "icc_register"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Robinson Group",
+  "expected_id": null,
+  "expected": "Robinson Group SARL",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "H - Holding",
+  "expected_id": null,
+  "expected": "H - Holding",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Social Enterprise Cluster SAL (DBA M Social Catering)",
+  "expected_id": null,
+  "expected": "Social Enterprise Cluster SAL (DBA M Social Catering)",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "North Insurance",
+  "expected_id": null,
+  "expected": "North Insurance SAL",
+  "source": "icc_register"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "HODICO",
+  "expected_id": null,
+  "expected": "HODICO S.A.L",
+  "source": "gleif"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Fonderies Ohannes H. Kassardjian",
+  "expected_id": null,
+  "expected": "Fonderies Ohannes H. Kassardjian SAL",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "MED PLUS",
+  "expected_id": null,
+  "expected": "MED PLUS S.A.L.",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Mediane",
+  "expected_id": null,
+  "expected": "Mediane sarl",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Kiss the Spoon",
+  "expected_id": null,
+  "expected": "Kiss the Spoon",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Saxon",
+  "expected_id": null,
+  "expected": "Saxon",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Cedar’s Premium Food & Beverage",
+  "expected_id": null,
+  "expected": "Cedar’s Premium Food & Beverage s.a.l",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Taha Motors",
+  "expected_id": null,
+  "expected": "Taha Motors",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Nasco Lebanon S.A.L Insurance Brokers.",
+  "expected_id": null,
+  "expected": "Nasco Lebanon S.A.L Insurance Brokers.",
+  "source": "icc_register"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Industrial Kingdom",
+  "expected_id": null,
+  "expected": "Industrial Kingdom S.A.R.L.",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "I.T.N Insurance Team Network",
+  "expected_id": null,
+  "expected": "I.T.N Insurance Team Network",
+  "source": "icc_register"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Ahlak",
+  "expected_id": null,
+  "expected": "Ahlak",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Office Technique de Realisations Industrielles Oteri",
+  "expected_id": null,
+  "expected": "Office Technique de Realisations Industrielles Oteri sal",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Zee Inox",
+  "expected_id": null,
+  "expected": "Zee Inox sal",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Sky Leaders",
+  "expected_id": null,
+  "expected": "Sky Leaders S.A.R.L",
+  "source": "icc_register"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "company called Khaled Foundation",
+  "expected_id": null,
+  "expected": "Khaled Foundation",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "company called MALIA HOLDING",
+  "expected_id": null,
+  "expected": "MALIA HOLDING S.A.L.",
+  "source": "gleif"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "insurance company called Services Insurance & Consluting Merhii. Co (SITCO)",
+  "expected_id": null,
+  "expected": "Services Insurance & Consluting Merhii. Co (SITCO) S.A.R.L",
+  "source": "icc_register"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "company called Next Level",
+  "expected_id": null,
+  "expected": "Next Level",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "company called Arch Trust",
+  "expected_id": null,
+  "expected": "Arch Trust",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "company called Mounit Em Dib",
+  "expected_id": null,
+  "expected": "Mounit Em Dib",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "factory called Debbas Industries",
+  "expected_id": null,
+  "expected": "Debbas Industries S.A.L.",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "factory called EBIZPRODUCTION",
+  "expected_id": null,
+  "expected": "EBIZPRODUCTION",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "company called Francois Farage",
+  "expected_id": null,
+  "expected": "Francois Farage",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "company called Hassan Yassin",
+  "expected_id": null,
+  "expected": "Hassan Yassin",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_typo",
+  "query": "Two Btter",
+  "expected_id": null,
+  "expected": "Two Better",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "corpus_typo",
+  "query": "Al Safa for Import & Export & Trade S..R.L",
+  "expected_id": null,
+  "expected": "Al Safa for Import & Export & Trade S.A.R.L",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "corpus_typo",
+  "query": "Hachem Industry & Trading Group (HINTRG)",
+  "expected_id": null,
+  "expected": "Hachem Industry & Trading Group (HINTRAG)",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "corpus_typo",
+  "query": "Fasyla Fund",
+  "expected_id": null,
+  "expected": "Fasila Fund",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_typo",
+  "query": "SAS Sports Academi School",
+  "expected_id": null,
+  "expected": "SAS Sports Academy School",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "احمد ديب عواد - العميد",
+  "expected_id": null,
+  "expected": "احمد ديب عواد - العميد",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "غافكو ش.م.م",
+  "expected_id": null,
+  "expected": "غافكو ش.م.م",
+  "source": "lcs_contractors"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "شركة منار للتعهد والتجارة ش.م.م",
+  "expected_id": null,
+  "expected": "شركة منار للتعهد والتجارة ش.م.م",
+  "source": "lcs_contractors"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "شركة التكنولوجيا لصناعات الالمنيوم الوتكس 2000 ش.م.ل.",
+  "expected_id": null,
+  "expected": "شركة التكنولوجيا لصناعات الالمنيوم الوتكس 2000 ش.م.ل.",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "شركة التأهيل ش م م",
+  "expected_id": null,
+  "expected": "شركة التأهيل ش م م",
+  "source": "lcs_contractors"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "اعمار الشحار- فيصل علي مصلح",
+  "expected_id": null,
+  "expected": "اعمار الشحار- فيصل علي مصلح",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "ضاهر ميشال الهبر",
+  "expected_id": null,
+  "expected": "ضاهر ميشال الهبر",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "حبيب وابراهيم عبد المجيد صباغ مؤسسة حلويات صباغ",
+  "expected_id": null,
+  "expected": "حبيب وابراهيم عبد المجيد صباغ مؤسسة حلويات صباغ",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "مصنع المهندس الياس عيد",
+  "expected_id": null,
+  "expected": "مصنع المهندس الياس عيد",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "map_name",
+  "query": "محلات أبو علي غزال لجميع أنواع الأحذية الأوروبية",
+  "expected_id": null,
+  "expected": "محلات أبو علي غزال لجميع أنواع الأحذية الأوروبية",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "قهوة عالمفرق",
+  "expected_id": null,
+  "expected": "قهوة عالمفرق",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Makhzoumi Foundation",
+  "expected_id": null,
+  "expected": "Makhzoumi Foundation",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "روضة جبيل الرسمية",
+  "expected_id": null,
+  "expected": "روضة جبيل الرسمية",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Dr wissam haj ali",
+  "expected_id": null,
+  "expected": "Dr wissam haj ali",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "M.R Water Treatment System",
+  "expected_id": null,
+  "expected": "M.R Water Treatment System",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "SkyNews Arabia",
+  "expected_id": null,
+  "expected": "SkyNews Arabia",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Sawt El Mada",
+  "expected_id": null,
+  "expected": "Sawt El Mada",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Khorab el Haouch",
+  "expected_id": null,
+  "expected": "Khorab el Haouch",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Phoenicia Clinic",
+  "expected_id": null,
+  "expected": "Phoenicia Clinic",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Table D'Or Events",
+  "expected_id": null,
+  "expected": "Table D'Or Events",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Douma Palace",
+  "expected_id": null,
+  "expected": "Douma Palace",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "مدرسة ابو بكر الصديق",
+  "expected_id": null,
+  "expected": "مدرسة ابو بكر الصديق",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Island Gallery",
+  "expected_id": null,
+  "expected": "Island Gallery",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Salon Bilal Fouani",
+  "expected_id": null,
+  "expected": "Salon Bilal Fouani",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Al Capone in Saida",
+  "expected_id": null,
+  "expected": "Al Capone",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Cafe Safwan in Beirut",
+  "expected_id": null,
+  "expected": "Cafe Safwan",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Dr.Ghassan Chehab Dental Clinic in Beirut",
+  "expected_id": null,
+  "expected": "Dr.Ghassan Chehab Dental Clinic",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Deïr Fâssa in Assia",
+  "expected_id": null,
+  "expected": "Deïr Fâssa",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Malek International Group for Engineering & Development in Baalbek",
+  "expected_id": null,
+  "expected": "Malek International Group for Engineering & Development",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "مركز التميُّز الثقافي لبنان الشمال in Tripoli",
+  "expected_id": null,
+  "expected": "مركز التميُّز الثقافي لبنان الشمال",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "نقابة المهندسين - بيروت in Beirut",
+  "expected_id": null,
+  "expected": "نقابة المهندسين - بيروت",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Blancheline Boutique in Byblos (Jbeil)",
+  "expected_id": null,
+  "expected": "Blancheline Boutique",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Makassed Abdul Kader Kabbani High School in Beirut",
+  "expected_id": null,
+  "expected": "Makassed Abdul Kader Kabbani High School",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Vision 1793 Apartments in Beirut",
+  "expected_id": null,
+  "expected": "Vision 1793 Apartments",
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "The Little Engineer",
+  "expected_id": null,
+  "expected": "The Little Engineer",
+  "expected_domain": "thelittleengineer.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "CCNS Lebanon",
+  "expected_id": null,
+  "expected": "CCNS Lebanon",
+  "expected_domain": "ccnsleb.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Xenotic Solutions",
+  "expected_id": null,
+  "expected": "Xenotic Solutions",
+  "expected_domain": "xenotic.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Hajj for Trading and Commerce",
+  "expected_id": null,
+  "expected": "Hajj for Trading and Commerce",
+  "expected_domain": "htc-lb.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Phoenicia Culinary Institute",
+  "expected_id": null,
+  "expected": "Phoenicia Culinary Institute",
+  "expected_domain": "phoenicia-culinary.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Aida Homemade catering",
+  "expected_id": null,
+  "expected": "Aida Homemade catering",
+  "expected_domain": "aidacatering.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Dr Kamel Abou Zahr",
+  "expected_id": null,
+  "expected": "Dr Kamel Abou Zahr",
+  "expected_domain": "plasticsa.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Bakhos Trading",
+  "expected_id": null,
+  "expected": "Bakhos Trading SAL",
+  "expected_domain": "bakhostrading.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Dr. Ama Sadaka",
+  "expected_id": null,
+  "expected": "Dr. Ama Sadaka",
+  "expected_domain": "amasadaka.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Scales Technology",
+  "expected_id": null,
+  "expected": "Scales Technology",
+  "expected_domain": "mtst.com.lb",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "دار العطاء للمسنين",
+  "expected_id": null,
+  "expected": "دار العطاء للمسنين",
+  "expected_domain": "jieh.gov.lb",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "مؤسسة شريف العلي للتجارة العامة",
+  "expected_id": null,
+  "expected": "مؤسسة شريف العلي للتجارة العامة",
+  "expected_domain": "charifal.ali.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Nesma and Partners",
+  "expected_id": null,
+  "expected": "Nesma and Partners",
+  "expected_domain": "nesma-partners.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Almadar Academy",
+  "expected_id": null,
+  "expected": "Almadar Academy",
+  "expected_domain": "almadaracademy.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Vitality Clinic",
+  "expected_id": null,
+  "expected": "Vitality Clinic",
+  "expected_domain": "vitalityclinic.me",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "WeCare Cleaning Services - Lebanon",
+  "expected_id": null,
+  "expected": "WeCare Cleaning Services - Lebanon",
+  "expected_domain": "wecarelb.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Dr Imad Ghantous Urology and Men's Health Clinics",
+  "expected_id": null,
+  "expected": "Dr Imad Ghantous Urology and Men's Health Clinics",
+  "expected_domain": "urologyclinic-lb.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "InterContinental Le Vendome",
+  "expected_id": null,
+  "expected": "InterContinental Le Vendome",
+  "expected_domain": "intercontinental.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Piaff Boutique",
+  "expected_id": null,
+  "expected": "Piaff Boutique",
+  "expected_domain": "piaffboutique.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Eid Travel",
+  "expected_id": null,
+  "expected": "Eid Travel",
+  "expected_domain": "eidtravel.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "White Smile Dental Clinic",
+  "expected_id": null,
+  "expected": "White Smile Dental Clinic",
+  "expected_domain": "drahmad84.github.io",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Al-Fayhaa Association",
+  "expected_id": null,
+  "expected": "Al-Fayhaa Association",
+  "expected_domain": "al-fayhaa.org",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "مركز باء للدراسات",
+  "expected_id": null,
+  "expected": "مركز باء للدراسات",
+  "expected_domain": "islamona.center",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "GMT Travel & Tourism",
+  "expected_id": null,
+  "expected": "GMT Travel & Tourism",
+  "expected_domain": "gmttravel.co",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Vibes Academy",
+  "expected_id": null,
+  "expected": "Vibes Academy",
+  "expected_domain": "vibestheacademy.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Lycee",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Agency",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Dental",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Chocolate",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Lebanon",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Village",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Optical",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Factory",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "nonexistent",
+  "query": "Zorvek Plastics",
+  "expected_id": null,
+  "expected": "not_found"
+ },
+ {
+  "kind": "nonexistent",
+  "query": "Talbrinex Consulting",
+  "expected_id": null,
+  "expected": "not_found"
+ },
+ {
+  "kind": "nonexistent",
+  "query": "Kelmidor Trading",
+  "expected_id": null,
+  "expected": "not_found"
+ },
+ {
+  "kind": "nonexistent",
+  "query": "Ulmerak Builders",
+  "expected_id": null,
+  "expected": "not_found"
+ },
+ {
+  "kind": "nonexistent",
+  "query": "Quintrel Logistics",
+  "expected_id": null,
+  "expected": "not_found"
+ },
+ {
+  "kind": "nonexistent",
+  "query": "Prixolan Textiles",
+  "expected_id": null,
+  "expected": "not_found"
+ },
+ {
+  "kind": "nonexistent",
+  "query": "Mavrosi Foods",
+  "expected_id": null,
+  "expected": "not_found"
+ }
+]

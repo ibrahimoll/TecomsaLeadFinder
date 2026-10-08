@@ -159,13 +159,31 @@ salesperson, the matching CRM records and the matching Odoo contacts.
    "Plastic packaging manufacturer"), a city or governorate (or all of Lebanon) and how many new companies you want.
 2. Click **Find companies.** The search runs in the background; the page shows each stage as the backend reports it
    (downloading/using the Overture data, matches found, companies examined, new / known / protected / duplicates).
-3. Every candidate is normalised and checked, in this order: duplicate within the search → same source record
-   already linked to a company → deterministic match against LeadFinder companies (website domain, phone, email
-   domain, name + city, name) → TECOMSA's Odoo contacts and CRM records. Only companies with no match are saved,
-   with their source and source id. Nothing is ever created in the CRM.
-4. The results open on **New**; the other tabs show companies already in LeadFinder, those protected by Odoo
-   (with the reason) and duplicates. Searches stay in **Search history**; running the same search again adds nothing
-   twice. Admins can delete a search, optionally with the companies only it added.
+3. Every record goes through the Phase 1 quality checks (`backend/app/services/discovery/quality.py`):
+   - **Closed:** rejected only on explicit source evidence (Overture `permanently_closed`, OSM `disused`/`abandoned`/
+     `end_date`, "(closed)" in the name). Unknown status is not evidence.
+   - **Industry relevance:** structured category first, name last. Restaurants, cafes, supermarkets, grocery stores,
+     caterers and delivery never count as manufacturers; when their name looks like a match they are kept as
+     *Wrong industry* with the reason.
+   - **Branches:** map sources list places, not companies. Records sharing a company website, phone, email domain,
+     the source's brand, or the same name once a location suffix is removed ("McDonald's Hamra", "Wooden Bakery -
+     Adma") become **one company with several locations**. A suffix is removed only when another record of the
+     search carries the root name *and* the suffix is clearly a location. Similar names, a common word as root,
+     different company websites, different operators (franchisees) or legal forms (SAL / SARL) stay separate.
+   - **Discovery confidence** High / Medium / Low from the evidence (category, website, phone, address, industrial
+     site, independent sources, locations). It is not company size, fit or sales readiness.
+   - Then the LeadFinder and Odoo checks. Odoo protects only on strong evidence (same partner, domain, phone, or same
+     name in the same city); a name-only or similar-name match is a *Possible Odoo match* for the user to inspect.
+4. Only High/Medium candidates with no match are saved, with their source records and the evidence. The requested
+   number is a target: if only 32 credible candidates exist, 32 are returned, never weaker ones. Nothing is created in
+   the CRM.
+5. The results show **one row per company** with its number of locations ("26 locations · Beirut + other
+   locations"); the company page has a **Locations** tab. The search summary separates places found, unique
+   companies, branches consolidated and duplicate listings. The results open on **Credible candidates**; other tabs show low-confidence records, companies already in
+   LeadFinder, protected and possible Odoo matches, duplicates & branches, and rejections (closed, wrong industry),
+   each with its reason. Searches stay in **Search history**; running the same search again adds nothing twice (new
+   locations are added to the existing company). Admins can delete a search, optionally with the companies only it
+   added.
 
 Sources and access (no accounts, no keys, no paid services):
 
@@ -173,8 +191,9 @@ Sources and access (no accounts, no keys, no paid services):
   the country are read over HTTPS with DuckDB, filtered by bounding box and country code. The Lebanon extract
   (~50,000 places, ~3 MB) is cached per release in `DISCOVERY_CACHE_DIR`; the first search of a release takes about
   a minute, later searches about a second.
-- **OpenStreetMap** (Overpass API): one query per country, cached for 24 h. If Overpass is busy the search still
-  completes from Overture and is marked *Partially completed*.
+- **OpenStreetMap** (Geofabrik country extract): the ~50 MB Lebanon file is downloaded, the named
+  industrial/business places are extracted with DuckDB, and only those are cached for a week. If the download
+  fails the search still completes from Overture and is marked *Partially completed*.
 
 Industries are mapped to source categories and name keywords in
 `backend/app/services/discovery/industries.py`; cities and governorates in `geography.py`. Place data ©
@@ -308,26 +327,57 @@ All rules are enforced by the backend. The frontend only hides what a role canno
   organisations with the same normalised name are treated as the same company.
 - "Won" is inferred from a stage name containing "Won" or a probability of 100%, because Odoo exports have no explicit
   won flag.
-- No Lusha, AI qualification, website research or decision-maker search. Lusha usage stays 0.
+- No Lusha or decision-maker search. Lusha usage stays 0. Website research reads HTML only (no JavaScript),
+  English/French text rules, and never bypasses bot protection.
 - Discovery is limited by what the free sources contain. Overture has no specific "food manufacturing" category for
   Lebanon, so industries are matched by category + name keywords: companies whose names say nothing about what they
   make can be missed. Many localities are in Arabic and are shown as the source gives them.
+- Phase 1 cannot know company size, revenue, employees, ERP budget or fit: confidence only measures how well the
+  sources support a company being real and in the industry. Websites are not visited, so a dead or for-sale website
+  still counts as "website found"; closure is only known when a source says so (Overture marks almost no Lebanese
+  place closed). Overture files some dairy and roastery *shops* under producer categories; without their own website
+  these stay Low confidence.
 - Governorate boundaries are approximated with boxes; cities with a radius around the centre.
 - Discovery runs in a background thread of the backend process; a run interrupted by a restart is marked failed or
   partially completed at the next start.
 - Campaigns can only move between `DRAFT`, `READY` and `CANCELLED`.
 - The login rate limiter is in-memory per backend process.
 
-## 13. Phase 2 readiness
+## 13. Company research and qualification (Phase 2)
 
-- **Discovered companies:** every discovered company has its website (when the source has one), category,
-  location and source provenance (`company_sources`), ready for website research and AI qualification.
-- **Protection layer:** `relationship_service` answers "does TECOMSA already know this company?" with a status, reason
-  and owner. Discovery already calls it for every candidate; qualification should too.
-- **Matching:** `matching_service` provides the signals and scores. A future Odoo API sync can write into the same
-  `crm_leads` / `odoo_contacts` tables and reuse the same recalculation.
-- **Sources:** a new discovery source is one provider class returning `Candidate`s
-  (`backend/app/services/discovery/base.py`); normalisation, dedupe, protection and saving are shared.
-- **Intelligence fields:** the company profile's Intelligence tab (Odoo fit, Frinzo fit, research, decision-makers,
-  AI reasoning) is ready to populate.
-- **Owners:** salespeople can be linked to LeadFinder users, which enables lead routing to the relationship owner.
+Open a company and use **Research company** on its *Intelligence* tab, or select several companies on the
+*Companies* page and use **Research selected**. LeadFinder checks the website, reads a few of its pages
+(about, products, factory, locations, export, careers, contact), extracts facts with their source URLs, scores the
+Odoo and Frinzo fit with a fixed rubric and, with `AI_PROVIDER=claude`, has Claude review the evidence (it can
+reject unsupported facts and explain, never set a score). Results appear under **Qualified leads**.
+
+- `AI_PROVIDER=claude` needs `AI_API_KEY` (or the Anthropic SDK's `ANTHROPIC_API_KEY`). Without a key the research
+  is kept and the run ends *Qualification failed*; retry after setting the key. `AI_PROVIDER=rules` qualifies with
+  the rubric alone, at no cost.
+- Only companies already in LeadFinder can be researched, never ones TECOMSA's Odoo protects. Unchanged websites
+  reuse the previous qualification; *Refresh research* asks the AI again.
+- Nothing is estimated without evidence: no revenue, headcount or company size unless a page states it. A dead or
+  parked website is shown as a risk, never as "company closed".
+- No paid enrichment (Lusha, Apollo, Apify...), no decision-maker search, no Odoo opportunity creation.
+
+## 14. Decision-makers (Phase 3)
+
+On a qualified company's *Decision makers* tab (or *Find decision makers* for selected companies),
+LeadFinder reads the company website's management/team pages and, when `APOLLO_API_KEY` is set,
+runs Apollo's credit-free People Search by company domain and target titles. People are merged
+into one record per person, scored 0-100 (employer, role relevance, seniority, sources,
+freshness) and ranked into primary / alternative Odoo and Frinzo contacts, each with "why".
+
+Emails and phones are never revealed automatically. *Reveal work email*, *Reveal phone* and
+*Try Lusha* each ask for confirmation with the expected credit cost, require
+`PAID_ENRICHMENT_ENABLED=true`, respect `APOLLO_MONTHLY_CREDIT_LIMIT` / `LUSHA_MONTHLY_CREDIT_LIMIT`,
+and never buy data LeadFinder already has. Apollo phone numbers need a public
+`APOLLO_WEBHOOK_BASE_URL`. No outreach, sequences or Odoo syncing.
+
+### Deferred
+
+- **Real TECOMSA Odoo validation — pending CEO/Odoo access.** Odoo protection logic: engineering verified with
+  fixture data. Real TECOMSA Odoo data: not yet validated.
+- **TECOMSA Engine AI** — the future replacement for Claude (`AI_PROVIDER=tecomsa`); not implemented yet.
+- Apollo and Lusha live validation — pending API keys (adapters built from the official docs and tested with mocks).
+- Automated outreach, sequences and Odoo opportunity/contact creation — later phases.

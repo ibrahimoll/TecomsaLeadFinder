@@ -1,0 +1,81 @@
+[
+  {
+    "key": "lb_government_dataset",
+    "kind": "dataset_file",
+    "label": "Official Lebanese company list (file)",
+    "enabled": false,
+    "countries": ["LB"],
+    "priority": 5,
+    "source_type": "government",
+    "quality": 90,
+    "options": {
+      "path": "storage/datasets/lb_government.csv",
+      "publisher": "Set to the issuing ministry / registry",
+      "columns": {"company_name": "Name", "registration_number": "Registration No", "city": "City",
+                  "industry": "Sector", "phone": "Phone", "website": "Website"}
+    }
+  },
+  {
+    "key": "licensed_directory",
+    "kind": "dataset_file",
+    "label": "Licensed business directory (file / feed)",
+    "enabled": false,
+    "countries": ["LB"],
+    "priority": 8,
+    "source_type": "licensed_directory",
+    "quality": 85,
+    "options": {
+      "path": "storage/datasets/licensed_directory.csv",
+      "columns": {"company_name": "Company", "external_id": "Id", "city": "City", "industry": "Activity",
+                  "phone": "Phone", "email": "Email", "website": "Website", "address": "Address"}
+    }
+  },
+  {
+    "key": "wikidata",
+    "kind": "wikidata",
+    "label": "Wikidata",
+    "enabled": true,
+    "countries": ["LB"],
+    "priority": 10,
+    "source_type": "open_dataset",
+    "quality": 75,
+    "requests_per_minute": 5,
+    "options": {"cache_hours": 168, "timeout_seconds": 20}
+  },
+  {
+    "key": "overture",
+    "kind": "overture",
+    "label": "Overture Maps Places",
+    "enabled": true,
+    "countries": ["LB"],
+    "priority": 20,
+    "source_type": "open_dataset",
+    "quality": 60,
+    "requests_per_minute": 10,
+    "options": {"stac_url": "https://stac.overturemaps.org/catalog.json", "release": null, "timeout_seconds": 15,
+                "catalog_hours": 24}
+  },
+  {
+    "key": "osm",
+    "kind": "osm",
+    "label": "OpenStreetMap",
+    "enabled": true,
+    "countries": ["LB"],
+    "priority": 30,
+    "source_type": "open_dataset",
+    "quality": 55,
+    "requests_per_minute": 2,
+    "options": {"download_url": "https://download.geofabrik.de", "cache_hours": 168, "timeout_seconds": 120}
+  },
+  {
+    "key": "public_web",
+    "kind": "public_web",
+    "label": "Public web search",
+    "enabled": false,
+    "countries": [],
+    "priority": 90,
+    "source_type": "public_web",
+    "quality": 30,
+    "options": {"provider": ""}
+  }
+]

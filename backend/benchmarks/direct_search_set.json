@@ -1,0 +1,607 @@
+[
+ {
+  "kind": "exact",
+  "query": "Cyberia",
+  "expected_id": 391,
+  "expected": "Cyberia"
+ },
+ {
+  "kind": "exact",
+  "query": "Spacetech",
+  "expected_id": 326,
+  "expected": "Spacetech"
+ },
+ {
+  "kind": "exact",
+  "query": "Bassoul Heneine",
+  "expected_id": 282,
+  "expected": "Bassoul Heneine"
+ },
+ {
+  "kind": "exact",
+  "query": "Jinan University",
+  "expected_id": 255,
+  "expected": "Jinan University"
+ },
+ {
+  "kind": "exact",
+  "query": "Le Gray",
+  "expected_id": 164,
+  "expected": "Le Gray"
+ },
+ {
+  "kind": "exact",
+  "query": "Banque de Syrie et du Liban",
+  "expected_id": 286,
+  "expected": "Banque de Syrie et du Liban"
+ },
+ {
+  "kind": "exact",
+  "query": "LGB BANK",
+  "expected_id": 407,
+  "expected": "LGB BANK"
+ },
+ {
+  "kind": "exact",
+  "query": "Usines Zahar",
+  "expected_id": 339,
+  "expected": "Usines Zahar"
+ },
+ {
+  "kind": "exact",
+  "query": "Kashkha",
+  "expected_id": 271,
+  "expected": "Kashkha"
+ },
+ {
+  "kind": "exact",
+  "query": "NME Bakery Equipment",
+  "expected_id": 114,
+  "expected": "NME Bakery Equipment"
+ },
+ {
+  "kind": "exact",
+  "query": "Notre Dame Mousaitbeh",
+  "expected_id": 265,
+  "expected": "Notre Dame Mousaitbeh"
+ },
+ {
+  "kind": "exact",
+  "query": "Arope Insurance",
+  "expected_id": 301,
+  "expected": "Arope Insurance"
+ },
+ {
+  "kind": "exact",
+  "query": "Reemas Marble",
+  "expected_id": 341,
+  "expected": "Reemas Marble"
+ },
+ {
+  "kind": "exact",
+  "query": "CGE Curtain Glass",
+  "expected_id": 318,
+  "expected": "CGE Curtain Glass"
+ },
+ {
+  "kind": "exact",
+  "query": "Laboratoire du Boulevard",
+  "expected_id": 111,
+  "expected": "Laboratoire du Boulevard"
+ },
+ {
+  "kind": "exact",
+  "query": "Collège Saint Elie",
+  "expected_id": 240,
+  "expected": "Collège Saint Elie"
+ },
+ {
+  "kind": "exact",
+  "query": "Hatem Audit Firm",
+  "expected_id": 422,
+  "expected": "Hatem Audit Firm"
+ },
+ {
+  "kind": "exact",
+  "query": "Beirut International School",
+  "expected_id": 247,
+  "expected": "Beirut International School"
+ },
+ {
+  "kind": "exact",
+  "query": "Dar Al Kalam",
+  "expected_id": 347,
+  "expected": "Dar Al Kalam"
+ },
+ {
+  "kind": "exact",
+  "query": "Orjoan",
+  "expected_id": 104,
+  "expected": "Orjoan"
+ },
+ {
+  "kind": "legal",
+  "query": "NavyBits S.A.L.",
+  "expected_id": 327,
+  "expected": "NavyBits"
+ },
+ {
+  "kind": "legal",
+  "query": "Nike S.A.L.",
+  "expected_id": 273,
+  "expected": "Nike"
+ },
+ {
+  "kind": "legal",
+  "query": "Dergham & Hamdar associates S.A.L.",
+  "expected_id": 322,
+  "expected": "Dergham & Hamdar associates"
+ },
+ {
+  "kind": "legal",
+  "query": "Goodwill International School S.A.L.",
+  "expected_id": 233,
+  "expected": "Goodwill International School"
+ },
+ {
+  "kind": "legal",
+  "query": "BLOM Bank S.A.L.",
+  "expected_id": 290,
+  "expected": "BLOM Bank"
+ },
+ {
+  "kind": "legal",
+  "query": "Pharmacy Alwies S.A.L.",
+  "expected_id": 308,
+  "expected": "Pharmacy Alwies"
+ },
+ {
+  "kind": "legal",
+  "query": "Domaine Du Rocher S.A.L.",
+  "expected_id": 365,
+  "expected": "Domaine Du Rocher"
+ },
+ {
+  "kind": "legal",
+  "query": "Birex Solutions - Lebanon S.A.L.",
+  "expected_id": 307,
+  "expected": "Birex Solutions - Lebanon"
+ },
+ {
+  "kind": "legal",
+  "query": "Hadi Akl Cosmetic Dentistry S.A.L.",
+  "expected_id": 359,
+  "expected": "Hadi Akl Cosmetic Dentistry"
+ },
+ {
+  "kind": "legal",
+  "query": "Hisham Pharmacy S.A.L.",
+  "expected_id": 313,
+  "expected": "Hisham Pharmacy"
+ },
+ {
+  "kind": "domain",
+  "query": "movenpick.accor.com",
+  "expected_id": 155,
+  "expected": "Movenpick Beirut"
+ },
+ {
+  "kind": "domain",
+  "query": "mlh.com.lb",
+  "expected_id": 358,
+  "expected": "Mount Lebanon Hospital UMC مستشفى جبل لبنان الجامعي - MLH UMC"
+ },
+ {
+  "kind": "domain",
+  "query": "arabiancargolb.com",
+  "expected_id": 376,
+  "expected": "Arabian Cargo"
+ },
+ {
+  "kind": "domain",
+  "query": "ahliahschool.edu.lb",
+  "expected_id": 235,
+  "expected": "Ahliah School"
+ },
+ {
+  "kind": "domain",
+  "query": "whitebeard.nl",
+  "expected_id": 325,
+  "expected": "WhiteBeard"
+ },
+ {
+  "kind": "url",
+  "query": "https://www.freshpharmainternational.com/en/contact-us",
+  "expected_id": 310,
+  "expected": "Fresh Pharma International s.a.l"
+ },
+ {
+  "kind": "url",
+  "query": "https://www.schmoopie-lb.com/en/contact-us",
+  "expected_id": 264,
+  "expected": "Schmoopie Learning Center"
+ },
+ {
+  "kind": "url",
+  "query": "https://www.discover-lb.com/en/contact-us",
+  "expected_id": 427,
+  "expected": "Discover Real Estate"
+ },
+ {
+  "kind": "url",
+  "query": "https://www.al-ilmiyah.com/en/contact-us",
+  "expected_id": 350,
+  "expected": "Dar Al-Kotob Al-Ilmiyah"
+ },
+ {
+  "kind": "url",
+  "query": "https://www.ramadaplazabeirut.com/en/contact-us",
+  "expected_id": 159,
+  "expected": "Ramada Plaza Hotel"
+ },
+ {
+  "kind": "arabic",
+  "query": "بنك الصناعة والعمل",
+  "expected_id": 412,
+  "expected": "بنك الصناعة والعمل"
+ },
+ {
+  "kind": "arabic",
+  "query": "محلات حمزة عزّام و أولادهُ _ صديقين",
+  "expected_id": 316,
+  "expected": "محلات حمزة عزّام و أولادهُ _ صديقين"
+ },
+ {
+  "kind": "arabic",
+  "query": "بنك البحر المتوسط ش.م.ل",
+  "expected_id": 285,
+  "expected": "Bankmed"
+ },
+ {
+  "kind": "arabic",
+  "query": "كامبرلند انشورنس اند ريانشورنس كومباني ش.م.ل",
+  "expected_id": 303,
+  "expected": "Cumberland Insurance and Reinsurance Company"
+ },
+ {
+  "kind": "arabic",
+  "query": "البنك اللبناني للتجارة ش.م.ل.",
+  "expected_id": 289,
+  "expected": "BLC bank"
+ },
+ {
+  "kind": "arabic",
+  "query": "ك اللبناني الفرنسي ش.م.ل.",
+  "expected_id": 287,
+  "expected": "Banque Libano-Française S.A.L."
+ },
+ {
+  "kind": "arabic",
+  "query": "البان وأجبان مسابكي",
+  "expected_id": 283,
+  "expected": "Laiterie Massabki - البان وأجبان مسابكي"
+ },
+ {
+  "kind": "arabic",
+  "query": "بنك الاعتماد الوطني",
+  "expected_id": 411,
+  "expected": "بنك الاعتماد الوطني"
+ },
+ {
+  "kind": "arabic",
+  "query": "مياب ش.م.ل",
+  "expected_id": 408,
+  "expected": "MEAB bank"
+ },
+ {
+  "kind": "arabic",
+  "query": "بنك بيبلوس ش.م.ل",
+  "expected_id": 291,
+  "expected": "Byblos bank"
+ },
+ {
+  "kind": "alias",
+  "query": "Investment & Capital Bank (I&C) SAL",
+  "expected_id": 414,
+  "expected": "Investment and Capital Bank"
+ },
+ {
+  "kind": "alias",
+  "query": "IBL BANK S.A.L.",
+  "expected_id": 405,
+  "expected": "Intercontinental Bank of Lebanon (IBL)"
+ },
+ {
+  "kind": "alias",
+  "query": "NATIONAL BANK OF KUWAIT (LEBANON) S.A.L.",
+  "expected_id": 418,
+  "expected": "National Bank of Kuwait"
+ },
+ {
+  "kind": "alias",
+  "query": "SODAMCO SAL",
+  "expected_id": 321,
+  "expected": "Groupna SARL (Weber - Sodamco - Sodap)"
+ },
+ {
+  "kind": "alias",
+  "query": "Investment & Capital Bank (I&C) SAL",
+  "expected_id": 403,
+  "expected": "FFA Private Bank"
+ },
+ {
+  "kind": "alias",
+  "query": "New Century Ecole",
+  "expected_id": 262,
+  "expected": "New Century School"
+ },
+ {
+  "kind": "alias",
+  "query": "Misr Liban Bank",
+  "expected_id": 288,
+  "expected": "Banque Misr Liban"
+ },
+ {
+  "kind": "alias",
+  "query": "Libanaise German University",
+  "expected_id": 244,
+  "expected": "Lebanese German University"
+ },
+ {
+  "kind": "alias",
+  "query": "Nabatieh High Ecole",
+  "expected_id": 127,
+  "expected": "Nabatieh High School"
+ },
+ {
+  "kind": "alias",
+  "query": "Kassab Hôpital",
+  "expected_id": 356,
+  "expected": "Kassab Hospital"
+ },
+ {
+  "kind": "brand",
+  "query": "Nathalie Kids",
+  "expected_id": 140,
+  "expected": "Nathalie Kids Academy"
+ },
+ {
+  "kind": "brand",
+  "query": "Philka",
+  "expected_id": 120,
+  "expected": "Philka Group"
+ },
+ {
+  "kind": "brand",
+  "query": "Karentina Governmental",
+  "expected_id": 361,
+  "expected": "Karentina Governmental Hospital"
+ },
+ {
+  "kind": "brand",
+  "query": "Makassed Islamic High",
+  "expected_id": 232,
+  "expected": "Makassed Islamic High School"
+ },
+ {
+  "kind": "brand",
+  "query": "Phoenicia Retail demo",
+  "expected_id": 2,
+  "expected": "Phoenicia Retail Group (demo)"
+ },
+ {
+  "kind": "brand",
+  "query": "American Campus",
+  "expected_id": 134,
+  "expected": "Lebanese American University Byblos Campus"
+ },
+ {
+  "kind": "brand",
+  "query": "Premiers Soins",
+  "expected_id": 305,
+  "expected": "Premiers Soins Pharmacie"
+ },
+ {
+  "kind": "brand",
+  "query": "Swiss",
+  "expected_id": 406,
+  "expected": "Lebanese Swiss Bank"
+ },
+ {
+  "kind": "brand",
+  "query": "Arab Unity Studies",
+  "expected_id": 345,
+  "expected": "Centre for Arab Unity Studies"
+ },
+ {
+  "kind": "brand",
+  "query": "Annunciation Orthodox",
+  "expected_id": 243,
+  "expected": "Beirut Annunciation Orthodox College"
+ },
+ {
+  "kind": "typo",
+  "query": "RaëdAbyllama Architects",
+  "expected_id": 315,
+  "expected": "RaëdAbillama Architects"
+ },
+ {
+  "kind": "typo",
+  "query": "Frla",
+  "expected_id": 276,
+  "expected": "Furla"
+ },
+ {
+  "kind": "typo",
+  "query": "Nspresso",
+  "expected_id": 166,
+  "expected": "Nespresso"
+ },
+ {
+  "kind": "typo",
+  "query": "Frnsabank Group",
+  "expected_id": 419,
+  "expected": "Fransabank Group"
+ },
+ {
+  "kind": "typo",
+  "query": "Premium Serve Drgstore",
+  "expected_id": 304,
+  "expected": "Premium Serve Drugstore"
+ },
+ {
+  "kind": "typo",
+  "query": "Atalyum",
+  "expected_id": 343,
+  "expected": "Atalium"
+ },
+ {
+  "kind": "typo",
+  "query": "Dar Alfaraby",
+  "expected_id": 353,
+  "expected": "Dar Alfarabi"
+ },
+ {
+  "kind": "typo",
+  "query": "Hamdan Surveiing",
+  "expected_id": 319,
+  "expected": "Hamdan Surveying"
+ },
+ {
+  "kind": "typo",
+  "query": "MobyNet",
+  "expected_id": 420,
+  "expected": "MobiNet"
+ },
+ {
+  "kind": "typo",
+  "query": "Le Petyt Gris",
+  "expected_id": 198,
+  "expected": "Le Petit Gris"
+ },
+ {
+  "kind": "group",
+  "query": "Fransabank Group",
+  "expected_id": 419,
+  "expected": "Fransabank Group"
+ },
+ {
+  "kind": "group",
+  "query": "Fransabank",
+  "expected_id": 404,
+  "expected": "Fransabank"
+ },
+ {
+  "kind": "group",
+  "query": "BLC Bank",
+  "expected_id": 289,
+  "expected": "BLC bank"
+ },
+ {
+  "kind": "group",
+  "query": "Arope Insurance",
+  "expected_id": 301,
+  "expected": "Arope Insurance"
+ },
+ {
+  "kind": "group",
+  "query": "BLOM Bank",
+  "expected_id": 290,
+  "expected": "BLOM Bank"
+ },
+ {
+  "kind": "global_brand",
+  "query": "Nike Lebanon",
+  "expected_id": 273,
+  "expected": "Nike"
+ },
+ {
+  "kind": "global_brand",
+  "query": "Radisson Blu Martinez Beirut",
+  "expected_id": 157,
+  "expected": "Radisson Blu Martinez"
+ },
+ {
+  "kind": "global_brand",
+  "query": "Movenpick Hotel Beirut",
+  "expected_id": 155,
+  "expected": "Movenpick Beirut"
+ },
+ {
+  "kind": "global_brand",
+  "query": "Chanel Beirut",
+  "expected_id": 272,
+  "expected": "Chanel"
+ },
+ {
+  "kind": "global_brand",
+  "query": "Nespresso Lebanon",
+  "expected_id": 166,
+  "expected": "Nespresso"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Nursery",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Byblos",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Glass",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Dental",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Studies",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "absent",
+  "query": "Wines of Lebanon",
+  "expected_id": null,
+  "expected": "Wines of Lebanon sal",
+  "source": "ali_members"
+ },
+ {
+  "kind": "absent",
+  "query": "Green Hill Factory",
+  "expected_id": null,
+  "expected": "Green Hill Factory",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "absent",
+  "query": "P.T.C services",
+  "expected_id": null,
+  "expected": "P.T.C services S.A.R.L",
+  "source": "lcs_contractors"
+ },
+ {
+  "kind": "absent",
+  "query": "Brighter Energy",
+  "expected_id": null,
+  "expected": "Brighter Energy",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "absent",
+  "query": "Joseph Younes Furniture & Design",
+  "expected_id": null,
+  "expected": "Joseph Younes Furniture & Design s.a.l",
+  "source": "ministry_industry"
+ }
+]

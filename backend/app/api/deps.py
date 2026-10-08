@@ -51,22 +51,6 @@ AdminUser = Annotated[User, Depends(require_roles(UserRole.ADMIN))]
 ManagerOrAdmin = Annotated[User, Depends(require_roles(UserRole.ADMIN, UserRole.SALES_MANAGER))]
 
 
-def can_import(user: User) -> bool:
-    """Admins always; Sales Managers only when MANAGERS_CAN_IMPORT is enabled."""
-    return user.role == UserRole.ADMIN or (
-        user.role == UserRole.SALES_MANAGER and get_settings().managers_can_import
-    )
-
-
-def require_importer(user: CurrentUser) -> User:
-    if not can_import(user):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "You do not have permission to run Odoo imports")
-    return user
-
-
-ImportUser = Annotated[User, Depends(require_importer)]
-
-
 def page_params(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,

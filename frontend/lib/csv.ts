@@ -2,8 +2,10 @@
 export function downloadCsv(filename: string, header: string[], rows: (string | number | null | undefined)[][]) {
   const escape = (v: string | number | null | undefined) => {
     const s = v == null ? "" : String(v);
-    // A leading = or @ (or +/- not starting a phone number) would run as an Excel formula.
-    const safe = /^(=|@|[+-](?![\d\s(]))/.test(s) ? `'${s}` : s;
+    // A leading = + - @ tab or CR can run as a spreadsheet formula (HYPERLINK, DDE...). Only values that
+    // are entirely a phone number ("+961 1 234 567") keep their first character.
+    const phone = /^\+?[\d\s().\-/]+$/.test(s);
+    const safe = /^[=+\-@\t\r]/.test(s) && !phone ? `'${s}` : s;
     return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
   };
   const text = [header, ...rows].map((r) => r.map(escape).join(",")).join("\r\n");

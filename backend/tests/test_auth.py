@@ -51,7 +51,7 @@ def test_login_is_rate_limited(anon_client, make_user):
 
 
 def test_protected_endpoints_require_authentication(anon_client):
-    for path in ("/auth/me", "/companies", "/campaigns", "/dashboard", "/users", "/audit", "/activities"):
+    for path in ("/auth/me", "/companies", "/companies/1", "/companies/1/people", "/users", "/audit"):
         assert anon_client.get(path).status_code == 401, path
 
 

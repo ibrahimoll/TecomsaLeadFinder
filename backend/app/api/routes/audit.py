@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app.api.deps import AdminUser, DbSession, Pagination
-from app.schemas.activity import AuditLogOut
+from app.schemas.audit import AuditLogOut
 from app.schemas.common import Page
 from app.services import audit_service
 from app.services.pagination import page_response

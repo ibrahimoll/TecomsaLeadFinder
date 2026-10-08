@@ -18,18 +18,19 @@ import type {
  * danger-solid (only the final confirmation of a destructive action).
  */
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "danger-solid";
-type Size = "sm" | "md";
+/** `icon`: square icon-only button (needs an aria-label). */
+type Size = "sm" | "md" | "icon";
 
 const base =
-  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded font-medium transition-[background-color,border-color,color,box-shadow,transform] active:translate-y-px disabled:pointer-events-none disabled:opacity-45";
+  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45";
 const variants: Record<Variant, string> = {
-  primary: "bg-ink text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.12)] hover:bg-ink-hover",
-  secondary: "border border-border-strong bg-surface text-fg shadow-[0_1px_0_rgb(17_17_20/0.04)] hover:border-fg-subtle/60 hover:bg-surface-hover",
+  primary: "bg-accent text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_1px_2px_rgb(var(--accent)/0.3)] hover:bg-accent-hover hover:shadow-[0_3px_10px_-4px_rgb(var(--accent)/0.5)]",
+  secondary: "border border-border-strong bg-surface text-fg shadow-xs hover:border-fg-subtle/60 hover:bg-surface-hover",
   ghost: "text-fg-muted hover:bg-surface-hover hover:text-fg",
   danger: "border border-danger/30 bg-surface text-danger hover:bg-danger-soft",
   "danger-solid": "bg-danger text-white hover:bg-danger/90",
 };
-const sizes: Record<Size, string> = { sm: "h-7 px-2.5 text-xs", md: "h-8 px-3 text-[13px]" };
+const sizes: Record<Size, string> = { sm: "h-8 px-3 text-[12.5px]", md: "h-9 px-3.5 text-[13.5px]", icon: "h-7 w-7 px-0" };
 
 export function buttonClass(variant: Variant = "primary", size: Size = "md", className?: string) {
   return clsx(base, variants[variant], sizes[size], className);
@@ -49,7 +50,8 @@ export function Button({
   return (
     <button
       type={type}
-      className={buttonClass(variant, size, className)}
+      // While loading, the spinner replaces the button's own icon(s); the label stays so the width does not jump.
+      className={buttonClass(variant, size, clsx(loading && "[&>svg~svg]:hidden", className))}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...props}
@@ -81,7 +83,7 @@ export function ButtonLink({
 }
 
 const control =
-  "block rounded border border-border-strong bg-surface text-[13px] text-fg shadow-[0_1px_0_rgb(17_17_20/0.03)] placeholder:text-fg-subtle transition-[border-color,box-shadow] hover:border-fg-subtle/70 focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-fg-muted aria-[invalid=true]:border-danger";
+  "block rounded border border-border-strong bg-surface text-[13.5px] text-fg shadow-xs placeholder:text-fg-subtle transition-[border-color,box-shadow] hover:border-fg-subtle/70 focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-fg-muted aria-[invalid=true]:border-danger";
 
 /** Controls fill their container unless the caller sets an explicit width (w-40, sm:w-72 …). */
 function controlClass(extra: string, className?: string) {
@@ -93,16 +95,16 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   { className, ...props },
   ref,
 ) {
-  return <input ref={ref} className={controlClass("h-8 px-2.5", className)} {...props} />;
+  return <input ref={ref} className={controlClass("h-9 px-3", className)} {...props} />;
 });
 
 /** Native select (keyboard, mobile pickers, a11y for free) with the product's own chevron. */
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={controlClass("select-chevron h-8 appearance-none pl-2.5 pr-8", className)} {...props} />;
+  return <select className={controlClass("select-chevron h-9 appearance-none pl-3 pr-8", className)} {...props} />;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={controlClass("min-h-[72px] px-2.5 py-1.5", className)} {...props} />;
+  return <textarea className={controlClass("min-h-[80px] px-3 py-2", className)} {...props} />;
 }
 
 export function SearchInput({
@@ -127,7 +129,7 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={clsx(control, "h-8 w-full pl-8 pr-7 [&::-webkit-search-cancel-button]:hidden")}
+        className={clsx(control, "h-9 w-full pl-8 pr-7 [&::-webkit-search-cancel-button]:hidden")}
       />
       {value && (
         <button
@@ -150,7 +152,7 @@ export function Checkbox({
 }: InputHTMLAttributes<HTMLInputElement> & { label: ReactNode }) {
   return (
     <label className={clsx("inline-flex cursor-pointer select-none items-center gap-2 text-[13px] text-fg", className)}>
-      <input type="checkbox" className="h-3.5 w-3.5 rounded-sm border-border-strong accent-[rgb(var(--ink))]" {...props} />
+      <input type="checkbox" className="h-3.5 w-3.5 rounded-sm border-border-strong accent-[rgb(var(--accent))]" {...props} />
       {label}
     </label>
   );
@@ -186,7 +188,7 @@ export function Field({
       </label>
       {children}
       {error ? (
-        <p id={messageId} role="alert" className="mt-1 text-xs text-danger">
+        <p id={messageId} role="alert" className="mt-1 animate-page-in text-xs text-danger">
           {error}
         </p>
       ) : hint ? (

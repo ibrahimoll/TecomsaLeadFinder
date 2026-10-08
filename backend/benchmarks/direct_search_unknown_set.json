@@ -1,0 +1,142 @@
+[
+ {
+  "kind": "absent",
+  "query": "Hariri Textile",
+  "expected_id": null,
+  "expected": "Hariri Textile",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "absent",
+  "query": "B & B Insurnace Broker",
+  "expected_id": null,
+  "expected": "B & B Insurnace Broker",
+  "source": "icc_register"
+ },
+ {
+  "kind": "absent",
+  "query": "Premium Partners International SAL Offshore",
+  "expected_id": null,
+  "expected": "Premium Partners International SAL Offshore",
+  "source": "gleif"
+ },
+ {
+  "kind": "absent",
+  "query": "Fouad Khoury Hospital",
+  "expected_id": null,
+  "expected": "Fouad Khoury Hospital",
+  "source": "hospital_syndicate"
+ },
+ {
+  "kind": "absent",
+  "query": "Oriental Paper Products",
+  "expected_id": null,
+  "expected": "Oriental Paper Products SAL",
+  "source": "ali_members"
+ },
+ {
+  "kind": "absent",
+  "query": "Omar Ahmad Fattah",
+  "expected_id": null,
+  "expected": "Omar Ahmad Fattah",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "absent",
+  "query": "M.J.M CONSULT ENGINEERING AND CONTRACTING",
+  "expected_id": null,
+  "expected": "M.J.M CONSULT ENGINEERING AND CONTRACTING",
+  "source": "lcs_contractors"
+ },
+ {
+  "kind": "absent",
+  "query": "Floral Passion",
+  "expected_id": null,
+  "expected": "Floral Passion",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "absent",
+  "query": "INKRIPT SECURITIES",
+  "expected_id": null,
+  "expected": "INKRIPT SECURITIES S.A.L",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "absent",
+  "query": "International Prime Group",
+  "expected_id": null,
+  "expected": "International Prime Group",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "absent",
+  "query": "Embassy of the Czech Republic in Beirut",
+  "expected_id": null,
+  "expected": "Embassy of the Czech Republic in Beirut",
+  "source": "project_lebanon"
+ },
+ {
+  "kind": "absent",
+  "query": "United Assurance",
+  "expected_id": null,
+  "expected": "United Assurance SAL",
+  "source": "icc_register"
+ },
+ {
+  "kind": "absent",
+  "query": "MUREX SERVICES",
+  "expected_id": null,
+  "expected": "MUREX SERVICES SAL",
+  "source": "gleif"
+ },
+ {
+  "kind": "absent",
+  "query": "Khalidy Hospital",
+  "expected_id": null,
+  "expected": "Khalidy Hospital",
+  "source": "hospital_syndicate"
+ },
+ {
+  "kind": "absent",
+  "query": "Malak & Company Fr. Trd. & Ind. M.P.C.F",
+  "expected_id": null,
+  "expected": "Malak & Company Fr. Trd. & Ind. M.P.C.F",
+  "source": "ali_members"
+ },
+ {
+  "kind": "absent",
+  "query": "EM Tech Co.",
+  "expected_id": null,
+  "expected": "EM Tech Co. S.A.R.L",
+  "source": "lcs_contractors"
+ },
+ {
+  "kind": "absent",
+  "query": "Lebanese Detox Juices",
+  "expected_id": null,
+  "expected": "Lebanese Detox Juices",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "absent",
+  "query": "Maalouf Trading & Manufacturing",
+  "expected_id": null,
+  "expected": "Maalouf Trading & Manufacturing s.a.l",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "absent",
+  "query": "saida, kamal jardaly",
+  "expected_id": null,
+  "expected": "saida, kamal jardaly",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "absent",
+  "query": "Association of Lebanese Industrialists",
+  "expected_id": null,
+  "expected": "Association of Lebanese Industrialists",
+  "source": "project_lebanon"
+ }
+]

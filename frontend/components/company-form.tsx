@@ -1,10 +1,11 @@
 "use client";
 
+import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { CrmStatusBadge } from "@/components/status-badges";
-import { Alert, Button, Field, Input, RowLink, Section, Select, Textarea } from "@/components/ui";
+import { Alert, Button, Field, Input, RowLink, Section, Select, Textarea, toast } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { COMPANY_SIZES, countryNames, INDUSTRIES } from "@/lib/constants";
 import type { Company, DuplicateCandidate } from "@/types";
@@ -70,6 +71,7 @@ export function CompanyForm({ company }: { company?: Company }) {
       const saved = company
         ? await api<Company>(`/companies/${company.id}`, { method: "PATCH", body: values })
         : await api<Company>("/companies", { method: "POST", body: values });
+      toast.success(company ? "Company saved" : "Company added");
       router.push(`/companies/${saved.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -165,8 +167,8 @@ export function CompanyForm({ company }: { company?: Company }) {
         <Button variant="secondary" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : company ? "Save changes" : "Add company"}
+        <Button type="submit" loading={saving}>
+          <Save className="h-3.5 w-3.5" aria-hidden /> {company ? "Save changes" : "Add company"}
         </Button>
       </div>
     </form>

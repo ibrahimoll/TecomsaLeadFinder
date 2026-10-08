@@ -1,0 +1,1241 @@
+{
+ "zero": 83,
+ "distribution": {
+  "NO_WEBSITE": 48,
+  "NO_EXTERNAL_PERSON_SOURCE": 77,
+  "WEBSITE_NO_PEOPLE": 35,
+  "GLOBAL_BRAND_AMBIGUITY": 9,
+  "ARABIC_LATIN_MISMATCH": 3,
+  "COMPANY_ALIAS_MISMATCH": 3,
+  "GROUP_ENTITY_AMBIGUITY": 1,
+  "SOURCE_HAS_COMPANY_ONLY": 6
+ },
+ "companies": {
+  "236": {
+   "name": "Monsif International School",
+   "industry": "Education",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "134": {
+   "name": "Lebanese American University Byblos Campus",
+   "industry": "Education",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "245": {
+   "name": "Dmeet Public School",
+   "industry": "Education",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "252": {
+   "name": "Beirut Evangelical School for Girls and Boys - Rabieh (BESGB)",
+   "industry": "Education",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "269": {
+   "name": "International College",
+   "industry": "Education",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "249": {
+   "name": "Collège de la Sainte Famille Française",
+   "industry": "Education",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "144": {
+   "name": "Learn and Play",
+   "industry": "Education",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "140": {
+   "name": "Nathalie Kids Academy",
+   "industry": "Education",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "251": {
+   "name": "Iman High School",
+   "industry": "Education",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "234": {
+   "name": "Arcadia College",
+   "industry": "Education",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "198": {
+   "name": "Le Petit Gris",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "159": {
+   "name": "Ramada Plaza Hotel",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "170": {
+   "name": "Rami Hotel",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "155": {
+   "name": "Movenpick Beirut",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "169": {
+   "name": "Majestic Byblos Grand Hotel",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "176": {
+   "name": "Le Telegraphe de Belle Vue",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "157": {
+   "name": "Radisson Blu Martinez",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "166": {
+   "name": "Nespresso",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "179": {
+   "name": "Mazaj Restaurant",
+   "industry": "Hospitality",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "278": {
+   "name": "Valentino",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "283": {
+   "name": "Laiterie Massabki - البان وأجبان مسابكي",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "ARABIC_LATIN_MISMATCH",
+     "ministry_industry"
+    ],
+    [
+     "COMPANY_ALIAS_MISMATCH",
+     "ministry_industry"
+    ]
+   ]
+  },
+  "277": {
+   "name": "Louis Vuitton",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "270": {
+   "name": "Kobkom By D&M",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "273": {
+   "name": "Nike",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "275": {
+   "name": "Ayoub Computers",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "282": {
+   "name": "Bassoul Heneine",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "272": {
+   "name": "Chanel",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "271": {
+   "name": "Kashkha",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "280": {
+   "name": "Ferragamo",
+   "industry": "Retail",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "119": {
+   "name": "Koub / Golden Glass",
+   "industry": "Manufacturing",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "ARABIC_LATIN_MISMATCH",
+     "ministry_industry"
+    ]
+   ]
+  },
+  "101": {
+   "name": "Moazin Group SARL",
+   "industry": "Manufacturing",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "GROUP_ENTITY_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "110": {
+   "name": "Rashid Home Seasons",
+   "industry": "Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "114": {
+   "name": "NME Bakery Equipment",
+   "industry": "Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "SOURCE_HAS_COMPANY_ONLY",
+     "ministry_industry"
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "111": {
+   "name": "Laboratoire du Boulevard",
+   "industry": "Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "93": {
+   "name": "Netco ceramic tiles",
+   "industry": "Manufacturing",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "108": {
+   "name": "Les Caves d'Eden",
+   "industry": "Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "99": {
+   "name": "Mainline Dynolog Lebanon",
+   "industry": "Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "30": {
+   "name": "Omars Meat",
+   "industry": "Food Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "26": {
+   "name": "Rawabi Chatura - Halwani",
+   "industry": "Food Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "15": {
+   "name": "Mattahen Al Zawk",
+   "industry": "Food Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "SOURCE_HAS_COMPANY_ONLY",
+     "ministry_industry"
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "42": {
+   "name": "Moor Chocolate Factory",
+   "industry": "Food Manufacturing",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "ARABIC_LATIN_MISMATCH",
+     "ministry_industry"
+    ]
+   ]
+  },
+  "320": {
+   "name": "Ashrafieh Heights",
+   "industry": "Construction",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "316": {
+   "name": "محلات حمزة عزّام و أولادهُ _ صديقين",
+   "industry": "Construction",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "318": {
+   "name": "CGE Curtain Glass",
+   "industry": "Construction",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "322": {
+   "name": "Dergham & Hamdar associates",
+   "industry": "Construction",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "317": {
+   "name": "BeitMisk",
+   "industry": "Construction",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "367": {
+   "name": "RedRock - Lebanon",
+   "industry": "Real Estate",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "GLOBAL_BRAND_AMBIGUITY",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "369": {
+   "name": "Montelibano SAL",
+   "industry": "Real Estate",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "366": {
+   "name": "Balamand Village",
+   "industry": "Real Estate",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "365": {
+   "name": "Domaine Du Rocher",
+   "industry": "Real Estate",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "286": {
+   "name": "Banque de Syrie et du Liban",
+   "industry": "Financial Services",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "293": {
+   "name": "CSCBank SAL",
+   "industry": "Financial Services",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "SOURCE_HAS_COMPANY_ONLY",
+     "gleif"
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "295": {
+   "name": "UCA Insurance",
+   "industry": "Insurance",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "COMPANY_ALIAS_MISMATCH",
+     "icc_register"
+    ]
+   ]
+  },
+  "302": {
+   "name": "Carati Agency",
+   "industry": "Insurance",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "310": {
+   "name": "Fresh Pharma International s.a.l",
+   "industry": "Pharmaceutical",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "313": {
+   "name": "Hisham Pharmacy",
+   "industry": "Pharmaceutical",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "304": {
+   "name": "Premium Serve Drugstore",
+   "industry": "Pharmaceutical",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "305": {
+   "name": "Premiers Soins Pharmacie",
+   "industry": "Pharmaceutical",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "307": {
+   "name": "Birex Solutions - Lebanon",
+   "industry": "Pharmaceutical",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "363": {
+   "name": "LAU Medical Center Rizk Hospital",
+   "industry": "Healthcare",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "361": {
+   "name": "Karentina Governmental Hospital",
+   "industry": "Healthcare",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "356": {
+   "name": "Kassab Hospital",
+   "industry": "Healthcare",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ]
+   ]
+  },
+  "355": {
+   "name": "Khoury Dental Clinic",
+   "industry": "Healthcare",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "354": {
+   "name": "Hajj Medical Center-Medical & Dental Clinics Naccache - Dr. Marcel Hajj, Dr. Gregory Hage (Allergy-Diet-Fat Free-Exosome)",
+   "industry": "Healthcare",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "333": {
+   "name": "Sage Computers",
+   "industry": "Technology",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "329": {
+   "name": "EDM",
+   "industry": "Technology",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "SOURCE_HAS_COMPANY_ONLY",
+     "idal_directories"
+    ],
+    [
+     "COMPANY_ALIAS_MISMATCH",
+     "idal_directories"
+    ]
+   ]
+  },
+  "326": {
+   "name": "Spacetech",
+   "industry": "Technology",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "339": {
+   "name": "Usines Zahar",
+   "industry": "Distribution",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "334": {
+   "name": "Najjar Foods",
+   "industry": "Distribution",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "SOURCE_HAS_COMPANY_ONLY",
+     "ministry_industry"
+    ],
+    [
+     "SOURCE_HAS_COMPANY_ONLY",
+     "ali_members"
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "337": {
+   "name": "Elie Abi Hanna",
+   "industry": "Distribution",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "348": {
+   "name": "Dar al Saqi",
+   "industry": "Professional Services",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "349": {
+   "name": "Dar al-Kitab al-'Arabi",
+   "industry": "Professional Services",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "353": {
+   "name": "Dar Alfarabi",
+   "industry": "Professional Services",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "346": {
+   "name": "Consulting Center for Studies and Documentation",
+   "industry": "Professional Services",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "376": {
+   "name": "Arabian Cargo",
+   "industry": "Logistics",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "384": {
+   "name": "G. Bazerji & Fils s.a.l",
+   "industry": "Automotive",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "395": {
+   "name": "Rano's Cell",
+   "industry": "Telecom",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "400": {
+   "name": "Mike iStore",
+   "industry": "Telecom",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "372": {
+   "name": "LibanPost",
+   "industry": "Logistics",
+   "reasons": [
+    [
+     "WEBSITE_NO_PEOPLE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "394": {
+   "name": "KBS Cellular",
+   "industry": "Telecom",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "240": {
+   "name": "Collège Saint Elie",
+   "industry": "Education",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "399": {
+   "name": "Cell And More",
+   "industry": "Telecom",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  },
+  "262": {
+   "name": "New Century School",
+   "industry": "Education",
+   "reasons": [
+    [
+     "NO_WEBSITE",
+     null
+    ],
+    [
+     "NO_EXTERNAL_PERSON_SOURCE",
+     null
+    ]
+   ]
+  }
+ }
+}

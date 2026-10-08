@@ -1,0 +1,531 @@
+{
+ "companies": 50,
+ "people_total": 39,
+ "decision_makers_total": 22,
+ "companies_with_person": 6,
+ "companies_with_decision_maker": 6,
+ "companies_with_2_decision_makers": 6,
+ "companies_contactable_strict": 0,
+ "companies_contactable_2_strict": 0,
+ "companies_reachable_via_switchboard_only": 6,
+ "people_with_verified_email": 0,
+ "decision_makers_with_verified_email": 0,
+ "people_with_published_email": 0,
+ "decision_makers_with_published_email": 0,
+ "people_with_predicted_email": 22,
+ "decision_makers_with_predicted_email": 22,
+ "people_with_catch_all_email": 0,
+ "decision_makers_with_catch_all_email": 0,
+ "people_with_mobile": 0,
+ "decision_makers_with_mobile": 0,
+ "people_with_direct_phone": 0,
+ "decision_makers_with_direct_phone": 0,
+ "people_with_whatsapp": 0,
+ "decision_makers_with_whatsapp": 0,
+ "people_with_extension": 0,
+ "decision_makers_with_extension": 0,
+ "people_with_unconfirmed_phone": 0,
+ "decision_makers_with_unconfirmed_phone": 0,
+ "rows": [
+  {
+   "id": 108,
+   "company": "Les Caves d'Eden",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 93,
+   "company": "Netco ceramic tiles",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 119,
+   "company": "Koub / Golden Glass",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 99,
+   "company": "Mainline Dynolog Lebanon",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 37,
+   "company": "Matahen Frem - Ephrem's Mills",
+   "industry": "Food Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 101,
+   "company": "Moazin Group SARL",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 40,
+   "company": "Linda Chocolate Factory",
+   "industry": "Food Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 114,
+   "company": "NME Bakery Equipment",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 30,
+   "company": "Omars Meat",
+   "industry": "Food Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 104,
+   "company": "Orjoan",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 276,
+   "company": "Furla",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 279,
+   "company": "Calzedonia",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 277,
+   "company": "Louis Vuitton",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 281,
+   "company": "Kiko Milano",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 274,
+   "company": "Michael Kors",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 282,
+   "company": "Bassoul Heneine",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 270,
+   "company": "Kobkom By D&M",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 271,
+   "company": "Kashkha",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 164,
+   "company": "Le Gray",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 171,
+   "company": "McDonald's",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 189,
+   "company": "La Siesta Resort Khalde",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 192,
+   "company": "Kissproof Beirut",
+   "industry": "Hospitality",
+   "people": 5,
+   "decision_makers": 3,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 198,
+   "company": "Le Petit Gris",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 183,
+   "company": "Lancaster Tamar Hotel",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 177,
+   "company": "Loris Restaurant",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 170,
+   "company": "Rami Hotel",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 331,
+   "company": "CODE Technologies",
+   "industry": "Technology",
+   "people": 2,
+   "decision_makers": 2,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 324,
+   "company": "BMB",
+   "industry": "Technology",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 332,
+   "company": "Verge Technologies",
+   "industry": "Technology",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 325,
+   "company": "WhiteBeard",
+   "industry": "Technology",
+   "people": 4,
+   "decision_makers": 3,
+   "contactable": 0,
+   "best_department": "it",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 330,
+   "company": "Terabyte Computers - Ras Al Nabea",
+   "industry": "Technology",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 326,
+   "company": "Spacetech",
+   "industry": "Technology",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 333,
+   "company": "Sage Computers",
+   "industry": "Technology",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 327,
+   "company": "NavyBits",
+   "industry": "Technology",
+   "people": 3,
+   "decision_makers": 2,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 377,
+   "company": "Tilia Express",
+   "industry": "Logistics",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 381,
+   "company": "Expeditors",
+   "industry": "Logistics",
+   "people": 18,
+   "decision_makers": 5,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 374,
+   "company": "El FIL Shipping SAL",
+   "industry": "Logistics",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 336,
+   "company": "Daccache Liquor Store",
+   "industry": "Distribution",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 337,
+   "company": "Elie Abi Hanna",
+   "industry": "Distribution",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 373,
+   "company": "The Net Global",
+   "industry": "Logistics",
+   "people": 7,
+   "decision_makers": 7,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 320,
+   "company": "Ashrafieh Heights",
+   "industry": "Construction",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 316,
+   "company": "محلات حمزة عزّام و أولادهُ _ صديقين",
+   "industry": "Construction",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 369,
+   "company": "Montelibano SAL",
+   "industry": "Real Estate",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 318,
+   "company": "CGE Curtain Glass",
+   "industry": "Construction",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 365,
+   "company": "Domaine Du Rocher",
+   "industry": "Real Estate",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 351,
+   "company": "Dar Al-Marefah Printing & Publishing",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 352,
+   "company": "Dar al-Mashari'",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 347,
+   "company": "Dar Al Kalam",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 353,
+   "company": "Dar Alfarabi",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 349,
+   "company": "Dar al-Kitab al-'Arabi",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  }
+ ]
+}

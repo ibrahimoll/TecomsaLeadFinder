@@ -1,426 +1,506 @@
-"""Phase 1: automatic company discovery.
+"""Find Leads discovery: database first, deficit-only discovery, normalization, entity resolution,
+provenance, idempotency, incremental growth, failure isolation, statuses. Fake connectors, mocked web."""
 
-Sources are replaced by fakes here (no network in tests). The Overture provider itself
-is tested against a small local GeoParquet file in Overture's schema.
-"""
+import threading
+import time
 
-from pathlib import Path
-
+import httpx
 import pytest
 from sqlalchemy import func, select
 
 from app.core.config import get_settings
-from app.models import Company, CompanySourceRecord, CrmLead, DiscoveryResult, DiscoveryRun, OdooMatch
+from app.db.session import engine
+from app.models import (Company, CompanyIdentifier, CompanyLocation, Evidence, LeadSearch, LeadSearchResult, Phone,
+                        PossibleDuplicate, ResearchRun, Source)
 from app.models.enums import UserRole
-from app.services.discovery import service as discovery_service
-from app.services.discovery.base import Candidate, ProviderError, SearchQuery, SearchResult
-from app.services.discovery.geography import AREAS, COUNTRIES, canonical_city, in_area
-from app.services.discovery.industries import INDUSTRY_BY_KEY, CustomProfile
-from app.services.discovery.overture import OvertureProvider
-from app.services.normalization import company_domain, normalize_company_name, normalize_phone
-from scripts.sample_odoo_files import CONTACT_HEADERS, CONTACT_ROWS, CRM_HEADERS, CRM_ROWS, xlsx_bytes
+from app.services import jobs
+from app.services.discovery import fetch, orchestrator
+from app.services.enrichment import orchestrator as enrichment
+from app.services.discovery.candidate import (CompanyCandidate, ConnectorConfig, ConnectorError, ConnectorResult,
+                                              SearchQuery)
+from app.services.discovery.web import PoliteFetcher
+
+BEIRUT = (33.8938, 35.5018)
+FOOD = {"industry": "Manufacturer", "categories": ["manufacturer", "food_manufacturer"], "tier": "category"}
 
 
-def cand(external_id: str, name: str, **kw) -> Candidate:
-    kw.setdefault("country", "Lebanon")
-    kw.setdefault("score", 2.0)
-    return Candidate(source=kw.pop("source", "OVERTURE"), external_id=external_id, name=name, **kw)
+def config(key: str, quality: int = 60, source_type: str = "open_dataset", priority: int = 20) -> ConnectorConfig:
+    return ConnectorConfig(key=key, kind="dataset_file", enabled=True, countries=("LB",), priority=priority,
+                           source_type=source_type, quality=quality, label=key.title())
 
 
-class FakeProvider:
-    def __init__(self, key: str, candidates: list[Candidate] | None = None, error: str | None = None):
-        self.key, self.label = key, {"OVERTURE": "Overture Maps", "OSM": "OpenStreetMap"}.get(key, key)
-        self.candidates, self.error = candidates or [], error
-        self.queries: list[SearchQuery] = []
+def cand(name: str, connector: str = "gov", n: int = 0, **kw) -> CompanyCandidate:
+    """A Beirut food manufacturer with a phone (enough evidence to be created)."""
+    lat, lon = kw.pop("at", (BEIRUT[0] + n * 0.002, BEIRUT[1] + n * 0.002))
+    values = {**FOOD, "external_id": f"{connector}-{name}", "phone": f"+961 1 {200000 + n}", "city": "Beirut",
+              "address": f"Street {n}", **kw}
+    return CompanyCandidate(connector=connector, source_name=f"{connector} source", source_type="open_dataset",
+                            company_name=name, latitude=lat, longitude=lon, **values)
 
-    def search(self, query, progress):
-        self.queries.append(query)
+
+class FakeConnector:
+    def __init__(self, cfg: ConnectorConfig, make=None, error: Exception | None = None):
+        self.config, self.make, self.error, self.calls = cfg, make or (lambda: []), error, 0
+
+    def search_companies(self, query: SearchQuery) -> ConnectorResult:
+        self.calls += 1
         if self.error:
-            raise ProviderError(self.error)
-        progress(self.label, f"{len(self.candidates)} matching places")
-        return SearchResult(candidates=list(self.candidates), version="test-release")
+            raise self.error
+        candidates = self.make()
+        for c in candidates:  # like a real connector: the source type comes from its configuration
+            c.source_type = self.config.source_type
+        return ConnectorResult(candidates=candidates, version="test", scanned=len(candidates))
 
 
 @pytest.fixture
-def providers(monkeypatch):
-    """Set the discovery sources for a test: providers([FakeProvider(...), ...])."""
-    def _set(items):
-        monkeypatch.setattr(discovery_service, "provider_factory", lambda: items)
-        return items
-    return _set
+def sources(monkeypatch):
+    """sources(connector, ...) installs the connectors the next discovery jobs will use."""
+    installed: list[FakeConnector] = []
+    monkeypatch.setattr(orchestrator, "build_connectors", lambda country: list(installed))
+
+    def install(*connectors):
+        installed[:] = connectors
+        return connectors
+    return install
 
 
-FOODS = [
-    cand("ov-1", "Cedar Valley Foods S.A.L.", phone="+961 8 540 082", website="https://www.cedarvalleyfoods.example/",
-         city="Zahle", category="Manufacturer", latitude=33.846, longitude=35.902),
-    cand("ov-2", "Beirut Dairy Industries", phone="01 444 555", city="Beirut", category="Dairy farm"),
-    cand("ov-3", "CEDAR VALLEY FOODS SAL", phone="+961 8 540082", city="Zahle", category="Manufacturer"),  # same company
-    cand("ov-4", "Tripoli Flour Mills", website="http://instagram.com/tripoliflour", city="Tripoli"),
-    cand("ov-5", "Saida Sweets Factory", website="https://www.instagram.com/saidasweets", city="Saida"),
-]
+@pytest.fixture
+def web(monkeypatch):
+    """Company websites served from a dict {host: html}; anything else is a 404."""
+    pages: dict[str, str] = {}
+    monkeypatch.setattr(fetch, "resolve", lambda host: ["93.184.216.34"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        body = pages.get(request.url.host)
+        return httpx.Response(200, text=body, headers={"content-type": "text/html"}) if body else httpx.Response(404)
+
+    monkeypatch.setattr(enrichment, "website_fetcher", lambda: PoliteFetcher(
+        fetch.Fetcher(max_bytes=100_000, timeout=5, transport=httpx.MockTransport(handler)), min_interval=0,
+        retries=0))
+    return pages
 
 
-def start(client, **body):
-    body.setdefault("industry", "food_manufacturing")
-    body.setdefault("requested_count", 100)
-    response = client.post("/discovery/runs", json=body)
-    assert response.status_code == 202, response.text
-    return response.json()
+def search(client, count: int = 5, **kw) -> dict:
+    payload = {"country": "Lebanon", "city": "Beirut", "industry": "Food Manufacturing", "solution": "odoo",
+               "requested_count": count, **kw}
+    response = client.post("/lead-searches", json=payload)
+    assert response.status_code == 201, response.text
+    while jobs.run_next():  # the worker, synchronously
+        pass
+    return client.get(f"/lead-searches/{response.json()['id']}").json()
 
 
-def results(client, run_id: int, **params) -> list[dict]:
-    params.setdefault("page_size", 100)
-    return client.get(f"/discovery/runs/{run_id}/results", params=params).json()["items"]
+def results(client, search_id: int) -> list[dict]:
+    return client.get(f"/lead-searches/{search_id}/results", params={"page_size": 100}).json()["items"]
 
 
-def test_run_saves_new_companies_with_provenance(client_for, db, providers):
-    agent, user = client_for(UserRole.SALES_AGENT)
-    providers([FakeProvider("OVERTURE", FOODS)])
-
-    run = start(agent)
-
-    assert run["status"] == "COMPLETED" and run["query_label"] == "Food Manufacturing · All Lebanon"
-    assert (run["source_match_count"], run["raw_results_count"], run["new_company_count"], run["duplicate_count"]) == (5, 5, 4, 1)
-    assert run["sources"] == ["OVERTURE"] and "Overture Maps test-release" in run["source_version"]
-    assert [p["key"] for p in run["progress"]][-1] == "done"
-    rows = {r["external_id"]: r for r in results(agent, run["id"])}
-    assert rows["ov-1"]["state"] == "AVAILABLE" and rows["ov-3"]["state"] == "DUPLICATE"
-    assert rows["ov-3"]["duplicate_of_id"] == rows["ov-1"]["id"]
-
-    company = db.get(Company, rows["ov-1"]["company"]["id"])
-    assert (company.name, company.source, company.industry, company.city) == (
-        "Cedar Valley Foods S.A.L.", "DISCOVERY", "Food Manufacturing", "Zahle")
-    assert company.domain == "cedarvalleyfoods.example" and company.main_phone_normalized == "+9618540082"
-    assert company.created_by == user.id and company.source_label == "Overture Maps"
-    record = db.scalar(select(CompanySourceRecord).where(CompanySourceRecord.external_id == "ov-1"))
-    assert record.company_id == company.id and record.source == "OVERTURE" and record.first_seen_run_id == run["id"]
-    detail = agent.get(f"/companies/{company.id}").json()
-    assert detail["sources"][0]["source_label"] == "Overture Maps"
-    # Instagram "websites" are kept as links but never used to match companies.
-    ig = db.get(Company, rows["ov-4"]["company"]["id"])
-    assert ig.website.startswith("http://instagram.com") and ig.domain is None
-    assert rows["ov-5"]["state"] == "AVAILABLE"  # not merged with ov-4 on instagram.com
-    # Discovery never creates CRM records.
-    assert db.scalar(select(func.count(CrmLead.id))) == 0
-
-
-def test_rerunning_the_same_search_creates_no_duplicates(client_for, db, providers):
-    agent, _ = client_for(UserRole.SALES_AGENT)
-    providers([FakeProvider("OVERTURE", FOODS)])
-    first = start(agent)
-    companies = db.scalar(select(func.count(Company.id)))
-
-    second = start(agent)
-
-    assert second["new_company_count"] == 0 and second["existing_company_count"] == 4 and second["duplicate_count"] == 1
-    assert db.scalar(select(func.count(Company.id))) == companies
-    reasons = {r["external_id"]: r["reason"] for r in results(agent, second["id"])}
-    assert "source id" in reasons["ov-1"]
-    record = db.scalar(select(CompanySourceRecord).where(CompanySourceRecord.external_id == "ov-1"))
-    db.refresh(record)
-    assert (record.first_seen_run_id, record.last_seen_run_id) == (first["id"], second["id"])
-    assert "No new companies" in second["summary"] or second["summary"].startswith("0 new companies")
-
-
-def test_existing_leadfinder_company_is_matched_not_duplicated(client_for, db, providers):
-    agent, _ = client_for(UserRole.SALES_AGENT)
-    manual = agent.post("/companies", json={"name": "Beirut Dairy Industries SARL", "city": "Beirut"}).json()
-    providers([FakeProvider("OVERTURE", FOODS[:2])])
-
-    run = start(agent)
-
-    rows = {r["external_id"]: r for r in results(agent, run["id"])}
-    assert rows["ov-2"]["state"] == "EXISTING_LEADFINDER" and rows["ov-2"]["company"]["id"] == manual["id"]
-    assert "name" in rows["ov-2"]["reason"].lower()
-    # The source's phone fills the blank on the existing company; nothing is overwritten.
+def count(db, model) -> int:
     db.expire_all()
-    assert db.get(Company, manual["id"]).main_phone == "01 444 555"
-    assert db.get(Company, manual["id"]).source == "MANUAL"
-    assert run["new_company_count"] == 1
+    return db.scalar(select(func.count()).select_from(model))
 
 
-def test_odoo_contact_and_crm_protection(client_for, db, providers):
-    admin, _ = client_for(UserRole.ADMIN)
-    for kind, headers, rows_ in (("ODOO_CRM", CRM_HEADERS, CRM_ROWS), ("ODOO_CONTACTS", CONTACT_HEADERS, CONTACT_ROWS)):
-        preview = admin.post("/imports", data={"import_type": kind},
-                             files={"file": ("f.xlsx", xlsx_bytes(headers, rows_), "application/octet-stream")}).json()
-        assert admin.post(f"/imports/{preview['run']['id']}/confirm").status_code == 200
-    companies_before = db.scalar(select(func.count(Company.id)))
-    providers([FakeProvider("OVERTURE", [
-        cand("p-1", "ABC Foods", city="Beirut"),                           # open opportunity in CRM
-        cand("p-2", "Cedar Hotels", city="Beirut"),                        # won: customer
-        cand("p-3", "Pharma Mount Lebanon Labs", phone="+961 5 777 888"),  # phone of an Odoo contact company
-        cand("p-4", "Doe Consulting", phone="+961 70 123 456"),            # phone of an Odoo person, no company
-        cand("p-5", "Brand New Bakery Industries", city="Tyre"),
-    ])])
-
-    run = start(admin, industry=None, custom_query="bakery")
-
-    states = {r["external_id"]: r["state"] for r in results(admin, run["id"])}
-    assert states == {"p-1": "OPEN_OPPORTUNITY", "p-2": "CUSTOMER", "p-3": "EXISTING_ODOO_CONTACT",
-                      "p-4": "EXISTING_ODOO_CONTACT", "p-5": "AVAILABLE"}
-    assert (run["odoo_protected_count"], run["new_company_count"]) == (4, 1)
-    # Protected candidates are kept in the history but not saved as new companies.
-    assert db.scalar(select(func.count(Company.id))) == companies_before + 1
-    reason = next(r["reason"] for r in results(admin, run["id"]) if r["external_id"] == "p-4")
-    assert reason.startswith("Existing Odoo contact")
-    protected = results(admin, run["id"], group="protected")
-    assert {r["external_id"] for r in protected} == {"p-1", "p-2", "p-3", "p-4"}
-    assert db.scalar(select(func.count(CrmLead.id))) == 4  # still only the imported CRM records
+# ---- 1-3: search, database first, deficit only ---------------------------------------------------------------
 
 
-def test_available_after_odoo_import_and_status_history(client_for, db, providers):
-    admin, _ = client_for(UserRole.ADMIN)
-    preview = admin.post("/imports", data={"import_type": "ODOO_CONTACTS"},
-                         files={"file": ("c.xlsx", xlsx_bytes(CONTACT_HEADERS, CONTACT_ROWS), "application/octet-stream")}).json()
-    admin.post(f"/imports/{preview['run']['id']}/confirm")
-    providers([FakeProvider("OVERTURE", FOODS[:1])])
-
-    run = start(admin)
-
-    company_id = results(admin, run["id"])[0]["company"]["id"]
-    detail = admin.get(f"/companies/{company_id}").json()
-    assert detail["odoo_status"] == "AVAILABLE" and detail["is_protected"] is False
-    assert db.scalar(select(func.count(OdooMatch.id)).where(OdooMatch.company_id == company_id)) == 1
-
-
-def test_requested_count_stops_early_and_explains_shortfall(client_for, providers):
+def test_database_first_satisfies_the_search_without_discovery(client_for, db, sources):
     agent, _ = client_for(UserRole.SALES_AGENT)
-    providers([FakeProvider("OVERTURE", [cand(f"n-{i}", f"Factory Number {i} Foods", city="Zahle") for i in range(10)])])
+    for name in ("Alpha Foods", "Beta Foods", "Gamma Foods"):
+        agent.post("/companies", json={"name": name, "industry": "Food Manufacturing", "headquarters_country":
+                                       "Lebanon", "headquarters_city": "Beirut"})
+    agent.post("/companies", json={"name": "Delta Foods", "industry": "Food Manufacturing",
+                                   "headquarters_country": "Lebanon", "headquarters_city": "Tripoli"})  # elsewhere
+    agent.post("/companies", json={"name": "Beirut Bank", "industry": "Financial Services",
+                                   "headquarters_country": "Lebanon", "headquarters_city": "Beirut"})  # other industry
+    (connector,) = sources(FakeConnector(config("gov"), lambda: [cand("Never Called")]))
+    done = search(agent, count=2)
+    assert (done["status"], done["companies_found"]) == ("completed", 2)
+    assert connector.calls == 0 and count(db, ResearchRun) == 0  # no external lookup at all
+    rows = results(agent, done["id"])
+    assert {r["company"]["name"] for r in rows} <= {"Alpha Foods", "Beta Foods", "Gamma Foods"}
+    assert all(not r["is_new"] for r in rows) and [r["rank"] for r in rows] == [1, 2]
 
-    capped = start(agent, requested_count=3)
-    assert capped["new_company_count"] == 3 and capped["raw_results_count"] == 3
-    assert capped["summary"] == "3 new companies saved."
 
-    more = start(agent, requested_count=25)
-    assert more["new_company_count"] == 7 and more["existing_company_count"] == 3
-    assert "of the 25 requested" in more["summary"] and "returned 10 places" in more["summary"]
-
-
-def test_failed_and_partially_completed_runs(client_for, db, providers):
+def test_discovery_only_fills_the_deficit(client_for, db, sources, web):
     agent, _ = client_for(UserRole.SALES_AGENT)
-    providers([FakeProvider("OVERTURE", error="Overture data could not be queried (timeout). No companies were added.")])
-    failed = start(agent)
-    assert failed["status"] == "FAILED" and failed["new_company_count"] == 0
-    assert failed["errors"][0].startswith("Overture Maps: Overture data could not be queried")
-    assert db.scalar(select(func.count(Company.id))) == 0
-
-    providers([FakeProvider("OVERTURE", FOODS[:2]), FakeProvider("OSM", error="OpenStreetMap could not be queried.")])
-    partial = start(agent)
-    assert partial["status"] == "PARTIAL" and partial["new_company_count"] == 2 and partial["error_count"] == 1
-    assert partial["sources"] == ["OVERTURE"]
-
-
-def test_sources_are_merged_across_providers(client_for, providers):
-    agent, _ = client_for(UserRole.SALES_AGENT)
-    providers([
-        FakeProvider("OVERTURE", [cand("ov-9", "Liban Dairy", phone="+961 8 500 500", city="Zahle")]),
-        FakeProvider("OSM", [cand("node/9", "Liban Dairy SAL", source="OSM", phone="08 500 500", city="Zahle", score=1.0)]),
-    ])
-    run = start(agent)
-    rows = {r["external_id"]: r for r in results(agent, run["id"])}
-    assert rows["ov-9"]["state"] == "AVAILABLE" and rows["node/9"]["state"] == "DUPLICATE"
-    assert run["sources"] == ["OVERTURE", "OSM"]
+    agent.post("/companies", json={"name": "Known Foods", "industry": "Food Manufacturing",
+                                   "headquarters_country": "Lebanon", "headquarters_city": "Beirut"})
+    sources(FakeConnector(config("gov"), lambda: [cand(f"New Foods {i}", n=i) for i in range(1, 6)]))
+    created = agent.post("/lead-searches", json={"country": "Lebanon", "city": "Beirut", "industry":
+                                                 "Food Manufacturing", "requested_count": 3})
+    assert (created.json()["status"], created.json()["companies_found"]) == ("researching", 1)  # returned at once
+    jobs.run_next()
+    done = agent.get(f"/lead-searches/{created.json()['id']}").json()
+    assert (done["status"], done["companies_found"]) == ("completed", 3)
+    assert count(db, Company) == 3  # 1 known + exactly the 2 missing, not 5
+    rows = results(agent, done["id"])
+    assert sorted(r["is_new"] for r in rows) == [False, True, True]
 
 
-def test_database_is_searched_too(client_for, providers):
-    agent, _ = client_for(UserRole.SALES_AGENT)
-    known = agent.post("/companies", json={"name": "Older Food Co", "industry": "Food Manufacturing", "country": "Lebanon"}).json()
-    providers([FakeProvider("OVERTURE", FOODS[:1])])
-    run = start(agent)
-    rows = results(agent, run["id"])
-    extra = next(r for r in rows if r["source"] == "LEADFINDER")
-    assert extra["company"]["id"] == known["id"] and extra["state"] == "EXISTING_LEADFINDER"
+# ---- 4-6: connectors, candidates, normalization -------------------------------------------------------------
 
 
-def test_validation_permissions_history_and_delete(client_for, db, providers):
-    admin, _ = client_for(UserRole.ADMIN)
-    agent, _ = client_for(UserRole.SALES_AGENT)
-    providers([FakeProvider("OVERTURE", FOODS)])
-    assert agent.post("/discovery/runs", json={"country": "FR", "industry": "food_manufacturing"}).status_code == 422
-    assert agent.post("/discovery/runs", json={"industry": "food_manufacturing", "custom_query": "x"}).status_code == 422
-    assert agent.post("/discovery/runs", json={"industry": "nope"}).status_code == 422
-    assert agent.post("/discovery/runs", json={"industry": "food_manufacturing", "city": "paris"}).status_code == 422
-    options = agent.get("/discovery/options").json()
-    assert options["countries"] == [{"code": "LB", "name": "Lebanon"}]
-    assert "food_manufacturing" in [i["key"] for i in options["industries"]]
+def test_dataset_file_connector_returns_candidates(tmp_path):
+    from app.services.discovery.connectors.dataset_file import DatasetFileConnector
+    from app.services.discovery.geography import find_area, find_country
+    from app.services.discovery.industries import profile_for
 
-    run = start(agent)
-    history = admin.get("/discovery/runs").json()
-    assert history["total"] == 1 and history["items"][0]["creator"]["name"]
-    assert agent.get("/discovery/runs", params={"mine": True}).json()["total"] == 1
-    assert admin.get("/discovery/runs", params={"mine": True}).json()["total"] == 0
-
-    # A company the user put in a campaign survives "delete with data".
-    kept_id = results(agent, run["id"])[0]["company"]["id"]
-    campaign = agent.post("/campaigns", json={"name": "Food push", "tecomsa_division": "ODOO", "country": "Lebanon",
-                                             "target_company_count": 10}).json()
-    assert agent.post(f"/campaigns/{campaign['id']}/companies/{kept_id}").status_code == 201
-
-    assert agent.delete(f"/discovery/runs/{run['id']}").status_code == 403
-    deleted = admin.delete(f"/discovery/runs/{run['id']}", params={"with_data": "true"}).json()
-    assert (deleted["companies_removed"], deleted["companies_kept"]) == (3, 1)
-    assert db.scalar(select(func.count(Company.id))) == 1
-    assert db.scalar(select(func.count(DiscoveryResult.id))) == 0
-    assert db.scalar(select(func.count(DiscoveryRun.id))) == 0
-    assert db.scalar(select(func.count(CompanySourceRecord.id))) == 1  # the kept company keeps its provenance
+    (tmp_path / "list.csv").write_text(
+        "Name,Reg,Town,Sector,Tel\nCedar Dairy SAL,1001,Beirut,Dairy products manufacturing,01 234 567\n"
+        "Cedar Bank,1002,Beirut,Banking,01 999 999\nZahle Foods,1003,Zahle,Food industry,08 111 111\n",
+        encoding="utf-8")
+    cfg = ConnectorConfig(key="lb_gov", kind="dataset_file", enabled=True, countries=("LB",), priority=1,
+                          source_type="government", quality=90, label="Ministry list",
+                          options={"path": "list.csv", "columns": {"company_name": "Name", "registration_number":
+                                   "Reg", "city": "Town", "industry": "Sector", "phone": "Tel"}})
+    connector = DatasetFileConnector(cfg, base_dir=tmp_path)
+    lb = find_country("LB")
+    result = connector.search_companies(SearchQuery(lb, find_area("LB", "Beirut"), profile_for("Food Manufacturing"), 10))
+    assert [c.company_name for c in result.candidates] == ["Cedar Dairy SAL"]
+    c = result.candidates[0]
+    assert isinstance(c, CompanyCandidate)
+    assert (c.source_type, c.registration_number, c.external_id, c.region) == ("government", "1001", "1001", "Beirut")
+    with pytest.raises(ConnectorError):
+        DatasetFileConnector(cfg, base_dir=tmp_path / "missing").search_companies(
+            SearchQuery(lb, None, profile_for(""), 10))
 
 
-def test_delete_without_data_keeps_companies(client_for, db, providers):
-    admin, _ = client_for(UserRole.ADMIN)
-    providers([FakeProvider("OVERTURE", FOODS[:2])])
-    run = start(admin)
-    result = admin.delete(f"/discovery/runs/{run['id']}").json()
-    assert result == {"id": run["id"], "with_data": False, "companies_removed": 0, "companies_kept": 2}
-    assert db.scalar(select(func.count(Company.id))) == 2
+def test_candidate_normalization_keeps_the_original():
+    from app.services.discovery.geography import find_country
+    from app.services.discovery.industries import profile_for
+    from app.services.discovery.normalizer import normalize
+
+    lb = find_country("Lebanon")
+    names = ["ABC S.A.L.", "ABC SAL", "ABC sal", "ABC Sarl", "  ABC   s.a.l "]
+    normalized = [normalize(cand(n, city="Beyrouth", at=(None, None)), lb, profile_for("Food Manufacturing"))
+                  for n in names]
+    assert {n.normalized_name for n in normalized} == {"abc"}
+    first = normalized[0]
+    c = first.candidate
+    assert c.company_name == "ABC S.A.L." and c.legal_name == "ABC S.A.L."  # display value untouched
+    assert (c.city, c.region, c.country) == ("Beirut", "Beirut", "Lebanon")
+    assert first.phone == "+9611200000" and first.industry == "Food Manufacturing"
+    assert c.raw_metadata["original"]["city"] == "Beyrouth"
+    odd = normalize(cand("X Foods", website="www.XFoods.com.lb/about", email=" Info@XFoods.com.lb ",
+                         phone="01 234 567"), lb, profile_for(""))
+    assert (odd.candidate.website, odd.domain, odd.email, odd.phone) == (
+        "https://www.XFoods.com.lb/about", "xfoods.com.lb", "info@xfoods.com.lb", "+9611234567")
 
 
-def test_results_filters_and_sorting(client_for, providers):
-    agent, _ = client_for(UserRole.SALES_AGENT)
-    providers([FakeProvider("OVERTURE", FOODS)])
-    run = start(agent)
-    page = agent.get(f"/discovery/runs/{run['id']}/results", params={"group": "available"}).json()
-    assert page["total"] == 4 and page["counts"] == {"available": 4, "known": 0, "protected": 0, "duplicate": 1, "all": 5}
-    assert [r["name"] for r in results(agent, run["id"], q="dairy")] == ["Beirut Dairy Industries"]
-    names = [r["name"] for r in results(agent, run["id"], sort="name", group="available")]
-    assert names == sorted(names, key=str.lower)
-    assert results(agent, run["id"], source="OSM") == []
-
-
-# ---- Overture provider on a real (small) GeoParquet file -------------------------------------
-
-
-def _write_overture_extract(path: Path) -> None:
-    import duckdb
-
-    rows = [
-        # id, name, primary, hierarchy, country, locality, lat, lon, phone, website, status
-        ("o1", "Zahle Conserves Factory", "manufacturer", ["services_and_business", "b2b_service", "manufacturer"],
-         "LB", "زحلة", 33.846, 35.902, "+9618540082", "http://zahleconserves.example", None),
-        ("o2", "Beirut Burger", "burger_restaurant", ["food_and_drink", "restaurant", "burger_restaurant"],
-         "LB", "بيروت", 33.89, 35.50, None, None, None),
-        ("o3", "Tyre Dairy", "dairy_farm", ["services_and_business", "agricultural_service", "farm", "dairy_farm"],
-         "LB", "صور", 33.27, 35.20, "+9617123456", None, None),
-        ("o4", "Homs Foods Factory", "manufacturer", ["services_and_business", "b2b_service", "manufacturer"],
-         "SY", "Homs", 34.7, 36.5, None, None, None),
-        ("o5", "Closed Dairy", "dairy_farm", ["services_and_business", "agricultural_service", "farm", "dairy_farm"],
-         "LB", None, 33.9, 35.5, None, None, "permanently_closed"),
-    ]
-    con = duckdb.connect()
-    con.execute("""CREATE TABLE p (id VARCHAR, name VARCHAR, taxonomy STRUCT("primary" VARCHAR, hierarchy VARCHAR[], alternates VARCHAR[]),
-        basic_category VARCHAR, confidence DOUBLE, operating_status VARCHAR, websites VARCHAR[], phones VARCHAR[], emails VARCHAR[],
-        addresses STRUCT(freeform VARCHAR, locality VARCHAR, postcode VARCHAR, region VARCHAR, country VARCHAR)[],
-        lon DOUBLE, lat DOUBLE, datasets VARCHAR[])""")
-    for pid, name, primary, hierarchy, country, locality, lat, lon, phone, website, status in rows:
-        con.execute(
-            "INSERT INTO p VALUES (?, ?, {'primary': ?, 'hierarchy': ?, 'alternates': []}, ?, 0.8, ?, ?, ?, [], "
-            "[{'freeform': 'Main road', 'locality': ?, 'postcode': NULL, 'region': NULL, 'country': ?}], ?, ?, ['meta'])",
-            [pid, name, primary, hierarchy, primary, status, [website] if website else [], [phone] if phone else [],
-             locality, country, lon, lat])
-    path.parent.mkdir(parents=True, exist_ok=True)
-    con.execute(f"COPY p TO '{path.as_posix()}' (FORMAT PARQUET)")
-    con.close()
-
-
-def test_overture_provider_parses_filters_country_industry_and_city(tmp_path):
-    _write_overture_extract(tmp_path / "overture" / "TEST" / "places_LB.parquet")
-    provider = OvertureProvider(tmp_path, "https://invalid.example/catalog.json", release="TEST")
-    lb, food = COUNTRIES["LB"], INDUSTRY_BY_KEY["food_manufacturing"]
-    stages = []
-
-    everywhere = provider.search(SearchQuery(lb, None, food), lambda s, d: stages.append(d))
-    assert [c.external_id for c in everywhere.candidates] == ["o3", "o1"]  # dairy_farm (strong) first; no SY, closed, restaurant
-    top = everywhere.candidates[1]
-    assert (top.name, top.city, top.country, top.phone, top.category) == (
-        "Zahle Conserves Factory", "Zahle", "Lebanon", "+9618540082", "Manufacturer")
-    assert top.data["release"] == "TEST" and everywhere.version == "TEST"
-    assert "Using cached release TEST" in stages
-
-    bekaa = provider.search(SearchQuery(lb, AREAS["LB"]["bekaa"], food), lambda *_: None)
-    assert [c.external_id for c in bekaa.candidates] == ["o1"]
-    tyre = provider.search(SearchQuery(lb, AREAS["LB"]["tyre"], food), lambda *_: None)
-    assert [c.external_id for c in tyre.candidates] == ["o3"]
-
-
-def test_overture_provider_reports_unreachable_catalog(tmp_path):
-    provider = OvertureProvider(tmp_path, "https://invalid.invalid/catalog.json", timeout=2)
-    with pytest.raises(ProviderError, match="no local copy"):
-        provider.dataset(COUNTRIES["LB"], lambda *_: None)
-
-
-# ---- Industry mapping, geography and normalisation ------------------------------------------
-
-
-@pytest.mark.parametrize(("name", "nodes", "matches"), [
-    ("Ghanem Frozen Foods", {"manufacturer"}, True),
-    ("Linda Chocolate Factory", {"chocolatier", "shopping"}, True),
-    ("Crown Flour Mills", {"food_and_drink"}, True),
-    ("Rawabi Chtaura", {"dairy_farm"}, True),
-    ("Beirut Burger", {"restaurant", "burger_restaurant"}, False),
-    ("Chiraz Roastery", {"produce_store", "shopping"}, False),  # a roastery shop: one word is not both signals
-    ("Hipco Paper Mills", {"manufacturer", "paper_mill"}, False),
-    ("شركة زيتون للالمنيوم", {"metal_supplier"}, False),
-    ("مصنع الأغذية الحديثة", {"manufacturer"}, True),
+@pytest.mark.parametrize("url,website,domain,social", [
+    ("https://www.abcfoods.com.lb/about", "https://www.abcfoods.com.lb/about", "abcfoods.com.lb", {}),
+    ("abcfoods.com", "https://abcfoods.com", "abcfoods.com", {}),
+    ("https://www.facebook.com/abcfoods", None, None, {"facebook_url": "https://www.facebook.com/abcfoods"}),
+    ("https://instagram.com/abc", None, None, {"instagram_url": "https://instagram.com/abc"}),
+    ("https://linktr.ee/abc", None, None, {}),
+    ("javascript:alert(1)", None, None, {}),
+    ("not a url", None, None, {}),
+    (None, None, None, {}),
 ])
-def test_food_manufacturing_mapping(name, nodes, matches):
-    assert (INDUSTRY_BY_KEY["food_manufacturing"].score(name, nodes) is not None) is matches
+def test_domain_resolution(url, website, domain, social):
+    from app.services.discovery.domain_resolution import resolve_website
+
+    resolved = resolve_website(url)
+    assert (resolved.website, resolved.domain, resolved.social) == (website, domain, social)
 
 
-def test_custom_industry_matches_words_in_name_and_category():
-    profile = CustomProfile("Plastic packaging manufacturers in Lebanon")
-    assert profile.words == ["plastic", "packag", "manufactur"]
-    assert profile.score("Raznia", {"plastic_manufacturer", "manufacturer"}) is not None  # 2 of 3 words
-    assert profile.score("Raznia", {"textile_manufacturer"}) is None
+# ---- 7-12: entity resolution, sources, evidence ---------------------------------------------------------------
 
 
-def test_areas_match_arabic_localities_and_coordinates():
-    zahle = AREAS["LB"]["zahle"]
-    assert in_area(zahle, None, None, ["زحلة البربارة"])
-    assert in_area(zahle, 33.84, 35.90, [])
-    assert not in_area(zahle, 33.89, 35.50, ["بيروت"])
-    mount = AREAS["LB"]["mount_lebanon"]
-    assert in_area(mount, 33.97, 35.61, []) and not in_area(mount, 33.894, 35.502, [])  # Beirut is carved out
-    assert canonical_city("LB", 33.89, 35.50, "بيروت") == "Beirut"
-    assert canonical_city("LB", 34.0, 35.7, "Bikfaya") == "Bikfaya"
+def test_strong_domain_match_reuses_the_canonical_company(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    cid = agent.post("/companies", json={"name": "ABC Foods Holding", "domain": "abcfoods.example",
+                                         "headquarters_country": "Lebanon"}).json()["id"]
+    sources(FakeConnector(config("gov"), lambda: [cand("ABC Food Industries", website="https://www.abcfoods.example/x",
+                                                       phone=None)]))
+    done = search(agent, count=1)
+    assert count(db, Company) == 1
+    assert [r["company"]["id"] for r in results(agent, done["id"])] == [cid]
+    assert db.scalar(select(CompanyIdentifier.company_id).where(CompanyIdentifier.scheme == "gov")) == cid
 
 
-def test_normalisation_used_by_discovery():
-    assert {normalize_company_name(n) for n in ("ABC Foods SAL", "ABC Foods S.A.L.", "ABC FOODS S.A.L", "ABC Foods Holding",
-                                                "ABC Foods ش.م.ل")} == {"abc foods"}
-    assert {company_domain(u) for u in ("https://abcfoods.com", "http://abcfoods.com/", "www.abcfoods.com", "abcfoods.com")} == {"abcfoods.com"}
-    assert company_domain("https://www.instagram.com/abcfoods") is None
-    assert company_domain("https://abc-foods.business.site/") == "abc-foods.business.site"
-    assert {normalize_phone(p, "Lebanon") for p in ("+961 3 123 456", "00961 3 123456", "03 123456")} == {"+9613123456"}
-    assert normalize_phone("+33 1 23 45 67 89", "Lebanon") == "+33123456789"  # international numbers untouched
+def test_strong_phone_match_reuses_the_canonical_company(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    cid = agent.post("/companies", json={"name": "Hadid Sweets", "headquarters_country": "Lebanon"}).json()["id"]
+    db.add(Phone(company_id=cid, phone="01 456 789", normalized_phone="+9611456789"))
+    db.commit()
+    sources(FakeConnector(config("gov"), lambda: [cand("Hadid Sweets Factory", phone="+961-1-456789")]))
+    search(agent, count=1)
+    assert count(db, Company) == 1 and db.get(Company, cid).industry == "Food Manufacturing"  # completed blank
+    # A shared number under another name is not the same company: a possible duplicate, not a merge.
+    sources(FakeConnector(config("osm"), lambda: [cand("Totally Different Mills", connector="osm",
+                                                       phone="+961 1 456 789", n=3)]))
+    search(agent, count=2)
+    assert count(db, Company) == 2 and count(db, PossibleDuplicate) == 1
 
 
-def test_settings_have_safe_defaults():
-    s = get_settings()
-    assert s.discovery_inline is True and s.osm_enabled is False  # test settings
-    assert s.overture_stac_url.startswith("https://stac.overturemaps.org/")
+def test_weak_name_only_match_is_never_merged(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    for city in ("Tripoli", "Saida"):
+        agent.post("/companies", json={"name": "ABC Trading", "headquarters_country": "Lebanon",
+                                       "headquarters_city": city})
+    sources(FakeConnector(config("gov"), lambda: [cand("ABC Trading")]))
+    search(agent, count=1)
+    assert count(db, Company) == 3  # a new Beirut "ABC Trading", the other two untouched
+    pairs = db.scalars(select(PossibleDuplicate)).all()
+    assert len(pairs) == 2 and all(p.status == "open" and "different" in p.reason for p in pairs)
+    # Same name AND same city: that is enough (medium evidence) to reuse the company.
+    sources(FakeConnector(config("osm"), lambda: [cand("ABC Trading", connector="osm", phone=None, n=5)]))
+    search(agent, count=1)
+    assert count(db, Company) == 3
 
 
-def test_osm_provider_parses_cached_overpass_answer(tmp_path):
-    import json
+def test_one_company_many_sources_with_evidence(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    sources(FakeConnector(config("gov", quality=90, source_type="government", priority=5),
+                          lambda: [cand("Kova Coffee", website="http://KovaCoffee.example/", registration_number="77")]),
+            FakeConnector(config("osm", quality=55), lambda: [cand("Kova coffee", connector="osm",
+                                                                   website="https://kovacoffee.example")]))
+    done = search(agent, count=1)
+    assert done["status"] == "completed" and count(db, Company) == 1
+    company = db.scalar(select(Company))
+    detail = agent.get(f"/companies/{company.id}").json()
+    assert {s["source_type"] for s in detail["sources"]} == {"government", "open_dataset"}
+    industry = db.scalars(select(Evidence).where(Evidence.field_name == "industry")).all()
+    assert {e.extracted_value for e in industry} == {"Food Manufacturing"}
+    assert {db.get(Source, e.source_id).source_quality for e in industry} == {90, 55}
+    assert all(e.structured_value["tier"] == "category" for e in industry)
+    assert db.scalar(select(func.count()).where(CompanyIdentifier.scheme == "registry:LB")) == 1
+    rows = results(agent, done["id"])
+    assert len(rows) == 1 and rows[0]["source_count"] == 2 and rows[0]["company"]["identity_confidence"]
 
-    from app.services.discovery.osm import OsmProvider
 
-    (tmp_path / "osm").mkdir()
-    (tmp_path / "osm" / "features_LB.json").write_text(json.dumps({"elements": [
-        {"type": "way", "id": 1, "center": {"lat": 33.85, "lon": 35.90},
-         "tags": {"name": "Liban Lait", "man_made": "works", "product": "dairy", "phone": "+961 8 900 900"}},
-        {"type": "node", "id": 2, "lat": 33.86, "lon": 35.93, "tags": {"name": "Chateau Test", "craft": "winery"}},
-        {"type": "node", "id": 3, "lat": 33.89, "lon": 35.50, "tags": {"name": "Some Office", "office": "company"}},
-    ]}), encoding="utf-8")
-    provider = OsmProvider(tmp_path, "https://invalid.invalid/api/interpreter")
-    lb = COUNTRIES["LB"]
-
-    food = provider.search(SearchQuery(lb, None, INDUSTRY_BY_KEY["food_manufacturing"]), lambda *_: None)
-    assert [(c.external_id, c.name, c.city, c.phone) for c in food.candidates] == [("way/1", "Liban Lait", "Zahle", "+961 8 900 900")]
-    drinks = provider.search(SearchQuery(lb, AREAS["LB"]["bekaa"], INDUSTRY_BY_KEY["beverage_manufacturing"]), lambda *_: None)
-    assert [c.external_id for c in drinks.candidates] == ["node/2"]
+def test_branches_consolidate_into_one_company_with_locations(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    sources(FakeConnector(config("gov"), lambda: [
+        cand("Patchi Hamra", n=0, phone="+961 1 111 001", brand="Patchi"),
+        cand("Patchi Achrafieh", n=4, phone="+961 1 111 002", brand="Patchi"),
+        cand("Patchi Verdun", n=8, phone=None, website="https://patchi.example", brand="Patchi"),
+    ]))
+    search(agent, count=5)
+    companies = db.scalars(select(Company)).all()
+    assert [c.name for c in companies] == ["Patchi"]
+    assert count(db, CompanyLocation) == 3
 
 
-def test_city_label_never_contradicts_coordinates():
-    assert canonical_city("LB", 33.804, 35.806, "Beirut") is None  # text says Beirut, the place is in the Bekaa
-    assert canonical_city("LB", 33.87, 35.52, "Beirut") == "Beirut"
+# ---- 13-17: idempotency, growth, failures, statuses ------------------------------------------------------------
+
+
+def test_repeating_a_search_is_idempotent(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    sources(FakeConnector(config("gov"), lambda: [cand(f"Food Co {i}", n=i) for i in range(1, 5)]))
+    first = search(agent, count=4)
+    before = {m: count(db, m) for m in (Company, Source, Evidence, CompanyLocation, Phone, CompanyIdentifier)}
+    second = search(agent, count=4)
+    assert (first["status"], second["status"]) == ("completed", "completed")
+    assert {m: count(db, m) for m in before} == before  # nothing duplicated
+    assert [r["company"]["id"] for r in results(agent, first["id"])] == \
+        [r["company"]["id"] for r in results(agent, second["id"])]
+    assert not any(r["is_new"] for r in results(agent, second["id"]))
+
+
+def test_a_bigger_search_reuses_and_grows_the_database(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    sources(FakeConnector(config("gov"), lambda: [cand(f"Food Co {i}", n=i) for i in range(1, 9)]))
+    first = search(agent, count=3)
+    second = search(agent, count=6)
+    assert count(db, Company) == 6
+    old = {r["company"]["id"] for r in results(agent, first["id"])}
+    rows = results(agent, second["id"])
+    assert old <= {r["company"]["id"] for r in rows}
+    assert sum(r["is_new"] for r in rows) == 3
+
+
+def test_a_failing_connector_does_not_stop_the_search(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    manager, _ = client_for(UserRole.SALES_MANAGER)
+    sources(FakeConnector(config("gov", priority=1), error=ConnectorError("Registry is down for maintenance.")),
+            FakeConnector(config("dir", priority=2), error=RuntimeError("psycopg password=hunter2 /app/x.py")),
+            FakeConnector(config("osm", priority=3), lambda: [cand("Survivor Foods", connector="osm")]))
+    done = search(agent, count=1)
+    assert (done["status"], done["companies_found"]) == ("completed", 1)
+    assert (done["connectors_total"], done["connectors_completed"]) == (3, 3)
+    assert done["diagnostics"] is None  # salespeople do not see diagnostics
+    diagnostics = manager.get(f"/lead-searches/{done['id']}").json()["diagnostics"]["connectors"]
+    assert diagnostics["gov"]["error"] == "Registry is down for maintenance."
+    assert "hunter2" not in str(diagnostics) and diagnostics["dir"]["status"] == "failed"
+    assert diagnostics["osm"]["created"] == 1
+
+
+def test_a_slow_source_never_holds_the_search(client_for, db, sources, web, monkeypatch):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    manager, _ = client_for(UserRole.SALES_MANAGER)
+    monkeypatch.setattr(orchestrator, "PRIORITY_GRACE_SECONDS", 0.1)
+    monkeypatch.setattr(get_settings(), "discovery_connector_timeout_seconds", 0.5)
+    release = threading.Event()
+
+    def hangs():
+        release.wait(5)
+        return [cand("Too Late Foods")]
+
+    sources(FakeConnector(config("gov", priority=1), hangs),  # the best source, but it does not answer
+            FakeConnector(config("osm", priority=2), lambda: [cand("Fast Foods", connector="osm")]))
+    started = time.monotonic()
+    done = search(agent, count=1)
+    release.set()
+    assert time.monotonic() - started < 3
+    assert (done["status"], done["companies_found"]) == ("completed", 1)
+    gov = manager.get(f"/lead-searches/{done['id']}").json()["diagnostics"]["connectors"]["gov"]
+    assert gov["status"] == "failed" and "No answer within" in gov["error"]
+
+
+def test_discovery_stops_matching_once_the_search_is_full(client_for, db, sources, web):
+    manager, _ = client_for(UserRole.SALES_MANAGER)
+    def word(i: int) -> str:  # distinct names: aaa, aab, ...
+        return "".join("abcdefghij"[int(d)] for d in f"{i:03d}")
+
+    sources(FakeConnector(config("gov"), lambda: [cand(f"Foods {word(i)}", n=i) for i in range(300)]))
+    done = search(manager, count=3)
+    assert (done["status"], count(db, Company)) == ("completed", 3)
+    stats = done["diagnostics"]["connectors"]["gov"]
+    assert stats["not_matched"] > 250  # listings the search did not need were never matched against the database
+    assert {"db_lookup", "queue_wait", "normalize", "deduplicate", "persist", "rank", "first_result",
+            "discovery_total"} <= set(done["diagnostics"]["timings"])
+
+
+def test_partial_failed_and_completed_statuses(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    sources(FakeConnector(config("gov"), lambda: [cand(f"Only Co {i}", n=i) for i in range(3)]
+                          + [cand("Pin Only", phone=None, address=None, n=9, tier="name", categories=[])]))
+    partial = search(agent, count=10)
+    assert (partial["status"], partial["companies_found"]) == ("partial", 3)  # never padded with junk
+    assert "Only 3 trustworthy companies" in partial["message"]
+    assert count(db, Company) == 3
+    sources(FakeConnector(config("gov"), error=ConnectorError("down")))
+    failed = search(agent, count=2, city="Tripoli")
+    assert failed["status"] == "failed" and failed["companies_found"] == 0
+    unsupported = agent.post("/lead-searches", json={"country": "France", "requested_count": 5}).json()
+    assert unsupported["status"] == "partial" and "not available for France" in unsupported["message"]
+
+
+# ---- 18-21: Companies, deletion, visibility, auth -------------------------------------------------------------
+
+
+def test_discovered_companies_appear_in_companies_and_stay_deleted(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    manager, _ = client_for(UserRole.SALES_MANAGER)
+    sources(FakeConnector(config("gov"), lambda: [cand("Listed Foods", n=1), cand("Junk Foods", n=2)]))
+    search(agent, count=2)
+    listed = agent.get("/companies", params={"region": "Beirut", "industry": "Food Manufacturing"}).json()
+    assert {c["name"] for c in listed["items"]} == {"Listed Foods", "Junk Foods"}
+    junk = next(c["id"] for c in listed["items"] if c["name"] == "Junk Foods")
+    assert manager.delete(f"/companies/{junk}").status_code == 204
+    again = search(agent, count=2)
+    assert again["companies_found"] == 1 and count(db, Company) == 1  # deleted means deleted
+    stats = manager.get(f"/lead-searches/{again['id']}").json()["diagnostics"]["connectors"]["gov"]
+    assert stats["suppressed"] == 1
+
+
+def test_searches_are_private_to_their_owner(client_for, sources):
+    hussein, _ = client_for(UserRole.SALES_AGENT)
+    mariam, _ = client_for(UserRole.SALES_AGENT)
+    manager, _ = client_for(UserRole.SALES_MANAGER)
+    sources()
+    sid = hussein.post("/lead-searches", json={"country": "Lebanon"}).json()["id"]
+    assert mariam.get(f"/lead-searches/{sid}").status_code == 404
+    assert mariam.get(f"/lead-searches/{sid}/results").status_code == 404
+    assert manager.get(f"/lead-searches/{sid}").status_code == 200
+    assert hussein.get(f"/lead-searches/{sid}/results").status_code == 200
+
+
+# ---- website identity check -----------------------------------------------------------------------------------
+
+
+def test_company_research_sets_only_verified_domains(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    web["www.goodfoods.example"] = "<html><title>Good Foods SAL | Home</title><p>Dairy since 1990</p></html>"
+    web["wrongsite.example"] = "<html><title>Totally unrelated shop</title></html>"
+    web["parked.example"] = "<html><title>parked.example - This domain is for sale</title></html>"
+    sources(FakeConnector(config("gov"), lambda: [
+        cand("Good Foods", website="https://www.goodfoods.example", n=1),
+        cand("Mismatch Mills", website="https://wrongsite.example", n=2),
+        cand("Parked Dairy", website="https://parked.example", n=3),
+        cand("Dead Foods", website="https://dead.example", n=4),
+    ]))
+    created = agent.post("/lead-searches", json={"country": "Lebanon", "city": "Beirut", "industry":
+                                                 "Food Manufacturing", "requested_count": 4}).json()
+    assert jobs.run_next((jobs.DISCOVERY,))
+    found = agent.get(f"/lead-searches/{created['id']}").json()
+    # The search is final before any website is fetched; company research follows as its own jobs.
+    assert (found["status"], found["companies_found"], found["enrichment_status"]) == ("completed", 4, "running")
+    assert len(results(agent, created["id"])) == 4 and count(db, Source) == 4  # no website source yet
+    while jobs.run_next():  # company research of the 4 companies, then their people discovery
+        pass
+    assert agent.get(f"/lead-searches/{created['id']}").json()["enrichment_status"] == "completed"
+    domains = {c.name: (c.domain, c.last_verified_at is not None) for c in db.scalars(select(Company))}
+    assert domains == {"Good Foods": ("goodfoods.example", True), "Mismatch Mills": (None, False),
+                       "Parked Dairy": (None, False), "Dead Foods": (None, False)}
+    good = db.scalar(select(Company).where(Company.name == "Good Foods"))
+    proof = db.scalar(select(Evidence).where(Evidence.company_id == good.id, Evidence.field_name == "domain"))
+    assert db.get(Source, proof.source_id).source_type == "company_website"
+    assert good.website == "https://www.goodfoods.example"
+
+
+def test_polite_fetcher_honours_robots_and_caches():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        if request.url.path == "/robots.txt":
+            return httpx.Response(200, text="User-agent: *\nDisallow: /private", headers={"content-type": "text/plain"})
+        return httpx.Response(200, text="<p>ok</p>", headers={"content-type": "text/html"})
+
+    import app.services.discovery.fetch as f
+    original, f.resolve = f.resolve, lambda host: ["93.184.216.34"]
+    try:
+        polite = PoliteFetcher(f.Fetcher(max_bytes=10_000, timeout=5, transport=httpx.MockTransport(handler)),
+                               min_interval=0)
+        assert polite.get("https://site.example/").html == "<p>ok</p>"
+        polite.get("https://site.example/")  # cached
+        with pytest.raises(f.FetchError) as exc:
+            polite.get("https://site.example/private/x")
+        assert exc.value.kind == "ROBOTS"
+    finally:
+        f.resolve = original
+    assert calls == ["/robots.txt", "/"]
+
+
+# ---- the job queue ----------------------------------------------------------------------------------------------
+
+
+def test_jobs_run_once_and_interrupted_jobs_are_recovered(client_for, db, sources):
+    agent, user = client_for(UserRole.SALES_AGENT)
+    sources()
+    for _ in range(2):
+        agent.post("/lead-searches", json={"country": "Lebanon"})
+    assert jobs.run_next() and jobs.run_next() and not jobs.run_next()
+    assert set(db.scalars(select(ResearchRun.status))) == {"partial"}
+    stuck = LeadSearch(user_id=user.id, country="Lebanon", requested_count=5, status="researching")
+    db.add(stuck)
+    db.flush()
+    dead = ResearchRun(search_id=stuck.id, research_type="company_discovery", status="running")
+    alive = ResearchRun(research_type="company_discovery", status="running")
+    db.add_all([dead, alive])
+    db.commit()
+    with engine.connect() as worker:  # a live worker holds its job's liveness lock
+        worker.execute(select(func.pg_advisory_lock(jobs._LIVENESS, alive.id)))
+        assert jobs.recover_interrupted(db) == 1  # only the job nobody runs any more
+        worker.execute(select(func.pg_advisory_unlock(jobs._LIVENESS, alive.id)))
+        worker.commit()
+    db.refresh(stuck)
+    db.refresh(alive)
+    assert stuck.status == "failed" and "interrupted" in stuck.message and alive.status == "running"  # found none
+
+
+def test_results_are_ranked_by_relevance(client_for, db, sources, web):
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    sources(FakeConnector(config("gov"), lambda: [
+        cand("Name Only Bakery Factory", n=1, tier="name", categories=[], website="https://nameonly.example"),
+        cand("Category Foods", n=2, website="https://catfoods.example"),
+    ]))
+    done = search(agent, count=2)
+    rows = results(agent, done["id"])
+    assert [r["company"]["name"] for r in rows] == ["Category Foods", "Name Only Bakery Factory"]
+    assert rows[0]["relevance_score"] > rows[1]["relevance_score"] and [r["rank"] for r in rows] == [1, 2]
+    assert db.scalar(select(func.count(LeadSearchResult.id))) == 2

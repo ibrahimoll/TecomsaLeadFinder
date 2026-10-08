@@ -80,7 +80,8 @@ _NON_COMPANY_DOMAINS = frozenset(
         "google.com", "goo.gl", "g.page", "forms.gle", "business.site", "sites.google.com",
         "maps.app.goo.gl", "bit.ly", "tinyurl.com", "wixsite.com", "blogspot.com", "wordpress.com",
         "gmail.com", "hotmail.com", "yahoo.com", "outlook.com", "wikipedia.org", "tripadvisor.com",
-        "foursquare.com", "yelp.com", "coverbox.app", "kyte.site", "placeweb.site",
+        "foursquare.com", "yelp.com", "coverbox.app", "kyte.site", "placeweb.site", "thrubits.com",
+        "omegasoftware.ca",  # restaurant menu / ordering platforms
     }
 )
 

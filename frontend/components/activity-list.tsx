@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import { Building2, Megaphone, StickyNote, UserPlus, type LucideIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ArrowRightLeft, Briefcase, Building2, CalendarClock, Megaphone, PhoneCall, Repeat, StickyNote, UserPlus, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState, Skeleton } from "@/components/ui";
@@ -11,6 +12,16 @@ const ICON: Record<ActivityType, LucideIcon> = {
   COMPANY_ADDED_TO_CAMPAIGN: Megaphone,
   CONTACT_ADDED: UserPlus,
   NOTE_ADDED: StickyNote,
+  OPPORTUNITY_CREATED: Briefcase,
+  CONTACTED: PhoneCall,
+  ACTIVITY_PLANNED: CalendarClock,
+  STATUS_CHANGED: Repeat,
+  LEAD_REASSIGNED: ArrowRightLeft,
+};
+
+const KIND: Record<string, string> = {
+  CALL: "a call", EMAIL: "an email", WHATSAPP: "a WhatsApp", LINKEDIN: "a LinkedIn message", MEETING: "a meeting",
+  FOLLOW_UP: "a follow-up", DEMO: "a demo", PROPOSAL: "a proposal", OTHER: "an activity",
 };
 
 function CompanyLink({ a }: { a: Activity }) {
@@ -43,6 +54,16 @@ function Sentence({ a }: { a: Activity }) {
       return <>{m("added ")}{a.contact?.full_name ?? "a contact"}{a.company && <>{m(" at ")}<CompanyLink a={a} /></>}</>;
     case "NOTE_ADDED":
       return <>{m("left a note")}{a.company && <>{m(" on ")}<CompanyLink a={a} /></>}</>;
+    case "OPPORTUNITY_CREATED":
+      return <>{m("created the Odoo opportunity for ")}<CompanyLink a={a} /></>;
+    case "CONTACTED":
+      return <>{m(`recorded ${KIND[a.kind ?? "OTHER"] ?? "an activity"} with `)}<CompanyLink a={a} /></>;
+    case "ACTIVITY_PLANNED":
+      return <>{m(`planned ${KIND[a.kind ?? "FOLLOW_UP"] ?? "a follow-up"}${a.due_date ? ` for ${a.due_date}` : ""} with `)}<CompanyLink a={a} />{a.done_at && m(" · done")}</>;
+    case "STATUS_CHANGED":
+      return <>{m("updated the lead status of ")}<CompanyLink a={a} /></>;
+    case "LEAD_REASSIGNED":
+      return <>{m("reassigned ")}<CompanyLink a={a} /></>;
   }
 }
 
@@ -68,6 +89,16 @@ export function ActivityList({
   loading?: boolean;
   emptyText?: string;
 }) {
+  // Live data: events that arrive after the first render (a note just added, a poll) slide in.
+  const known = useRef<Set<number> | null>(null);
+  const fresh = new Set<number>();
+  if (items) {
+    if (known.current === null) known.current = new Set(items.map((a) => a.id));
+    else for (const a of items) if (!known.current.has(a.id)) fresh.add(a.id);
+  }
+  useEffect(() => {
+    if (items && known.current) for (const a of items) known.current.add(a.id);
+  }, [items]);
   if (loading && !items) {
     return (
       <div className="space-y-4 py-1">
@@ -97,16 +128,16 @@ export function ActivityList({
     <div className="space-y-4">
       {groups.map((group) => (
         <section key={group.label}>
-          <h3 className="mb-2 text-[11px] font-medium text-fg-subtle">{group.label}</h3>
-          <ol className="relative">
+          <h3 className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">{group.label}</h3>
+          <ol className="stagger relative">
             {group.items.map((a, i) => {
               const Icon = ICON[a.activity_type];
               return (
-                <li key={a.id} className="relative flex gap-3 pb-3.5 last:pb-0">
+                <li key={a.id} className={clsx("group relative -mx-1.5 flex gap-3 rounded-md px-1.5 pb-3.5 last:pb-0", fresh.has(a.id) && "animate-slide-in-top")}>
                   {i < group.items.length - 1 && <span className="absolute left-[11.5px] top-7 h-[calc(100%-22px)] w-px bg-border" aria-hidden />}
                   <span
                     className={clsx(
-                      "relative z-[1] mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface",
+                      "relative z-[1] mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface transition-colors duration-200 group-hover:border-accent/40 group-hover:text-accent",
                       a.activity_type === "NOTE_ADDED" ? "text-warning" : "text-fg-subtle",
                     )}
                     aria-hidden
@@ -117,7 +148,7 @@ export function ActivityList({
                     <p className="text-fg">
                       <span className="font-medium">{a.user?.name ?? "System"}</span> <Sentence a={a} />
                     </p>
-                    {a.notes && a.activity_type === "NOTE_ADDED" && (
+                    {a.notes && a.activity_type !== "COMPANY_CREATED" && a.activity_type !== "CONTACT_ADDED" && (
                       <p className="mt-1 whitespace-pre-line break-words rounded border border-border bg-surface-muted/50 px-2.5 py-1.5 text-fg">
                         {a.notes}
                       </p>

@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CrmStatusBadge } from "@/components/status-badges";
-import { Kbd } from "@/components/ui";
+import { Avatar, Kbd } from "@/components/ui";
 import { api } from "@/lib/api";
+import { recentCompanies, type RecentCompany } from "@/lib/recent";
 import type { Company, Page } from "@/types";
 
 export interface PaletteCommand {
@@ -21,7 +22,7 @@ export interface PaletteCommand {
 
 type Item =
   | (PaletteCommand & { kind: "command" })
-  | { kind: "company"; id: string; href: string; company: Company };
+  | { kind: "company"; id: string; href: string; company: Company | RecentCompany; recent?: boolean };
 
 /**
  * ⌘K command palette (pattern adapted from 21st.dev's Raycast-style "Command Palette"):
@@ -43,12 +44,14 @@ export function CommandPalette({
   const [active, setActive] = useState(0);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [searching, setSearching] = useState(false);
+  const [recent, setRecent] = useState<RecentCompany[]>([]);
 
   useEffect(() => {
     if (!open) return;
     setQuery("");
     setActive(0);
     setCompanies([]);
+    setRecent(recentCompanies());
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
@@ -81,8 +84,11 @@ export function CommandPalette({
       href: `/companies/${company.id}`,
       company,
     }));
-    return [...found, ...matched];
-  }, [commands, companies, query]);
+    const recents = q
+      ? []
+      : recent.map((company) => ({ kind: "company" as const, id: `recent-${company.id}`, href: `/companies/${company.id}`, company, recent: true }));
+    return [...recents, ...found, ...matched];
+  }, [commands, companies, query, recent]);
 
   useEffect(() => setActive(0), [items.length]);
   useEffect(() => {
@@ -115,14 +121,14 @@ export function CommandPalette({
 
   const groups: { title: string; items: { item: Item; index: number }[] }[] = [];
   items.forEach((item, index) => {
-    const title = item.kind === "company" ? "Companies" : item.group;
+    const title = item.kind === "company" ? (item.recent ? "Recently viewed" : "Companies") : item.group;
     const group = groups.find((g) => g.title === title) ?? groups[groups.push({ title, items: [] }) - 1]!;
     group.items.push({ item, index });
   });
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[14vh]" role="dialog" aria-modal="true" aria-label="Command menu">
-      <button className="absolute inset-0 animate-[fade-in_120ms_ease-out] bg-ink/25" aria-label="Close command menu" onClick={onClose} tabIndex={-1} />
+      <button className="absolute inset-0 animate-[fade-in_120ms_ease-out] bg-ink/30 backdrop-blur-[2px]" aria-label="Close command menu" onClick={onClose} tabIndex={-1} />
       <div className="elevated relative w-full max-w-[560px] animate-pop-in overflow-hidden rounded-lg bg-surface" onKeyDown={onKeyDown}>
         <div className="flex items-center gap-2.5 border-b border-border px-4">
           {searching ? (
@@ -165,11 +171,15 @@ export function CommandPalette({
                       onMouseMove={() => setActive(index)}
                       onClick={() => go(item)}
                       className={clsx(
-                        "flex h-9 cursor-pointer items-center gap-2.5 rounded px-2.5 text-[13px]",
-                        selected ? "bg-surface-hover text-fg" : "text-fg-muted",
+                        "relative flex h-9 cursor-pointer items-center gap-2.5 rounded px-2.5 text-[13px] transition-colors duration-100",
+                        selected ? "bg-accent-soft/70 text-fg before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-accent" : "text-fg-muted",
                       )}
                     >
-                      <Icon className={clsx("h-4 w-4 shrink-0", selected ? "text-fg" : "text-fg-subtle")} aria-hidden />
+                      {item.kind === "company" ? (
+                        <Avatar name={item.company.name} size="sm" domain={item.company.domain} />
+                      ) : (
+                        <Icon className={clsx("h-4 w-4 shrink-0", selected ? "text-accent" : "text-fg-subtle")} aria-hidden />
+                      )}
                       {item.kind === "company" ? (
                         <>
                           <span className="min-w-0 flex-1 truncate font-medium text-fg">{item.company.name}</span>
@@ -181,7 +191,7 @@ export function CommandPalette({
                       ) : (
                         <span className="flex-1 truncate">{item.label}</span>
                       )}
-                      {selected && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-fg-subtle" aria-hidden />}
+                      {selected && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 animate-pop-in text-accent" aria-hidden />}
                     </div>
                   );
                 })}
@@ -197,7 +207,9 @@ export function CommandPalette({
           <span className="flex items-center gap-1">
             <Kbd>↵</Kbd> open
           </span>
-          <span className="ml-auto">Type 2+ letters to search companies</span>
+          <span className="ml-auto flex items-center gap-1">
+            Type 2+ letters to search companies · <Kbd>?</Kbd> shortcuts
+          </span>
         </div>
       </div>
     </div>

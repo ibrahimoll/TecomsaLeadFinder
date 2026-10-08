@@ -22,4 +22,7 @@ USER appuser
 EXPOSE 8000
 
 # Apply pending migrations, then serve.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"]
+# Proxy headers are trusted only from private networks (the Next.js server and the TLS reverse proxy):
+# the client address used for login rate limiting cannot be forged with X-Forwarded-For.
+ENV FORWARDED_ALLOW_IPS="127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=\"$FORWARDED_ALLOW_IPS\""]

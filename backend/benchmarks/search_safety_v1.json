@@ -1,0 +1,317 @@
+[
+ {
+  "kind": "exact",
+  "query": "Lycée Abdel Kader",
+  "expected_id": 143,
+  "expected": "Lycée Abdel Kader"
+ },
+ {
+  "kind": "exact",
+  "query": "Phoenix International School",
+  "expected_id": 238,
+  "expected": "Phoenix International School"
+ },
+ {
+  "kind": "exact",
+  "query": "Daccache Liquor Store",
+  "expected_id": 336,
+  "expected": "Daccache Liquor Store"
+ },
+ {
+  "kind": "exact",
+  "query": "Samer Deeb OMT",
+  "expected_id": 396,
+  "expected": "Samer Deeb OMT"
+ },
+ {
+  "kind": "exact",
+  "query": "Monsif International School",
+  "expected_id": 236,
+  "expected": "Monsif International School"
+ },
+ {
+  "kind": "legal",
+  "query": "Rawda Cell 2 SAL",
+  "expected_id": 393,
+  "expected": "Rawda Cell 2"
+ },
+ {
+  "kind": "legal",
+  "query": "Tourism & Shipping Services",
+  "expected_id": 378,
+  "expected": "Tourism & Shipping Services SARL"
+ },
+ {
+  "kind": "legal",
+  "query": "KBS Cellular SAL",
+  "expected_id": 394,
+  "expected": "KBS Cellular"
+ },
+ {
+  "kind": "brand",
+  "query": "Terabyte Ras Nabea",
+  "expected_id": 330,
+  "expected": "Terabyte Computers - Ras Al Nabea"
+ },
+ {
+  "kind": "brand",
+  "query": "ISST",
+  "expected_id": 300,
+  "expected": "ISST Group"
+ },
+ {
+  "kind": "brand",
+  "query": "Itani",
+  "expected_id": 379,
+  "expected": "Itani Transport Company"
+ },
+ {
+  "kind": "french",
+  "query": "LAU Medical Center Rizk Hôpital",
+  "expected_id": 363,
+  "expected": "LAU Medical Center Rizk Hospital"
+ },
+ {
+  "kind": "french",
+  "query": "Libanaise American University - LAU",
+  "expected_id": 125,
+  "expected": "Lebanese American University - LAU"
+ },
+ {
+  "kind": "french",
+  "query": "Suliman S. Olayan Ecole of Business",
+  "expected_id": 241,
+  "expected": "Suliman S. Olayan School of Business"
+ },
+ {
+  "kind": "domain",
+  "query": "zcellshop.com",
+  "expected_id": 398,
+  "expected": "z.cell"
+ },
+ {
+  "kind": "domain",
+  "query": "moazingroup.com",
+  "expected_id": 101,
+  "expected": "Moazin Group SARL"
+ },
+ {
+  "kind": "domain",
+  "query": "gafandco.com",
+  "expected_id": 338,
+  "expected": "Gaf and Co"
+ },
+ {
+  "kind": "url",
+  "query": "https://lasiestabeachresort.com/about",
+  "expected_id": 189,
+  "expected": "La Siesta Resort Khalde"
+ },
+ {
+  "kind": "url",
+  "query": "https://arcadiacollege.edu.lb/about",
+  "expected_id": 234,
+  "expected": "Arcadia College"
+ },
+ {
+  "kind": "partial",
+  "query": "Rashid Home",
+  "expected_id": 110,
+  "expected": "Rashid Home Seasons"
+ },
+ {
+  "kind": "partial",
+  "query": "Osaka Sushi",
+  "expected_id": 190,
+  "expected": "Osaka Sushi Lounge"
+ },
+ {
+  "kind": "partial",
+  "query": "RedRock -",
+  "expected_id": 367,
+  "expected": "RedRock - Lebanon"
+ },
+ {
+  "kind": "typo",
+  "query": "CODE Technologyes",
+  "expected_id": 331,
+  "expected": "CODE Technologies"
+ },
+ {
+  "kind": "typo",
+  "query": "LybanPost",
+  "expected_id": 372,
+  "expected": "LibanPost"
+ },
+ {
+  "kind": "typo",
+  "query": "ADRA EYE CARE - ZEISS Vysion Expert",
+  "expected_id": 357,
+  "expected": "ADRA EYE CARE - ZEISS Vision Expert"
+ },
+ {
+  "kind": "typo",
+  "query": "Rahme schol",
+  "expected_id": 267,
+  "expected": "Rahme school"
+ },
+ {
+  "kind": "natural",
+  "query": "bank called Federal Bank of Lebanon",
+  "expected_id": 401,
+  "expected": "Federal Bank of Lebanon"
+ },
+ {
+  "kind": "natural",
+  "query": "school called Al Jenan High School in Saida",
+  "expected_id": 268,
+  "expected": "Al Jenan High School"
+ },
+ {
+  "kind": "natural",
+  "query": "consulting firm called Dar al-Kitab al-'Arabi in Beirut",
+  "expected_id": 349,
+  "expected": "Dar al-Kitab al-'Arabi"
+ },
+ {
+  "kind": "natural",
+  "query": "bank called Spectra Plus Financial Services in Beirut",
+  "expected_id": 423,
+  "expected": "Spectra Plus Financial Services"
+ },
+ {
+  "kind": "natural",
+  "query": "hotel called Ramada by Wyndham in Beirut",
+  "expected_id": 165,
+  "expected": "Ramada by Wyndham"
+ },
+ {
+  "kind": "brand_country",
+  "query": "Ashrafieh Heights Lebanon",
+  "expected_id": 320,
+  "expected": "Ashrafieh Heights"
+ },
+ {
+  "kind": "brand_country",
+  "query": "Fenicia Bank Lebanon",
+  "expected_id": 402,
+  "expected": "Fenicia Bank"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "UTILIC ENTERPRISE FZCO",
+  "expected_id": null,
+  "expected": "UTILIC ENTERPRISE FZCO",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "CHILDREN'S CANCER CENTER OF LEBANON",
+  "expected_id": null,
+  "expected": "CHILDREN'S CANCER CENTER OF LEBANON",
+  "source": "gleif"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Mirodec",
+  "expected_id": null,
+  "expected": "Mirodec SARL",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Compost Baladi",
+  "expected_id": null,
+  "expected": "Compost Baladi",
+  "source": "berytech_profiles"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Taj Trading",
+  "expected_id": null,
+  "expected": "Taj Trading S.A.R.L",
+  "source": "icc_register"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "El Fayez Insurance",
+  "expected_id": null,
+  "expected": "El Fayez Insurance S.A.R.L",
+  "source": "icc_register"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "factory called East Group & Impex",
+  "expected_id": null,
+  "expected": "East Group & Impex sarl",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "factory called archiving solutions and SMS services",
+  "expected_id": null,
+  "expected": "archiving solutions and SMS services",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "bank called ARAB AFRICAN INTERNATIONAL BANK",
+  "expected_id": null,
+  "expected": "ARAB AFRICAN INTERNATIONAL BANK",
+  "source": "abl_almanac"
+ },
+ {
+  "kind": "corpus_typo",
+  "query": "MIDDLE EAST WEB SLUTIONS (MEWS)",
+  "expected_id": null,
+  "expected": "MIDDLE EAST WEB SOLUTIONS (MEWS)",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "map_name",
+  "query": "Wadi Al Bouhayra Restaurant",
+  "expected_id": null,
+  "expected": "Wadi Al Bouhayra Restaurant",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Screen Shot",
+  "expected_id": null,
+  "expected": "Screen Shot",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "A+ center- Genius MAP",
+  "expected_id": null,
+  "expected": "A+ center- Genius MAP",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Maison Des Roses.lb in Beirut",
+  "expected_id": null,
+  "expected": "Maison Des Roses.lb",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Little and loved in Zahle",
+  "expected_id": null,
+  "expected": "Little and loved",
+  "source": "overture"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Balamand",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Restaurant",
+  "expected_id": null,
+  "expected": "ambiguous"
+ }
+]

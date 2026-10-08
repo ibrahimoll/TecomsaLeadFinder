@@ -1,11 +1,11 @@
 "use client";
 
 import clsx from "clsx";
-import { Briefcase, Building2, Check, Circle, Crosshair, MapPin, Plus, Users, X, type LucideIcon } from "lucide-react";
+import { Briefcase, Building2, Check, Circle, Crosshair, MapPin, Plus, Save, Users, X, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 
-import { Alert, Button, Field, Input, Select, Textarea } from "@/components/ui";
+import { Alert, Button, Field, Input, Select, Textarea, toast } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import {
   CAMPAIGN_SIZE_RANGES,
@@ -69,11 +69,11 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       className={clsx(
         "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px] font-medium transition-[background-color,border-color,color] active:translate-y-px",
         active
-          ? "border-ink bg-ink text-white"
-          : "border-border-strong bg-surface text-fg-muted shadow-[0_1px_0_rgb(17_17_20/0.03)] hover:border-fg-subtle/70 hover:text-fg",
+          ? "border-accent bg-accent text-white shadow-[0_2px_8px_-3px_rgb(var(--accent)/0.6)]"
+          : "border-border-strong bg-surface text-fg-muted shadow-xs hover:border-fg-subtle/70 hover:text-fg",
       )}
     >
-      {active && <Check className="h-3 w-3" aria-hidden />}
+      {active && <Check className="h-3 w-3 animate-pop-in" aria-hidden />}
       {children}
     </button>
   );
@@ -159,7 +159,7 @@ function SearchBrief({ values }: { values: Values }) {
   ];
   const strong = (text: string) => <span className="font-medium text-fg">{text}</span>;
   return (
-    <div className="rounded-lg border border-border bg-surface shadow-[0_1px_0_rgb(17_17_20/0.03)]">
+    <div className="rounded-lg border border-border bg-surface shadow-xs">
       <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
         <Crosshair className="h-4 w-4 text-accent" strokeWidth={1.75} aria-hidden />
         <p className="text-[13px] font-semibold">Search brief</p>
@@ -232,6 +232,7 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
       const saved = campaign
         ? await api<Campaign>(`/campaigns/${campaign.id}`, { method: "PATCH", body })
         : await api<Campaign>("/campaigns", { method: "POST", body });
+      toast.success(campaign ? "Campaign saved" : "Campaign created", campaign ? undefined : "Saved as a draft.");
       router.push(`/campaigns/${saved.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -247,7 +248,7 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
       <div className="min-w-0 space-y-4">
         {formError && <Alert>{formError}</Alert>}
 
-        <div className="rounded-lg border border-border bg-surface shadow-[0_1px_0_rgb(17_17_20/0.03)]">
+        <div className="rounded-lg border border-border bg-surface shadow-xs">
           <Group icon={Briefcase} title="Campaign" hint="What this search is for and which TECOMSA offer it supports.">
             <Field label="Campaign name" htmlFor="name" required error={errors.name}>
               <Input id="name" value={values.name} onChange={set("name")} required maxLength={200} placeholder="e.g. Frinzo · Beirut restaurants" />
@@ -264,15 +265,15 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
                       aria-checked={active}
                       onClick={() => setValue("tecomsa_division", d.value)}
                       className={clsx(
-                        "rounded-md border px-3 py-2 text-left transition-[border-color,box-shadow]",
+                        "rounded-md border px-3 py-2 text-left transition-[border-color,box-shadow,background-color] duration-200",
                         active
-                          ? "border-ink shadow-[0_0_0_1px_rgb(var(--ink))]"
-                          : "border-border-strong hover:border-fg-subtle/70",
+                          ? "border-accent bg-accent-soft/50 shadow-[0_0_0_1px_rgb(var(--accent))]"
+                          : "border-border-strong hover:border-fg-subtle/70 hover:bg-surface-hover/50",
                       )}
                     >
                       <span className="flex items-center justify-between text-[13px] font-medium text-fg">
                         {d.label}
-                        {active && <Check className="h-3.5 w-3.5" aria-hidden />}
+                        {active && <Check className="h-3.5 w-3.5 animate-pop-in text-accent" aria-hidden />}
                       </span>
                       <span className="block text-[11.5px] text-fg-muted">{DIVISION_HINT[d.value]}</span>
                     </button>
@@ -377,10 +378,10 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
 
           <Group icon={Crosshair} title="Budget & notes" hint="Limits and anything the research team should know.">
             <Field
-              label="Max. Lusha credit budget"
+              label="Max. contact-lookup credits (Lusha)"
               htmlFor="budget"
               error={errors.max_lusha_credit_budget}
-              hint="Stored for later phases. No credits are used now."
+              hint="Not used yet. Leave empty for no limit."
             >
               <Input id="budget" type="number" min={0} className="w-40" value={values.max_lusha_credit_budget} onChange={set("max_lusha_credit_budget")} placeholder="No limit" />
             </Field>
@@ -404,7 +405,7 @@ export function CampaignForm({ campaign }: { campaign?: Campaign }) {
             Cancel
           </Button>
           <Button type="submit" className="flex-1" loading={saving}>
-            {campaign ? "Save changes" : "Save as draft"}
+            <Save className="h-3.5 w-3.5" aria-hidden /> {campaign ? "Save changes" : "Save as draft"}
           </Button>
         </div>
       </aside>

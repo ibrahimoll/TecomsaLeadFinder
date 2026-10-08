@@ -1,0 +1,293 @@
+[
+ {
+  "kind": "exact",
+  "query": "Bou Haydar Plast",
+  "expected_id": 375,
+  "expected": "Bou Haydar Plast"
+ },
+ {
+  "kind": "exact",
+  "query": "Matahen Frem - Ephrem's Mills",
+  "expected_id": 37,
+  "expected": "Matahen Frem - Ephrem's Mills"
+ },
+ {
+  "kind": "exact",
+  "query": "Elie Abi Hanna",
+  "expected_id": 337,
+  "expected": "Elie Abi Hanna"
+ },
+ {
+  "kind": "legal",
+  "query": "Société Générale de Banque au Liban SAL",
+  "expected_id": 409,
+  "expected": "Société Générale de Banque au Liban"
+ },
+ {
+  "kind": "legal",
+  "query": "Dar al Saqi SAL",
+  "expected_id": 348,
+  "expected": "Dar al Saqi"
+ },
+ {
+  "kind": "brand",
+  "query": "Albayan High Hadat",
+  "expected_id": 237,
+  "expected": "Albayan High School Hadat"
+ },
+ {
+  "kind": "brand",
+  "query": "Dany",
+  "expected_id": 306,
+  "expected": "Pharmacie Dany"
+ },
+ {
+  "kind": "french",
+  "query": "UCA Assurances",
+  "expected_id": 295,
+  "expected": "UCA Insurance"
+ },
+ {
+  "kind": "french",
+  "query": "Beirut Evangelical Ecole for Girls and Boys - Rabieh (BESGB)",
+  "expected_id": 252,
+  "expected": "Beirut Evangelical School for Girls and Boys - Rabieh (BESGB)"
+ },
+ {
+  "kind": "domain",
+  "query": "edm-tech.com",
+  "expected_id": 329,
+  "expected": "EDM"
+ },
+ {
+  "kind": "domain",
+  "query": "ranocell.com",
+  "expected_id": 395,
+  "expected": "Rano's Cell"
+ },
+ {
+  "kind": "url",
+  "query": "https://moustasharoun.com/about",
+  "expected_id": 417,
+  "expected": "Moustasharoun Bureau"
+ },
+ {
+  "kind": "partial",
+  "query": "Oui Oui",
+  "expected_id": 213,
+  "expected": "Oui Oui Nursery"
+ },
+ {
+  "kind": "partial",
+  "query": "Mainline Dynolog",
+  "expected_id": 99,
+  "expected": "Mainline Dynolog Lebanon"
+ },
+ {
+  "kind": "typo",
+  "query": "McDnald's",
+  "expected_id": 171,
+  "expected": "McDonald's"
+ },
+ {
+  "kind": "typo",
+  "query": "Makassed Nursing Universiti",
+  "expected_id": 253,
+  "expected": "Makassed Nursing University"
+ },
+ {
+  "kind": "natural",
+  "query": "school called LIU in خريبة الجندي",
+  "expected_id": 209,
+  "expected": "LIU"
+ },
+ {
+  "kind": "natural",
+  "query": "real estate company called Elmirador De Terbol in Minieh-danieh",
+  "expected_id": 364,
+  "expected": "Elmirador De Terbol"
+ },
+ {
+  "kind": "natural",
+  "query": "technology company called Sage Computers in المنية",
+  "expected_id": 333,
+  "expected": "Sage Computers"
+ },
+ {
+  "kind": "brand_country",
+  "query": "BeitMisk Lebanon",
+  "expected_id": 317,
+  "expected": "BeitMisk"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "Viva Beer",
+  "expected_id": null,
+  "expected": "Viva Beer s.a.l",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "ELS Trading",
+  "expected_id": null,
+  "expected": "ELS Trading",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "HABER Printing",
+  "expected_id": null,
+  "expected": "HABER Printing sarl",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "HOSS-FOOD",
+  "expected_id": null,
+  "expected": "HOSS-FOOD",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_name",
+  "query": "ESHARING",
+  "expected_id": null,
+  "expected": "ESHARING",
+  "source": "idal_directories"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "company called CONSOLIDATED BULK INC. S.A.L. OFFSHORE",
+  "expected_id": null,
+  "expected": "CONSOLIDATED BULK INC. S.A.L. OFFSHORE",
+  "source": "gleif"
+ },
+ {
+  "kind": "corpus_natural",
+  "query": "factory called KC Engineering & Industry",
+  "expected_id": null,
+  "expected": "KC Engineering & Industry sarl",
+  "source": "ali_members"
+ },
+ {
+  "kind": "corpus_typo",
+  "query": "M.T Baute Group, Joe Murr",
+  "expected_id": null,
+  "expected": "M.T Beaute Group, Joe Murr",
+  "source": "odoo_customers"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "شركة النجاح للتعهدات والتجارة ش.م.م",
+  "expected_id": null,
+  "expected": "شركة النجاح للتعهدات والتجارة ش.م.م",
+  "source": "lcs_contractors"
+ },
+ {
+  "kind": "corpus_arabic",
+  "query": "اوريجينال دانتال محل تجاري",
+  "expected_id": null,
+  "expected": "اوريجينال دانتال محل تجاري",
+  "source": "ministry_industry"
+ },
+ {
+  "kind": "map_name",
+  "query": "La Maison by Bab Sharki",
+  "expected_id": null,
+  "expected": "La Maison by Bab Sharki",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Cafe Moussa - كافيه موسى",
+  "expected_id": null,
+  "expected": "Cafe Moussa - كافيه موسى",
+  "source": "overture"
+ },
+ {
+  "kind": "map_name",
+  "query": "Sportrak Tire lebanon",
+  "expected_id": null,
+  "expected": "Sportrak Tire lebanon",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "pizza pizza in Beirut",
+  "expected_id": null,
+  "expected": "pizza pizza",
+  "source": "overture"
+ },
+ {
+  "kind": "map_city",
+  "query": "Furn Al Barake in Batroun",
+  "expected_id": null,
+  "expected": "Furn Al Barake",
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Qadmus Energy",
+  "expected_id": null,
+  "expected": "Qadmus Energy",
+  "expected_domain": "qadmusenergy.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Near East School of Theology",
+  "expected_id": null,
+  "expected": "Near East School of Theology",
+  "expected_domain": "theonest.edu.lb",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Boro's Resto Cafe",
+  "expected_id": null,
+  "expected": "Boro's Resto Cafe",
+  "expected_domain": "boros-restocafe.business.site",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Near Armenian Red Cross",
+  "expected_id": null,
+  "expected": "Near Armenian Red Cross",
+  "expected_domain": "lokh-arcl.org",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "مركز مشاعل الطبي حوش الحريمة للرعاية الصحية الأولية",
+  "expected_id": null,
+  "expected": "مركز مشاعل الطبي حوش الحريمة للرعاية الصحية الأولية",
+  "expected_domain": "tafaol.org",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "web",
+  "query": "Kabbara Medical Centre",
+  "expected_id": null,
+  "expected": "Kabbara Medical Centre",
+  "expected_domain": "kabbara-physiotheray-centre.jadwalak.com",
+  "web_only": true,
+  "source": "overture"
+ },
+ {
+  "kind": "ambiguous",
+  "query": "Business",
+  "expected_id": null,
+  "expected": "ambiguous"
+ },
+ {
+  "kind": "nonexistent",
+  "query": "Vastrion Pharma",
+  "expected_id": null,
+  "expected": "not_found"
+ }
+]

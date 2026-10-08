@@ -1,0 +1,198 @@
+{
+ "abl_almanac": {
+  "documents": 1,
+  "companies_enriched": 18,
+  "people": 218,
+  "company_facts": 63,
+  "signals": 19
+ },
+ "abl_hr": {
+  "documents": 1,
+  "companies_enriched": 15,
+  "people": 15,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "ali_members": {
+  "documents": 24,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "beirut_one": {
+  "documents": 1,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "berytech_profiles": {
+  "documents": 823,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "common_crawl": {
+  "documents": 25,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "company_documents": {
+  "documents": 0,
+  "companies_enriched": 2,
+  "people": 4,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "company_website": {
+  "documents": 0,
+  "companies_enriched": 123,
+  "people": 104,
+  "company_facts": 5993,
+  "signals": 450
+ },
+ "dns": {
+  "documents": 0,
+  "companies_enriched": 16,
+  "people": 0,
+  "company_facts": 52,
+  "signals": 160
+ },
+ "gleif": {
+  "documents": 1,
+  "companies_enriched": 23,
+  "people": 0,
+  "company_facts": 69,
+  "signals": 0
+ },
+ "hospital_syndicate": {
+  "documents": 174,
+  "companies_enriched": 2,
+  "people": 3,
+  "company_facts": 13,
+  "signals": 6
+ },
+ "icc_register": {
+  "documents": 51,
+  "companies_enriched": 7,
+  "people": 18,
+  "company_facts": 24,
+  "signals": 0
+ },
+ "idal_directories": {
+  "documents": 4,
+  "companies_enriched": 3,
+  "people": 0,
+  "company_facts": 4,
+  "signals": 3
+ },
+ "lcs_contractors": {
+  "documents": 2706,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "lfa_board": {
+  "documents": 1,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "ministry_industry": {
+  "documents": 25,
+  "companies_enriched": 5,
+  "people": 1,
+  "company_facts": 24,
+  "signals": 10
+ },
+ "news": {
+  "documents": 0,
+  "companies_enriched": 2,
+  "people": 4,
+  "company_facts": 0,
+  "signals": 3
+ },
+ "news_beirut_today": {
+  "documents": 2,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "news_executive": {
+  "documents": 6,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "news_the961": {
+  "documents": 74,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "odoo_customers": {
+  "documents": 41,
+  "companies_enriched": 3,
+  "people": 0,
+  "company_facts": 5,
+  "signals": 3
+ },
+ "osm": {
+  "documents": 0,
+  "companies_enriched": 20,
+  "people": 0,
+  "company_facts": 563,
+  "signals": 1
+ },
+ "overture": {
+  "documents": 0,
+  "companies_enriched": 220,
+  "people": 0,
+  "company_facts": 2716,
+  "signals": 34
+ },
+ "ppa_awards": {
+  "documents": 40,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 1
+ },
+ "project_lebanon": {
+  "documents": 1,
+  "companies_enriched": 2,
+  "people": 0,
+  "company_facts": 2,
+  "signals": 2
+ },
+ "public_pdf": {
+  "documents": 0,
+  "companies_enriched": 2,
+  "people": 2,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "rdcl": {
+  "documents": 11,
+  "companies_enriched": 0,
+  "people": 0,
+  "company_facts": 0,
+  "signals": 0
+ },
+ "wikidata": {
+  "documents": 0,
+  "companies_enriched": 1,
+  "people": 1,
+  "company_facts": 0,
+  "signals": 7
+ }
+}

@@ -1,284 +1,580 @@
 "use client";
 
-import clsx from "clsx";
-import {
-  Briefcase,
-  Building2,
-  CalendarDays,
-  Database,
-  ExternalLink,
-  Globe,
-  Linkedin,
-  Mail,
-  MapPin,
-  Pencil,
-  Phone,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldQuestion,
-  User,
-  UserCheck,
-} from "lucide-react";
-import { useParams } from "next/navigation";
-import { Suspense, useState, type FormEvent } from "react";
+import { Building2, ExternalLink, FileText, Lightbulb, Mail, Phone, RefreshCw, Trash2, Users } from "lucide-react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-import { ActivityList } from "@/components/activity-list";
-import { CampaignStatusBadge, CrmStateBadge, CrmStatusBadge, DivisionBadge } from "@/components/status-badges";
 import {
-  Alert,
+  Avatar,
   Badge,
   Button,
-  ButtonLink,
-  CopyButton,
+  ConfirmDialog,
   DataTable,
   DescriptionList,
   EmptyState,
   ErrorState,
-  Field,
-  Input,
   PageHeader,
-  RowLink,
   Section,
   Select,
   Skeleton,
   Tabs,
-  Textarea,
+  toast,
+  type Tone,
 } from "@/components/ui";
 import { api, ApiError, useApi } from "@/lib/api";
-import { SENIORITIES } from "@/lib/constants";
-import { dash, formatDate, formatDateTime, formatMoney, location } from "@/lib/format";
-import { useUrlState } from "@/lib/use-url-state";
-import type { Activity, Campaign, CompanyDetail, Page } from "@/types";
+import { isPrivileged, useCurrentUser } from "@/lib/auth";
+import { COMPANY_STATUS, COMPANY_STATUSES, humanize, place } from "@/lib/companies";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { safeHref } from "@/lib/url";
+import { isActive, pollDelay, researchView, POLL_LIMIT_MS } from "@/lib/people-research";
+import type { CompanyDetail, CompanyPerson, CompanySignal, CompanyStatus, SignalGroup } from "@/types/v2";
 
-type TabKey = "overview" | "relationship" | "intelligence" | "contacts" | "campaigns" | "activity";
+type TabKey = "overview" | "people" | "opportunity" | "sources";
 
-// ---- Protection banner -------------------------------------------------------
+const muted = (text: string) => <span className="text-fg-subtle">{text}</span>;
 
-function ProtectionBanner({ company }: { company: CompanyDetail }) {
-  const status = company.odoo_status;
-  const config = company.is_protected
-    ? {
-        icon: ShieldAlert,
-        tone: "border-warning/30 bg-warning-soft",
-        iconTone: "text-warning",
-        title: "Protected, do not treat as a new prospect",
-        body: "TECOMSA already has a relationship with this company.",
-      }
-    : status === "AVAILABLE"
-      ? {
-          icon: ShieldCheck,
-          tone: "border-success/25 bg-success-soft",
-          iconTone: "text-success",
-          title: "Available",
-          body: "No match in imported Odoo data; this company can be considered for LeadFinder processing.",
-        }
-      : {
-          icon: ShieldQuestion,
-          tone: "border-border bg-surface-muted",
-          iconTone: "text-fg-muted",
-          title: "Not checked yet",
-          body: "No Odoo data has been imported, so LeadFinder cannot say whether TECOMSA already knows this company.",
-        };
-  const Icon = config.icon;
-  const reason = company.crm_status_reason && status !== "NOT_CHECKED" ? company.crm_status_reason : null;
+function ExternalLinkText({ href, label }: { href: string | null; label: string | null }) {
+  const safe = safeHref(href);
+  if (!safe) return muted("—");
   return (
-    <div className={clsx("mb-4 flex gap-2.5 rounded border px-3 py-2 text-[13px]", config.tone)} role="status">
-      <Icon className={clsx("mt-0.5 h-4 w-4 shrink-0", config.iconTone)} aria-hidden />
-      <p className="min-w-0 text-fg">
-        <span className="font-medium">{config.title}.</span>{" "}
-        <span className="text-fg-muted">{reason ?? config.body}</span>
-      </p>
+    <a href={safe} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
+      {label ?? safe}
+      <ExternalLink className="h-3 w-3" aria-hidden />
+    </a>
+  );
+}
+
+const SIGNAL_GROUPS: { key: SignalGroup; label: string }[] = [
+  { key: "activity", label: "Business activities" },
+  { key: "operations", label: "Operations" },
+  { key: "technology", label: "Technology" },
+  { key: "hiring", label: "Hiring" },
+  { key: "news", label: "Company news" },
+];
+
+function signalLabel(s: CompanySignal): string {
+  if (s.signal_type === "technology" || s.group === "news") return s.signal_value ?? humanize(s.signal_type);
+  if (s.signal_type === "hiring_department") return `Hiring: ${humanize(s.signal_value)}`;
+  return s.signal_value ? `${humanize(s.signal_type)}: ${s.signal_value}` : humanize(s.signal_type);
+}
+
+function employees(c: CompanyDetail["company"]) {
+  if (c.employee_count_estimate) return c.employee_count_estimate.toLocaleString();
+  if (c.employee_count_min && c.employee_count_max) return `${c.employee_count_min.toLocaleString()}–${c.employee_count_max.toLocaleString()}`;
+  if (c.employee_count_min) return `${c.employee_count_min.toLocaleString()}+`;
+  return muted("—");
+}
+
+/** Research status of the company (website enrichment); nothing while it was never researched. */
+function ResearchState({ c }: { c: CompanyDetail["company"] }) {
+  if (c.enrichment_status === "queued" || c.enrichment_status === "researching")
+    return (
+      <Badge tone="info" dot live>
+        Researching company…
+      </Badge>
+    );
+  if (c.enrichment_status === "partial") return <Badge tone="warning">Research partial</Badge>;
+  if (c.enrichment_status === "failed") return <Badge tone="danger">Research failed</Badge>;
+  if (c.last_enriched_at) return <span className="text-xs text-fg-subtle">Researched {formatDate(c.last_enriched_at)}</span>;
+  return null;
+}
+
+function Overview({ detail }: { detail: CompanyDetail }) {
+  const c = detail.company;
+  const socials = (
+    [
+      ["Facebook", c.facebook_url],
+      ["Instagram", c.instagram_url],
+      ["LinkedIn", c.linkedin_url],
+      ["YouTube", c.youtube_url],
+      ["TikTok", c.tiktok_url],
+      ["X", c.twitter_url],
+    ] as const
+  ).filter(([, url]) => url);
+  // A signal with a value ("Factory: 3") makes the same signal without one redundant.
+  const valued = new Set(detail.signals.filter((s) => s.signal_value && s.group !== "technology" && s.group !== "news" && s.group !== "hiring").map((s) => s.signal_type));
+  const signals = detail.signals.filter((s) => s.group !== "events" && (s.signal_value || !valued.has(s.signal_type)));
+  const timeline = detail.signals
+    .filter((s) => s.group === "events" && s.event_date)
+    .sort((a, b) => (b.event_date ?? "").localeCompare(a.event_date ?? ""));
+  const relationships = detail.relationships ?? [];
+  const products = detail.offerings.filter((o) => o.kind !== "service");
+  const services = detail.offerings.filter((o) => o.kind === "service");
+  const contacts = [
+    ...detail.phones.map((p) => ({ id: `p${p.id}`, value: p.phone, kind: p.phone_type === "whatsapp" ? "WhatsApp" : "Phone", purpose: p.purpose, confidence: p.confidence })),
+    ...detail.emails.map((e) => ({ id: `e${e.id}`, value: e.email, kind: "Email", purpose: e.purpose, confidence: e.confidence })),
+  ];
+  return (
+    <div className="space-y-5">
+      <Section title="Company" actions={<ResearchState c={c} />}>
+        {c.enrichment_status === "partial" && c.enrichment_message && <p className="mb-4 text-xs text-fg-muted">{c.enrichment_message}</p>}
+        {detail.overview && <p className="mb-4 text-[13px] text-fg">{detail.overview}</p>}
+        <DescriptionList
+          inline
+          items={[
+            { label: "Legal name", value: c.legal_name ?? muted("—") },
+            { label: "Website", value: <ExternalLinkText href={c.website} label={c.domain ?? c.website} /> },
+            { label: "Industry", value: [c.industry, c.sub_industry].filter(Boolean).join(" · ") || muted("—") },
+            { label: "Type", value: c.company_type ?? muted("—") },
+            { label: "Employees", value: employees(c) },
+            { label: "Founded", value: c.founded_year ?? muted("—") },
+            { label: "Headquarters", value: place(c.headquarters_city, c.headquarters_region, c.headquarters_country) },
+            ...(relationships.length
+              ? [
+                  {
+                    label: "Group",
+                    value: relationships.map((r) => `${humanize(r.relation_type)}: ${r.related_name}`).join(" · "),
+                  },
+                ]
+              : []),
+            { label: "Phone", value: c.primary_phone ?? muted("—") },
+            { label: "Email", value: c.primary_email ?? muted("—") },
+            {
+              label: "Social profiles",
+              value: socials.length ? (
+                <span className="flex flex-wrap gap-x-3 gap-y-1">
+                  {socials.map(([label, url]) => (
+                    <ExternalLinkText key={label} href={url} label={label} />
+                  ))}
+                </span>
+              ) : (
+                muted("—")
+              ),
+            },
+            { label: "Last verified", value: c.last_verified_at ? formatDate(c.last_verified_at) : muted("Never") },
+            { label: "Added", value: formatDate(c.created_at) },
+          ]}
+        />
+        {c.description && <p className="mt-4 whitespace-pre-line text-[13px] text-fg-muted">{c.description}</p>}
+      </Section>
+      {signals.length > 0 && (
+        <Section title="Operations">
+          <div className="space-y-3">
+            {SIGNAL_GROUPS.map(({ key, label }) => {
+              const rows = signals.filter((s) => s.group === key);
+              if (!rows.length) return null;
+              return (
+                <div key={key}>
+                  <p className="mb-1.5 text-xs font-medium text-fg-muted">{label}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rows.map((s) => (
+                      <span key={s.id} title={`Confidence ${s.confidence ?? "—"}`}>
+                        <Badge tone={key === "news" ? "info" : "neutral"}>{signalLabel(s)}</Badge>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+      {timeline.length > 0 && (
+        <Section title="Timeline" description="Dated business events, each from a public source.">
+          <ul className="space-y-2">
+            {timeline.map((e) => (
+              <li key={e.id} className="flex gap-3 text-[13px]">
+                <span className="w-24 shrink-0 tabular-nums text-fg-muted">{e.event_date ? formatDate(e.event_date) : "—"}</span>
+                <span className="min-w-0">
+                  <Badge tone="info">{humanize(e.signal_type)}</Badge> <span className="text-fg">{e.description}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {detail.offerings.length > 0 && (
+        <Section title="Products & services">
+          <div className="space-y-3">
+            {[
+              { label: "Products", rows: products },
+              { label: "Services", rows: services },
+            ].map(({ label, rows }) =>
+              rows.length ? (
+                <div key={label}>
+                  <p className="mb-1.5 text-xs font-medium text-fg-muted">{label}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rows.map((o) => (
+                      <Badge key={o.id}>{o.raw_name}</Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : null,
+            )}
+          </div>
+        </Section>
+      )}
+      {contacts.length > 0 && (
+        <Section title="Contact" flush>
+          <DataTable
+            caption="Company contact details"
+            rows={contacts}
+            rowKey={(r) => r.id}
+            columns={[
+              { key: "value", header: "Contact", cell: (r) => <span className="font-medium tabular">{r.value}</span> },
+              { key: "kind", header: "Type", cell: (r) => r.kind },
+              { key: "purpose", header: "For", cell: (r) => humanize(r.purpose) },
+              { key: "confidence", header: "Confidence", align: "right", cell: (r) => r.confidence ?? "—" },
+            ]}
+          />
+        </Section>
+      )}
+      <Section title="Locations" flush>
+        <DataTable
+          caption="Locations"
+          rows={detail.locations}
+          rowKey={(l) => l.id}
+          empty={<EmptyState compact title="No locations recorded" />}
+          columns={[
+            {
+              key: "place",
+              header: "Location",
+              cell: (l) => (
+                <span>
+                  {l.name && <span className="block font-medium">{l.name}</span>}
+                  {place(l.city, l.region, l.country)}
+                </span>
+              ),
+            },
+            { key: "type", header: "Type", cell: (l) => humanize(l.location_type) },
+            { key: "address", header: "Address", cell: (l) => l.address ?? muted("—") },
+            { key: "phone", header: "Phone", cell: (l) => l.phone ?? muted("—") },
+            { key: "hq", header: "", cell: (l) => (l.is_headquarters ? <Badge tone="accent">Headquarters</Badge> : null) },
+          ]}
+        />
+      </Section>
     </div>
   );
 }
 
-// ---- Tabs ----------------------------------------------------------------------
+const KEY_DEPARTMENTS: { key: string; label: string; always?: boolean }[] = [
+  { key: "executive", label: "Executive", always: true },
+  { key: "it", label: "IT", always: true },
+  { key: "marketing", label: "Marketing", always: true },
+  { key: "finance", label: "Finance", always: true },
+  { key: "sales", label: "Sales", always: true },
+  { key: "hr", label: "HR", always: true },
+  { key: "operations", label: "Operations", always: true },
+  { key: "procurement", label: "Procurement", always: true },
+  { key: "supply_chain", label: "Supply chain" },
+  { key: "customer_experience", label: "Customer experience" },
+  { key: "e_commerce", label: "E-commerce & digital" },
+  { key: "manufacturing", label: "Manufacturing" },
+  { key: "legal", label: "Legal" },
+  { key: "administration", label: "Administration" },
+];
+const DEPARTMENT_LABEL = Object.fromEntries(KEY_DEPARTMENTS.map((d) => [d.key, d.label]));
+const SOURCE_LABEL: Record<string, string> = {
+  company_website: "Company website",
+  conference: "Conference",
+  event: "Event",
+  association: "Association",
+  news: "News",
+  case_study: "Case study",
+  public_pdf: "Public document",
+  government: "Official record",
+  public_directory: "Directory",
+  public_web: "Public web",
+  web_archive: "Archived website",
+  open_dataset: "Wikidata",
+};
 
-/** Email / phone as an actionable link with copy-on-hover. */
-function ContactValue({ kind, value }: { kind: "email" | "phone"; value: string | null }) {
-  if (!value) return <>—</>;
-  const href = kind === "email" ? `mailto:${value}` : `tel:${value.replace(/[^\d+]/g, "")}`;
+/** Where a person's role is stated: "Company website", "Conference"... (each once). */
+function sourceLabels(p: CompanyPerson): string[] {
+  return [...new Set(p.sources.map((s) => SOURCE_LABEL[s.source_type ?? ""] ?? "Public source"))];
+}
+const EMPLOYMENT: Record<CompanyPerson["employment_status"], { label: string; tone: Tone }> = {
+  current: { label: "Current", tone: "success" },
+  unknown: { label: "Not confirmed", tone: "neutral" },
+  former: { label: "Former", tone: "neutral" },
+};
+
+function confidence(value: number | null) {
+  if (value === null) return muted("—");
+  const [label, tone]: [string, Tone] = value >= 75 ? ["High", "success"] : value >= 50 ? ["Medium", "info"] : ["Low", "warning"];
   return (
-    <>
-      <a href={href} className={clsx("min-w-0 truncate hover:text-accent hover:underline", kind === "phone" && "tabular")}>
-        {value}
-      </a>
-      <CopyButton value={value} label={kind} />
-    </>
+    <span title={`Confidence ${value}`}>
+      <Badge tone={tone}>{label}</Badge>
+    </span>
   );
 }
 
-function OverviewTab({ company }: { company: CompanyDetail }) {
-  // The primary person: the first contact on file (imported or added in LeadFinder).
-  const contact = company.contacts[0];
-  const discovered = company.sources[0];
-  const optional = [
-    company.industry && { label: "Industry", value: company.industry },
-    discovered?.category && { label: "Category", value: discovered.category.replace(/_/g, " ").replace(/^\w/, (ch) => ch.toUpperCase()) },
-    discovered && {
-      label: "Discovered",
-      value: `${formatDate(discovered.first_seen_at)}${discovered.first_seen_run_id ? ` · search #${discovered.first_seen_run_id}` : ""}`,
-    },
-    company.company_size && { label: "Company size", value: `${company.company_size} employees` },
-    company.address && { label: "Address", value: company.address },
-  ].filter(Boolean) as { label: string; value: string }[];
-  const dupes = company.possible_duplicates;
-  const email = company.main_email ?? contact?.business_email ?? null;
-  const phone = company.main_phone ?? contact?.business_phone ?? null;
+/** People of the company's parent / group: shown for context, never as employees of this company. */
+function GroupContacts({ detail }: { detail: CompanyDetail }) {
+  const rows = detail.related_group_people ?? [];
+  if (!rows.length) return null;
   return (
-    <section className="rounded-lg border border-border bg-surface">
-      <div className="px-5 py-3">
-        <DescriptionList
-          inline
-          items={[
-            { label: "Company", icon: <Building2 />, value: <span className="font-medium">{company.name}</span> },
-            { label: "Contact", icon: <User />, value: dash(contact?.full_name) },
-            { label: "Position", icon: <Briefcase />, value: dash(contact?.job_title) },
-            { label: "Email", icon: <Mail />, value: <ContactValue kind="email" value={email} /> },
-            { label: "Phone", icon: <Phone />, value: <ContactValue kind="phone" value={phone} /> },
-            {
-              label: "Website",
-              icon: <Globe />,
-              value: company.website ? (
-                <a href={company.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
-                  {company.domain ?? company.website} <ExternalLink className="h-3 w-3" aria-hidden />
-                </a>
-              ) : (
-                "—"
-              ),
-            },
-            {
-              label: "LinkedIn",
-              icon: <Linkedin />,
-              value: contact?.linkedin_url ? (
-                <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent hover:underline">
-                  {contact.full_name} <ExternalLink className="h-3 w-3" aria-hidden />
-                </a>
-              ) : (
-                "—"
-              ),
-            },
-            { label: "Location", icon: <MapPin />, value: location(company.city, company.country) },
-            { label: "Relationship", icon: <ShieldCheck />, value: <CrmStatusBadge status={company.odoo_status} /> },
-            { label: "Owner", icon: <UserCheck />, value: company.salesperson?.name ?? "—" },
-            {
-              label: "Source",
-              icon: <Database />,
-              value:
-                company.sources.length > 1 ? company.sources.map((s) => s.source_label).join(", ") : company.source_label,
-            },
-            { label: "Added", icon: <CalendarDays />, value: `${formatDate(company.created_at)} · ${company.creator?.name ?? "unknown"}` },
-            ...optional,
-          ]}
+    <div className="mt-4 border-t border-border pt-3">
+      <p className="mb-2 text-xs font-medium text-fg-muted">Group-level contacts</p>
+      <ul className="space-y-1.5 text-[13px]">
+        {rows.map((p) => (
+          <li key={`${p.employer_id}-${p.person_id}-${p.job_title}`}>
+            <Link href={`/companies/${p.employer_id}`} className="text-fg hover:underline">
+              {p.full_name}
+            </Link>{" "}
+            <span className="text-fg-muted">
+              · {p.job_title} · {p.employer_name} ({humanize(p.relation_type)})
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const CONTACT_TONE: Record<string, Tone> = {
+  confirmed_email: "success",
+  verified_email: "success",
+  published_email: "info",
+  business_mobile: "info",
+  direct_business_phone: "info",
+  whatsapp: "info",
+  office_extension: "info",
+  business_phone: "warning",
+  high_confidence_email: "warning",
+  catch_all_email: "warning",
+  predicted_email: "warning",
+};
+
+/** A person's strongest contact method with its honest label, the others on hover; else the company fallback. */
+function BestContact({ person, switchboard, generalEmail }: { person: CompanyPerson; switchboard: string | null; generalEmail: string | null }) {
+  const [best, ...others] = person.contacts ?? [];
+  return (
+    <div className="space-y-0.5 text-xs">
+      {best ? (
+        <span className="flex flex-wrap items-center gap-1.5" title={others.map((o) => `${o.value} · ${o.label}`).join("\n")}>
+          {best.kind.endsWith("email") ? <Mail className="h-3.5 w-3.5 text-fg-subtle" aria-hidden /> : <Phone className="h-3.5 w-3.5 text-fg-subtle" aria-hidden />}
+          <span className="tabular text-fg">{best.value}</span>
+          <Badge tone={CONTACT_TONE[best.kind] ?? "neutral"}>{best.label}</Badge>
+          {others.length > 0 && <span className="text-fg-subtle">+{others.length}</span>}
+        </span>
+      ) : null}
+      {!person.contactable && (switchboard || generalEmail) && (
+        <span className="block text-fg-subtle">
+          {best ? "Or the company: " : "No verified contact yet · company: "}
+          {[switchboard, generalEmail].filter(Boolean).join(" · ")}
+        </span>
+      )}
+      {!best && !switchboard && !generalEmail && <span className="text-fg-subtle">No verified contact yet</span>}
+    </div>
+  );
+}
+
+// What real sales activity showed: applied to the contact graph at once (POST /companies/{id}/contact-feedback).
+const FEEDBACK: { event: string; label: string; on: "email" | "phone" | "role" }[] = [
+  { event: "delivered", label: "Email delivered", on: "email" },
+  { event: "replied", label: "Email replied", on: "email" },
+  { event: "hard_bounce", label: "Email bounced", on: "email" },
+  { event: "number_confirmed", label: "Phone correct", on: "phone" },
+  { event: "wrong_number", label: "Phone wrong", on: "phone" },
+  { event: "company_switchboard", label: "Phone is the company line", on: "phone" },
+  { event: "correct_person", label: "Correct person", on: "role" },
+  { event: "person_left_company", label: "Left the company", on: "role" },
+  { event: "wrong_person", label: "Wrong person", on: "role" },
+];
+
+function Feedback({ companyId, person, onChanged }: { companyId: number; person: CompanyPerson; onChanged: () => void }) {
+  const email = person.emails.find((e) => e.status !== "invalid");
+  const phone = person.phones.find((p) => p.status !== "invalid" && p.phone_type !== "company_switchboard");
+  const options = FEEDBACK.filter((f) => (f.on === "email" ? email : f.on === "phone" ? phone : true));
+  const send = async (event: string) => {
+    const f = FEEDBACK.find((x) => x.event === event);
+    if (!f) return;
+    try {
+      await api(`/companies/${companyId}/contact-feedback`, {
+        method: "POST",
+        body: { event, email_id: f.on === "email" ? email?.id : undefined, phone_id: f.on === "phone" ? phone?.id : undefined, company_person_id: f.on === "role" ? person.id : undefined },
+      });
+      toast.success(`${person.person.full_name}: ${f.label.toLowerCase()}`);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not save the feedback");
+    }
+  };
+  return (
+    <select aria-label={`Feedback on ${person.person.full_name}`} className="rounded border border-border bg-surface px-1 py-0.5 text-xs text-fg-muted" value="" onChange={(e) => void send(e.target.value)}>
+      <option value="">Feedback…</option>
+      {options.map((f) => (
+        <option key={f.event} value={f.event}>
+          {f.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue: boolean; onChanged: () => void }) {
+  const c = detail.company;
+  const people = detail.people;
+  const research = detail.people_research;
+  const view = researchView(research, people.length > 0, overdue);
+  const researched = !view.active && research?.state !== "idle";
+  const finishedAt = research?.finished_at ?? c.people_researched_at;
+  const state = view.badge ? (
+    <Badge tone="info" dot live={!overdue}>
+      {view.badge}
+    </Badge>
+  ) : finishedAt ? (
+    <span className="text-xs text-fg-subtle">
+      {view.note ? `${view.note} · ` : ""}Researched {formatDate(finishedAt)}
+    </span>
+  ) : null;
+  if (!people.length) {
+    return (
+      <Section>
+        <EmptyState
+          icon={<Users />}
+          title={view.emptyTitle}
+          description={view.active ? "People appear here as they are found." : (view.note ?? research?.message ?? c.people_message ?? undefined)}
         />
-        {company.description && (
-          <div className="mt-2 grid grid-cols-[8.5rem_minmax(0,1fr)] gap-x-4 border-t border-border pt-3 text-[13px]">
-            <span className="text-fg-muted">Description</span>
-            <p className="whitespace-pre-line">{company.description}</p>
-          </div>
-        )}
-      </div>
-      <div className="border-t border-border px-5 py-2.5 text-[13px]">
-        {dupes.length === 0 ? (
-          <p className="text-fg-muted">No likely duplicates found. Checked by domain, email domain, phone and name.</p>
-        ) : (
-          <>
-            <p className="font-medium text-fg">Possible duplicates ({dupes.length})</p>
-            <ul className="mt-1 divide-y divide-border">
-              {dupes.map((d) => (
-                <li key={d.company.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
-                  <RowLink href={`/companies/${d.company.id}`}>{d.company.name}</RowLink>
-                  <CrmStatusBadge status={d.company.odoo_status} />
-                  <span className="text-xs text-fg-muted">{d.reason}</span>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function RelationshipTab({ company }: { company: CompanyDetail }) {
-  const { crm_records, odoo_contacts, last_interaction } = company.relationship;
-  const latest = crm_records[0];
+        <GroupContacts detail={detail} />
+      </Section>
+    );
+  }
+  const keyPeople = new Map(people.filter((p) => p.is_key).map((p) => [p.department ?? "other", p]));
+  const departments = KEY_DEPARTMENTS.filter((d) => d.always || keyPeople.has(d.key));
+  // The company's own line / mailbox: a fallback to reach a named person, never presented as theirs.
+  const switchboard = detail.phones[0]?.phone ?? c.primary_phone ?? null;
+  const generalEmail = detail.emails[0]?.email ?? null;
+  const contact = (p: CompanyPerson) => <BestContact person={p} switchboard={switchboard} generalEmail={generalEmail} />;
   return (
     <div className="space-y-5">
-      <Section title="TECOMSA relationship">
-        <DescriptionList
-          columns={3}
-          items={[
-            { label: "Status", value: <CrmStatusBadge status={company.odoo_status} /> },
-            { label: "Owner (salesperson)", value: company.salesperson?.name ?? "—" },
-            { label: "Current / last stage", value: latest ? dash(latest.stage) : "—" },
-            { label: "Existing Odoo contact", value: odoo_contacts.length ? `Yes (${odoo_contacts.length})` : "No" },
-            { label: "CRM leads / opportunities", value: crm_records.length ? String(crm_records.length) : "None" },
-            { label: "Last interaction", value: formatDate(last_interaction) },
-            { label: "Last checked", value: formatDateTime(company.crm_checked_at) },
-          ]}
-        />
+      <Section title="Key people" actions={state}>
+        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+          {departments.map((d) => {
+            const p = keyPeople.get(d.key);
+            return (
+              <div key={d.key} className="min-w-0">
+                <p className="mb-1 text-xs font-medium text-fg-muted">{d.label}</p>
+                {p ? (
+                  <div className="space-y-1">
+                    <p className="truncate text-[13px] font-medium text-fg">{p.person.full_name}</p>
+                    <p className="truncate text-xs text-fg-muted">{p.job_title}</p>
+                    {contact(p)}
+                    <span className="flex flex-wrap items-center gap-2">
+                      {confidence(p.confidence)}
+                      <span className="text-[11px] text-fg-subtle">{sourceLabels(p).join(" · ")}</span>
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-fg-subtle">{view.active ? "Researching…" : researched ? "None found in public sources" : "—"}</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </Section>
-
-      <Section title="CRM leads & opportunities" description="Imported from Odoo, matched by name, domain, email domain or phone." flush>
+      <Section title="All people" description={`${people.length} found`} flush>
         <DataTable
-          caption="CRM leads and opportunities"
-          rows={crm_records}
-          rowKey={(r) => r.id}
-          empty={<EmptyState compact title="No CRM records match this company" />}
-          columns={[
-            {
-              key: "name",
-              header: "Opportunity",
-              cell: (r) => (
-                <div className="leading-tight">
-                  <p className="font-medium">{r.opportunity_name}</p>
-                  <p className="text-xs text-fg-muted">
-                    {r.lead_type === "LEAD" ? "Lead" : "Opportunity"}
-                    {r.odoo_lead_id ? ` · Odoo #${r.odoo_lead_id}` : ""}
-                  </p>
-                </div>
-              ),
-            },
-            { key: "stage", header: "Stage", cell: (r) => dash(r.stage) },
-            {
-              key: "state",
-              header: "State",
-              cell: (r) =>
-                <CrmStateBadge lead={r} />,
-            },
-            { key: "owner", header: "Salesperson", cell: (r) => dash(r.salesperson_name) },
-            { key: "rev", header: "Expected revenue", align: "right", cell: (r) => formatMoney(r.expected_revenue) },
-            { key: "lost", header: "Lost reason", cell: (r) => <span className="text-fg-muted">{dash(r.lost_reason)}</span> },
-            { key: "updated", header: "Last update", cell: (r) => <span className="text-fg-muted">{formatDate(r.updated_date ?? r.created_date)}</span> },
-          ]}
-        />
-      </Section>
-
-      <Section title="Odoo contacts" flush>
-        <DataTable
-          caption="Odoo contacts"
-          rows={odoo_contacts}
-          rowKey={(r) => r.id}
-          empty={<EmptyState compact title="No Odoo contacts match this company" />}
+          caption="All people"
+          rows={people}
+          rowKey={(p) => p.id}
           columns={[
             {
               key: "name",
               header: "Name",
-              cell: (r) => (
-                <div className="leading-tight">
-                  <p className="font-medium">{r.contact_name}</p>
-                  <p className="text-xs text-fg-muted">
-                    {r.is_company ? "Company record" : "Contact"}
-                    {r.odoo_contact_id ? ` · Odoo #${r.odoo_contact_id}` : ""}
-                  </p>
-                </div>
+              cell: (p) => (
+                <span className="flex items-center gap-2">
+                  <span className="font-medium">{p.person.full_name}</span>
+                  {p.is_key && <Badge tone="accent">Key</Badge>}
+                </span>
               ),
             },
-            { key: "position", header: "Position", cell: (r) => <span className="text-fg-muted">{dash(r.job_position)}</span> },
-            { key: "phone", header: "Phone", cell: (r) => <span className="tabular">{dash(r.mobile ?? r.phone)}</span> },
-            { key: "email", header: "Email", cell: (r) => dash(r.email) },
-            { key: "loc", header: "Location", cell: (r) => <span className="text-fg-muted">{location(r.city, r.country)}</span> },
+            {
+              key: "title",
+              header: "Title",
+              cell: (p) => (
+                <span title={p.sources.map((s) => s.url ?? s.name).join("\n")}>
+                  {p.job_title}
+                  {p.normalized_title && p.normalized_title !== p.job_title && <span className="block text-xs text-fg-subtle">{p.normalized_title}</span>}
+                </span>
+              ),
+            },
+            { key: "department", header: "Department", cell: (p) => DEPARTMENT_LABEL[p.department ?? ""] ?? humanize(p.department) },
+            { key: "seniority", header: "Seniority", cell: (p) => humanize(p.seniority) },
+            { key: "status", header: "Status", cell: (p) => <Badge tone={EMPLOYMENT[p.employment_status].tone}>{EMPLOYMENT[p.employment_status].label}</Badge> },
+            { key: "confidence", header: "Confidence", cell: (p) => confidence(p.confidence) },
+            { key: "sources", header: "Sources", cell: (p) => <span className="text-xs text-fg-muted">{sourceLabels(p).join(" · ")}</span> },
+            { key: "contact", header: "Contact", cell: (p) => contact(p) },
+            { key: "verified", header: "Last verified", cell: (p) => (p.last_verified_at ? formatDate(p.last_verified_at) : muted("—")) },
+            { key: "feedback", header: "", cell: (p) => <Feedback companyId={c.id} person={p} onChanged={onChanged} /> },
+          ]}
+        />
+      </Section>
+      {(detail.related_group_people ?? []).length > 0 && (
+        <Section>
+          <GroupContacts detail={detail} />
+        </Section>
+      )}
+    </div>
+  );
+}
+
+function Opportunity({ detail }: { detail: CompanyDetail }) {
+  if (!detail.opportunities.length) {
+    return (
+      <Section>
+        <EmptyState icon={<Lightbulb />} title="No opportunity analysis yet" description="Odoo, Frinzo and IT fit are analysed in a later release." />
+      </Section>
+    );
+  }
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      {detail.opportunities.map((o) => (
+        <Section key={o.id} title={humanize(o.solution)} actions={o.fit_level && <Badge tone={o.fit_level === "high" ? "success" : "neutral"}>Fit: {humanize(o.fit_level)}</Badge>}>
+          <p className="text-[13px] text-fg">{o.summary ?? muted("No summary")}</p>
+          <p className="mt-3 text-xs text-fg-subtle">Generated {formatDateTime(o.generated_at)}</p>
+        </Section>
+      ))}
+    </div>
+  );
+}
+
+function Sources({ detail }: { detail: CompanyDetail }) {
+  return (
+    <div className="space-y-5">
+      {detail.conflicts.length > 0 && (
+        <Section title="Sources disagree" description="The value shown on the company is the one from the strongest source.">
+          <ul className="space-y-1.5 text-[13px]">
+            {detail.conflicts.map((c) => (
+              <li key={c.field}>
+                <span className="font-medium">{humanize(c.field)}:</span>{" "}
+                {c.values.map((v, i) => (
+                  <span key={v.value} className={i === 0 ? "text-fg" : "text-fg-muted"}>
+                    {i > 0 && " · "}
+                    {v.value} <span className="text-xs text-fg-subtle">({v.source ?? "source"})</span>
+                  </span>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      <Section flush>
+        <DataTable
+          caption="Sources"
+          rows={detail.sources}
+          rowKey={(s) => s.id}
+          empty={<EmptyState icon={<FileText />} title="No sources recorded" />}
+          columns={[
+            { key: "name", header: "Source", cell: (s) => <ExternalLinkText href={s.url} label={s.name ?? s.url} /> },
+            { key: "type", header: "Type", cell: (s) => humanize(s.source_type) },
+            {
+              key: "facts",
+              header: "Facts",
+              cell: (s) =>
+                s.facts.length ? (
+                  <span className="text-xs text-fg-muted" title={s.facts.map(humanize).join(", ")}>
+                    {s.facts.slice(0, 6).map(humanize).join(", ")}
+                    {s.facts.length > 6 && ` +${s.facts.length - 6}`}
+                  </span>
+                ) : (
+                  muted("—")
+                ),
+            },
+            { key: "evidence", header: "Evidence", align: "right", cell: (s) => s.evidence_count },
+            { key: "retrieved", header: "Retrieved", cell: (s) => formatDate(s.retrieved_at) },
           ]}
         />
       </Section>
@@ -286,354 +582,142 @@ function RelationshipTab({ company }: { company: CompanyDetail }) {
   );
 }
 
-const CONTACT_SOURCE_LABEL: Record<string, string> = { MANUAL: "Manual", ODOO_IMPORT: "Odoo contact import" };
-
-const INTELLIGENCE = [
-  { label: "Odoo ERP fit", text: "How well Odoo ERP fits this company's operations." },
-  { label: "Frinzo fit", text: "Fit for WhatsApp, Instagram and customer-messaging automation." },
-  { label: "Company research", text: "Summary of the company's website and public information." },
-  { label: "Recommended modules", text: "Suggested Odoo modules or Frinzo capabilities." },
-  { label: "Decision-makers", text: "Relevant people to contact, found only when the company qualifies." },
-  { label: "AI reasoning & confidence", text: "Why the company was or was not qualified, with a confidence level." },
-];
-
-function IntelligenceTab() {
-  return (
-    <Section
-      title="LeadFinder intelligence"
-      description="Company research has not been run yet. Nothing here is generated or estimated."
-      flush
-    >
-      <ul className="divide-y divide-border">
-        {INTELLIGENCE.map((item) => (
-          <li key={item.label} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-            <div>
-              <p className="text-[13px] font-medium">{item.label}</p>
-              <p className="text-xs text-fg-muted">{item.text}</p>
-            </div>
-            <Badge>Not run yet</Badge>
-          </li>
-        ))}
-      </ul>
-    </Section>
-  );
-}
-
-const EMPTY_CONTACT = {
-  first_name: "",
-  last_name: "",
-  job_title: "",
-  department: "",
-  seniority: "",
-  business_email: "",
-  business_phone: "",
-  linkedin_url: "",
-};
-
-function ContactForm({ companyId, onSaved, onCancel }: { companyId: number; onSaved: () => void; onCancel: () => void }) {
-  const [values, setValues] = useState(EMPTY_CONTACT);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+export default function CompanyPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const user = useCurrentUser();
+  const { data, error, loading, reload } = useApi<CompanyDetail>(`/companies/${id}`);
+  const [tab, setTab] = useState<TabKey>("overview");
   const [saving, setSaving] = useState(false);
-  const set = (field: keyof typeof EMPTY_CONTACT) => (e: { target: { value: string } }) =>
-    setValues((v) => ({ ...v, [field]: e.target.value }));
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // One state drives polling: company research, or the people research state the API reports (never "no people").
+  const researching =
+    ["queued", "researching"].includes(data?.company.enrichment_status ?? "") ||
+    ["queued", "researching"].includes(data?.company.contact_status ?? "") ||
+    isActive(data?.people_research?.state);
+  const [pollingSince, setPollingSince] = useState<number | null>(null);
+  useEffect(() => setPollingSince((since) => (researching ? (since ?? Date.now()) : null)), [researching]);
+  const overdue = pollingSince !== null && Date.now() - pollingSince > POLL_LIMIT_MS;
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
+  // Research runs in the background: the page fills in as it progresses; polling stops on every final state and
+  // slows down past the guardrail (the backend's own deadlines end every stage).
+  useEffect(() => {
+    const delay = pollDelay(researching && pollingSince !== null, Date.now() - (pollingSince ?? Date.now()));
+    if (delay === null) return;
+    const timer = setTimeout(() => void reload(), delay);
+    return () => clearTimeout(timer);
+  }, [researching, pollingSince, data, error, reload]);
+
+  if (error) return <ErrorState message={error.message} onRetry={reload} />;
+  if (loading && !data) return <Skeleton className="h-64 w-full" />;
+  if (!data) return null;
+  const c = data.company;
+
+  async function changeStatus(status: CompanyStatus) {
     setSaving(true);
-    setErrors({});
     try {
-      await api("/contacts", { method: "POST", body: { ...values, company_id: companyId } });
-      onSaved();
+      await api(`/companies/${id}/status`, { method: "PATCH", body: { status } });
+      toast.success(`Status: ${COMPANY_STATUS[status].label}`);
+      await reload();
     } catch (err) {
-      setErrors(err instanceof ApiError ? { form: err.message, ...err.fieldErrors } : { form: "Could not save contact." });
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form onSubmit={onSubmit} className="space-y-3 border-b border-border bg-surface-muted/50 p-4">
-      {errors.form && <Alert>{errors.form}</Alert>}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        <Field label="First name" htmlFor="first_name" required error={errors.first_name}>
-          <Input id="first_name" value={values.first_name} onChange={set("first_name")} required maxLength={100} autoFocus />
-        </Field>
-        <Field label="Last name" htmlFor="last_name" error={errors.last_name}>
-          <Input id="last_name" value={values.last_name} onChange={set("last_name")} maxLength={100} />
-        </Field>
-        <Field label="Job title" htmlFor="job_title" error={errors.job_title}>
-          <Input id="job_title" value={values.job_title} onChange={set("job_title")} maxLength={200} />
-        </Field>
-        <Field label="Seniority" htmlFor="seniority" error={errors.seniority}>
-          <Select id="seniority" value={values.seniority} onChange={set("seniority")}>
-            <option value="">—</option>
-            {SENIORITIES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Department" htmlFor="department" error={errors.department}>
-          <Input id="department" value={values.department} onChange={set("department")} maxLength={100} />
-        </Field>
-        <Field label="Business email" htmlFor="business_email" error={errors.business_email}>
-          <Input id="business_email" type="email" value={values.business_email} onChange={set("business_email")} maxLength={320} />
-        </Field>
-        <Field label="Business phone" htmlFor="business_phone" error={errors.business_phone}>
-          <Input id="business_phone" type="tel" value={values.business_phone} onChange={set("business_phone")} maxLength={50} />
-        </Field>
-        <Field label="LinkedIn URL" htmlFor="linkedin_url" error={errors.linkedin_url}>
-          <Input id="linkedin_url" value={values.linkedin_url} onChange={set("linkedin_url")} maxLength={500} placeholder="https://" />
-        </Field>
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save contact"}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function ContactsTab({ company, onChanged }: { company: CompanyDetail; onChanged: () => void }) {
-  const [adding, setAdding] = useState(false);
-  return (
-    <Section
-      title="Contacts"
-      description="People at this company: imported from Odoo contacts or added in LeadFinder."
-      flush
-      actions={!adding && <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>Add contact</Button>}
-    >
-      {adding && (
-        <ContactForm
-          companyId={company.id}
-          onCancel={() => setAdding(false)}
-          onSaved={() => {
-            setAdding(false);
-            onChanged();
-          }}
-        />
-      )}
-      <DataTable
-        caption="Contacts"
-        rows={company.contacts}
-        rowKey={(c) => c.id}
-        empty={
-          <EmptyState
-            compact
-            title="No contacts yet"
-            description="Import an Odoo contacts export, or add a contact manually."
-          />
-        }
-        columns={[
-          {
-            key: "name",
-            header: "Name",
-            cell: (c) => (
-              <span className="font-medium">
-                {c.full_name}
-                {c.linkedin_url && (
-                  <a href={c.linkedin_url} target="_blank" rel="noopener noreferrer" className="ml-2 text-xs font-normal text-accent hover:underline">
-                    LinkedIn
-                  </a>
-                )}
-              </span>
-            ),
-          },
-          { key: "title", header: "Job title", cell: (c) => dash(c.job_title) },
-          { key: "email", header: "Email", cell: (c) => dash(c.business_email) },
-          { key: "phone", header: "Phone", cell: (c) => dash(c.business_phone) },
-          { key: "source", header: "Source", cell: (c) => <span className="text-fg-muted">{CONTACT_SOURCE_LABEL[c.source] ?? c.source}</span> },
-        ]}
-      />
-    </Section>
-  );
-}
-
-function CampaignsTab({ company, onChanged }: { company: CompanyDetail; onChanged: () => void }) {
-  const drafts = useApi<Page<Campaign>>("/campaigns", { status: "DRAFT", page_size: 100 });
-  const ready = useApi<Page<Campaign>>("/campaigns", { status: "READY", page_size: 100 });
-  const [campaignId, setCampaignId] = useState("");
-  const [message, setMessage] = useState<{ tone: "danger" | "success"; text: string } | null>(null);
-  const linked = new Set(company.campaigns.map((l) => l.campaign_id));
-  const options = [...(drafts.data?.items ?? []), ...(ready.data?.items ?? [])].filter((c) => !linked.has(c.id));
-
-  async function add() {
-    setMessage(null);
-    try {
-      await api(`/campaigns/${campaignId}/companies/${company.id}`, { method: "POST" });
-      setCampaignId("");
-      setMessage({ tone: "success", text: "Company added to the campaign." });
-      onChanged();
-    } catch (err) {
-      setMessage({ tone: "danger", text: err instanceof ApiError ? err.message : "Could not add to campaign." });
-    }
-  }
-
-  return (
-    <Section title="Campaigns" flush>
-      <div className="space-y-2 border-b border-border px-4 py-3">
-        <div className="flex max-w-xl gap-2">
-          <Select value={campaignId} onChange={(e) => setCampaignId(e.target.value)} aria-label="Campaign to add this company to">
-            <option value="">{options.length ? "Add to an open campaign…" : "No open campaigns available"}</option>
-            {options.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-          <Button onClick={add} disabled={!campaignId}>
-            Add
-          </Button>
-        </div>
-        {company.is_protected && (
-          <p className="text-xs text-warning">This company is protected by an existing Odoo relationship. Coordinate with its owner before targeting it.</p>
-        )}
-        {message && <Alert tone={message.tone}>{message.text}</Alert>}
-      </div>
-      <DataTable
-        caption="Campaigns containing this company"
-        rows={company.campaigns}
-        rowKey={(l) => l.campaign_id}
-        empty={<EmptyState compact title="Not in any campaign" />}
-        columns={[
-          { key: "name", header: "Campaign", cell: (l) => <RowLink href={`/campaigns/${l.campaign_id}`}>{l.campaign_name}</RowLink> },
-          { key: "div", header: "Division", cell: (l) => <DivisionBadge division={l.tecomsa_division} /> },
-          { key: "status", header: "Campaign status", cell: (l) => <CampaignStatusBadge status={l.campaign_status} /> },
-          { key: "added", header: "Added", cell: (l) => <span className="text-fg-muted">{formatDate(l.added_at)}</span> },
-        ]}
-      />
-    </Section>
-  );
-}
-
-function ActivityTab({ companyId }: { companyId: number }) {
-  const activity = useApi<Page<Activity>>("/activities", { company_id: companyId, page_size: 50 });
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      await api(`/companies/${companyId}/notes`, { method: "POST", body: { notes } });
-      setNotes("");
-      await activity.reload();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save note.");
+      toast.error(err instanceof ApiError ? err.message : "Could not change the status");
     } finally {
       setSaving(false);
     }
   }
 
-  return (
-    <Section title="Activity">
-      <form onSubmit={onSubmit} className="mb-5 space-y-2">
-        {error && <Alert>{error}</Alert>}
-        <label htmlFor="note" className="sr-only">
-          Add a note
-        </label>
-        <Textarea id="note" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add a note…" maxLength={5000} className="min-h-[56px]" />
-        <div className="flex justify-end">
-          <Button type="submit" variant="secondary" size="sm" disabled={saving || !notes.trim()}>
-            Add note
-          </Button>
-        </div>
-      </form>
-      {activity.error ? (
-        <ErrorState message={activity.error.message} onRetry={activity.reload} />
-      ) : (
-        <ActivityList items={activity.data?.items} loading={activity.loading} />
-      )}
-    </Section>
-  );
-}
-
-// ---- Page ------------------------------------------------------------------------
-
-function CompanyProfile() {
-  const { id } = useParams<{ id: string }>();
-  const { data: company, error, loading, reload } = useApi<CompanyDetail>(`/companies/${id}`);
-  const [state, setState] = useUrlState(["tab"] as const);
-  const tab = (state.tab || "overview") as TabKey;
-
-  if (error) return <Section><ErrorState message={error.message} onRetry={reload} /></Section>;
-  if (loading && !company) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-72" />
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
+  async function refresh() {
+    setSaving(true);
+    try {
+      await api(`/companies/${id}/refresh`, { method: "POST" });
+      toast.success("Research started");
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not start the research");
+    } finally {
+      setSaving(false);
+    }
   }
-  if (!company) return null;
 
-  const rel = company.relationship;
+  async function remove() {
+    setSaving(true);
+    try {
+      await api(`/companies/${id}`, { method: "DELETE" });
+      toast.success(`${c.name} deleted`);
+      router.push("/companies");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not delete the company");
+      setSaving(false);
+      setConfirmDelete(false);
+    }
+  }
+
   return (
     <>
       <PageHeader
-        breadcrumbs={[{ label: "Companies", href: "/companies" }, { label: company.name }]}
-        title={company.name}
-        meta={
+        title={
+          <span className="flex items-center gap-3">
+            <Avatar name={c.name} domain={c.domain} size="lg" />
+            {c.name}
+          </span>
+        }
+        breadcrumbs={[{ label: "Companies", href: "/companies" }, { label: c.name }]}
+        meta={[c.industry, place(c.headquarters_city, c.headquarters_country), c.domain].filter((v) => v && v !== "—").join(" · ")}
+        actions={
           <>
-            <CrmStatusBadge status={company.odoo_status} />
-            {company.website && (
-              <a href={company.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-accent">
-                {company.domain} <ExternalLink className="h-3 w-3" aria-hidden />
-              </a>
+            {c.website && (
+              <Button variant="secondary" onClick={refresh} disabled={saving || researching}>
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                Refresh research
+              </Button>
             )}
-            {company.industry && <span>{company.industry}</span>}
-            <span>
-              {location(company.city, company.country)} · Owner: {company.salesperson?.name ?? "—"}
-            </span>
+            <Select aria-label="Status" value={c.status} disabled={saving} onChange={(e) => changeStatus(e.target.value as CompanyStatus)} className="w-48">
+              {COMPANY_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {COMPANY_STATUS[s].label}
+                </option>
+              ))}
+            </Select>
+            {isPrivileged(user) && (
+              <Button variant="danger" onClick={() => setConfirmDelete(true)} disabled={saving}>
+                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                Delete
+              </Button>
+            )}
           </>
         }
-        actions={
-          company.can_edit && (
-            <ButtonLink href={`/companies/${company.id}/edit`} variant="secondary">
-              <Pencil className="h-3.5 w-3.5" aria-hidden /> Edit
-            </ButtonLink>
-          )
-        }
       />
-      <ProtectionBanner company={company} />
-      <div className="mb-4">
-        <Tabs<TabKey>
+      <div className="mb-5">
+        <Tabs
           label="Company sections"
           value={tab}
-          onChange={(key) => setState({ tab: key === "overview" ? "" : key })}
+          onChange={setTab}
           tabs={[
-            { key: "overview", label: "Overview" },
-            { key: "relationship", label: "TECOMSA relationship", count: rel.crm_records.length + rel.odoo_contacts.length },
-            { key: "intelligence", label: "Intelligence" },
-            { key: "contacts", label: "LeadFinder contacts", count: company.contacts.length },
-            { key: "campaigns", label: "Campaigns", count: company.campaigns.length },
-            { key: "activity", label: "Activity" },
+            { key: "overview", label: "Overview", icon: Building2 },
+            { key: "people", label: "People", icon: Users, count: data.people.length },
+            { key: "opportunity", label: "Opportunity", icon: Lightbulb },
+            { key: "sources", label: "Sources", icon: FileText, count: data.sources.length },
           ]}
         />
       </div>
-      <div role="tabpanel" tabIndex={0} className="focus-visible:outline-offset-4">
-        {tab === "overview" && <OverviewTab company={company} />}
-        {tab === "relationship" && <RelationshipTab company={company} />}
-        {tab === "intelligence" && <IntelligenceTab />}
-        {tab === "contacts" && <ContactsTab company={company} onChanged={reload} />}
-        {tab === "campaigns" && <CampaignsTab company={company} onChanged={reload} />}
-        {tab === "activity" && <ActivityTab companyId={company.id} />}
+      <div role="tabpanel">
+        {tab === "overview" && <Overview detail={data} />}
+        {tab === "people" && <People detail={data} overdue={overdue} onChanged={reload} />}
+        {tab === "opportunity" && <Opportunity detail={data} />}
+        {tab === "sources" && <Sources detail={data} />}
       </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete ${c.name}?`}
+        confirmLabel="Delete company"
+        tone="danger"
+        busy={saving}
+        onConfirm={remove}
+        onClose={() => setConfirmDelete(false)}
+      >
+        Removes the company, its locations, roles and search results; Find Leads will not add it again. People and
+        source records are kept. To only hide it, set its status to Archived.
+      </ConfirmDialog>
     </>
-  );
-}
-
-export default function CompanyProfilePage() {
-  return (
-    <Suspense>
-      <CompanyProfile />
-    </Suspense>
   );
 }

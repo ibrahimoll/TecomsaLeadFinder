@@ -3,42 +3,45 @@
 @tailwind utilities;
 
 /*
- * LeadFinder design system: "precision ink".
+ * LeadFinder design system: "inset workspace".
  *
- * One neutral scale, ink-black primary actions and a single signal-green used only
- * for selection, focus and "active" states. Status colours carry meaning, never
- * decoration. Every component reads these variables (via tailwind.config.ts).
- * Values are RGB channels so Tailwind opacity modifiers work (bg-accent/10).
+ * TECOMSA brand (company profile 2026): white surfaces, black type, Tecomsa red accent,
+ * Poppins for headings. A light neutral canvas carries the navigation; each page sits on one
+ * raised white panel. Red marks primary actions, selection and focus; near-black "ink" is
+ * used for floating chrome (tooltips, selection bar). Danger is a distinct crimson-rose so a
+ * destructive state never reads as "brand".
+ * Status colours carry meaning, never decoration. Every component reads these variables
+ * (via tailwind.config.ts). Values are RGB channels so Tailwind opacity modifiers work.
  *
- * Radius: 4px badges/chips · 6px controls · 8px panels, dialogs.
- * Elevation: borders everywhere; shadows only on floating layers (menus, dialogs, palette).
+ * Radius: 6px badges/chips · 8px controls · 12px cards, dialogs · 16px page panel.
+ * Elevation: borders everywhere; a faint lift on cards; real shadows only on floating layers.
  */
 @layer base {
   :root {
-    --bg: 249 249 250;
+    --bg: 244 244 245;
     --surface: 255 255 255;
-    --surface-muted: 244 244 246;
-    --surface-hover: 241 241 244;
-    --sidebar: 246 246 248;
-    --border: 232 232 236;
-    --border-strong: 214 214 221;
+    --surface-muted: 247 247 248;
+    --surface-hover: 243 243 245;
+    --sidebar: 244 244 245;
+    --border: 229 229 233;
+    --border-strong: 210 210 216;
     --fg: 17 17 20;
-    --fg-muted: 95 95 108;
-    --fg-subtle: 146 146 158;
+    --fg-muted: 90 90 100;
+    --fg-subtle: 138 138 148;
     --ink: 17 17 20;
     --ink-hover: 44 44 52;
-    --accent: 10 122 96;
-    --accent-hover: 8 100 79;
-    --accent-soft: 230 245 240;
+    --accent: 220 30 38;
+    --accent-hover: 186 20 28;
+    --accent-soft: 254 236 237;
     --success: 21 128 72;
     --success-soft: 234 247 240;
     --warning: 168 95 8;
     --warning-soft: 253 245 230;
-    --danger: 196 38 44;
-    --danger-soft: 253 238 239;
-    --info: 34 96 196;
-    --info-soft: 236 242 253;
-    --focus: 10 122 96;
+    --danger: 190 18 80;
+    --danger-soft: 253 236 243;
+    --info: 37 99 235;
+    --info-soft: 236 242 255;
+    --focus: 220 30 38;
   }
 
   html {
@@ -47,10 +50,10 @@
     text-rendering: optimizeLegibility;
   }
   body {
-    @apply font-sans text-[13px] leading-5;
+    @apply font-sans text-[14px] leading-5;
   }
   h1, h2, h3 {
-    @apply text-fg;
+    @apply font-display text-fg;
   }
   :focus-visible {
     outline: 2px solid rgb(var(--focus) / 0.6);
@@ -80,7 +83,7 @@
   .elevated {
     box-shadow:
       0 0 0 1px rgb(17 17 20 / 0.06),
-      0 8px 24px -6px rgb(17 17 20 / 0.14),
+      0 12px 32px -8px rgb(17 17 20 / 0.18),
       0 2px 6px -2px rgb(17 17 20 / 0.08);
   }
   .skeleton-shimmer {
@@ -88,6 +91,41 @@
     background-size: 200% 100%;
     animation: shimmer 1.4s ease-in-out infinite;
   }
+}
+
+/*
+ * Staggered entrance (pattern from 21st.dev "Animated List"): direct children rise in one after
+ * another. Used on card grids, page columns and short lists; never on long data tables.
+ */
+.stagger > * {
+  animation: rise-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.stagger > *:nth-child(2) { animation-delay: 35ms; }
+.stagger > *:nth-child(3) { animation-delay: 70ms; }
+.stagger > *:nth-child(4) { animation-delay: 105ms; }
+.stagger > *:nth-child(5) { animation-delay: 140ms; }
+.stagger > *:nth-child(n + 6) { animation-delay: 170ms; }
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); opacity: 0; }
+  12% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: rotate(360deg); opacity: 0; }
+}
+
+@keyframes toast-timer {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@keyframes loading-bar {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
 }
 
 @keyframes shimmer {
@@ -100,7 +138,8 @@ dialog[open] {
   animation: dialog-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 dialog::backdrop {
-  background: rgb(17 17 20 / 0.32);
+  background: rgb(17 17 20 / 0.36);
+  backdrop-filter: blur(2px);
   animation: fade-in 140ms ease-out;
 }
 @keyframes dialog-in {
@@ -122,7 +161,7 @@ dialog::backdrop {
 
 /* Select chevron (lucide chevron-down, 12px, fg-subtle). */
 .select-chevron {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239292a0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a8a94' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.6rem center;
 }

@@ -17,8 +17,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
       POSTGRES_DB: ${POSTGRES_DB:?}
+      # The application's own non-superuser role (created on first start by init-prod/01-app-role.sh).
+      APP_DB_USER: ${APP_DB_USER:?}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init-prod:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -30,7 +34,11 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Never the superuser: the app role owns only the LeadFinder database.
+      DATABASE_URL: postgresql+psycopg://${APP_DB_USER}:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      # Background jobs run in the `worker` service, never in the API process.
+      DISCOVERY_WORKER_ENABLED: "false"
     volumes:
       # Uploaded Odoo export files (import source audit trail; not the live datastore)
       - imports:/app/storage/imports
@@ -44,6 +52,22 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  # Background job worker (Find Leads discovery, company enrichment) on the Postgres job queue.
+  # Starts after the API is healthy, i.e. after its migrations ran.
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${APP_DB_USER}:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    command: ["python", "-m", "app.services.jobs"]
+    volumes:
+      - discovery:/app/storage/discovery
+    depends_on:
+      backend:
+        condition: service_healthy
 
   frontend:
     build:

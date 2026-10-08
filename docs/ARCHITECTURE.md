@@ -1,4 +1,4 @@
-# LeadFinder AI: Architecture (Phase 1)
+# LeadFinder AI: Architecture (Phase 3)
 
 ## 1. Overview
 
@@ -56,8 +56,8 @@ erDiagram
 | `crm_leads` | Odoo crm.lead records. Original `odoo_lead_id` / `odoo_external_id` are preserved. Holds stage, type, revenue, probability, active, won, lost reason, dates and salesperson. `source_key` (unique) makes re-imports update instead of duplicate. `company_key`, `domain`, `email_domain` and `phone_normalized` are matching keys. |
 | `odoo_contacts` | Odoo res.partner records (companies and people) with the same identifier and matching-key conventions. `is_customer` comes from a customer flag or rank column. |
 | `discovery_runs` | One per "Find companies" search: country, area, industry or custom text, requested count, sources and source version, status (QUEUED, SEARCHING, PROCESSING, COMPLETED, PARTIAL, FAILED), stage log, counts (matched, examined, duplicates, known, protected, new, errors), summary. |
-| `discovery_results` | Every candidate a run examined: source + source id, name, category, address, city, phone, website, email, coordinates, state (AVAILABLE, EXISTING_LEADFINDER, EXISTING_ODOO_CONTACT, EXISTING_CRM_LEAD, OPEN_OPPORTUNITY, CUSTOMER, LOST_OPPORTUNITY, PROTECTED, DUPLICATE), reason, linked company. |
-| `company_sources` | Provenance: one row per (source, external id) linked to a company, with what the source said, first/last seen run and time. Re-discovery updates it instead of creating a company. |
+| `discovery_results` | Every candidate a run examined: source + source id, name, category, address, city, phone, website, email, coordinates, state (AVAILABLE, EXISTING_LEADFINDER, EXISTING_ODOO_CONTACT, EXISTING_CRM_LEAD, OPEN_OPPORTUNITY, CUSTOMER, LOST_OPPORTUNITY, PROTECTED, POSSIBLE_ODOO_MATCH, DUPLICATE, MERGED_BRANCH, CLOSED, WRONG_INDUSTRY, LOW_CONFIDENCE), reason, discovery confidence with evidence/concerns/scale signals, linked company. |
+| `company_sources` | The company's locations: one row per (source, external id) with the location's name, address, city, coordinates and phone, what the source said, first/last seen run and time. A second listing of the same place points to it (`same_place_as_id`). Re-discovery updates it; a new branch adds a row, never a company. |
 | `import_runs` | One row per uploaded file: type, status (PREVIEW, COMPLETED, FAILED, CANCELLED), stored file name, SHA-256 (detects repeat uploads), detected columns, row/valid/warning/duplicate/insert/update/skip/error counts, companies created or linked, row issues and failure reason. |
 | `contacts` | People at a company (company 1─* contacts). `source` / `source_reference` hold the provider-neutral origin and the provider's own id. Phase 0 creates only `MANUAL` contacts. |
 | `campaigns` | Targeting definition. `tecomsa_division` ∈ FRINZO, ODOO, IT. `status` ∈ DRAFT, READY, RUNNING, COMPLETED, FAILED, CANCELLED. `target_roles` is JSONB. |
@@ -146,20 +146,129 @@ POST /discovery/runs ─► discovery_runs row (QUEUED) ─► background thread
   (`DISCOVERY_CACHE_DIR/overture/<release>/places_<CC>.parquet`). `OVERTURE_RELEASE` pins a release.
   Places use `taxonomy` (hierarchy, primary, alternates) and `basic_category`; the old `categories` field was
   removed by Overture in September 2026.
-- **OpenStreetMap:** one Overpass query per country (named `man_made=works`, `industrial=*`,
-  `landuse=industrial`, relevant `craft=*`, `office=company`), cached `OSM_CACHE_HOURS`; several instances can be
-  listed in `OVERPASS_URL`; after a failure it is skipped for 15 minutes.
+- **OpenStreetMap:** the newest dated Geofabrik extract for the country (`.osm.pbf`) is downloaded and read with
+  DuckDB `spatial` (`ST_ReadOSM`): named `man_made=works`, `industrial=*`, `landuse=industrial`, relevant
+  `craft=*`, `office=company` nodes and ways (ways get the centre of their nodes). Only the features are cached,
+  `OSM_CACHE_HOURS` (default a week); after a failure it is skipped for 15 minutes. The public Overpass API
+  was dropped: it was overloaded too often.
 - **Industry matching:** strong taxonomy categories (score 3), generic industrial category + product keyword
   (2), product keyword + a different production keyword (1); excluded categories (consumer venues, other kinds of
   makers) never match rules 2–3. Custom text matches its words against name and category path.
 - **Areas:** coordinates decide (radius for cities, boxes for governorates); locality text only when there are no
   coordinates. The displayed city is the known city at the coordinates, else the source locality.
+- **Companies vs locations:** a source record is a *place*. `quality.consolidate` groups places into companies:
+  strong keys (company website whose domain matches the name, phone, email domain) merge directly; name keys (the
+  source brand, or the name without a location suffix) merge unless `Group.conflicts` sees another legal entity
+  (different company website, OSM `operator`, legal form). A location suffix is removed only when another record
+  of the search has that root name and the suffix is a known place / a word of the record's own address / a branch
+  word, or follows a " - " separator after an exact root name. Shared ordering platforms are not company websites.
+  Within a company, a record ≤ 500 m from a location is a duplicate listing, further away a branch. The company is
+  checked against LeadFinder and Odoo as a whole (any location's phone/website/email; its root name in any of its
+  cities), so "McDonald's Lebanon" in Odoo protects all McDonald's branches.
+- **Quality** (`quality.py`, deterministic): providers flag `CLOSED` (explicit source evidence only) and
+  `WRONG_INDUSTRY` (name looks right, category is a consumer venue/store or the OSM main product is something else);
+  those are recorded, never saved. The rest is consolidated into companies (shared domain/phone/email domain/brand,
+  or the same name minus a trailing place/"branch"; different websites never merge; ≤ 500 m = duplicate listing,
+  further = branch) and assessed: industry tier (category 3, generic manufacturing category + product 2, producer 1,
+  name 1, shop + name 0) + website, phone, address, industrial site, 2+ independent sources, 2+ locations (+1 each),
+  source unsure it exists (−1). HIGH ≥ 5 with a confirming category and a contact; MEDIUM ≥ 3 with a confirming
+  category and a contact or industrial site, or weaker evidence with the company's own website; else LOW (not saved,
+  `LOW_CONFIDENCE`). Scale signals (locations, industrial site, brand, several phones…) are stored as signals only.
 - **Matching/protection** reuse `CompanyIndex` (one in-memory index per run) and `relationship_service.OdooIndex`
-  (one Odoo evidence index per run); no per-row queries except the source-id lookup, batched per 500.
+  (one Odoo evidence index per run); no per-row queries except the source-id lookup, batched per 500. New candidates
+  use `OdooIndex.decide_new`: protected only on partner id, domain, email domain, phone or name + city; name-only or
+  similar-name ("National Foods" / "National Food Company") evidence gives `POSSIBLE_ODOO_MATCH`. A name-only match to
+  a protected LeadFinder company is also a possible match, and never attaches source data to it.
 - **Websites** of social/link/maps hosts (Instagram, WhatsApp, Linktree, Google Maps…) are kept as links but never
   used as a company domain for matching (`normalization.company_domain`).
 - **Delete** (admin): removes the run and its results; `with_data=true` also removes companies it created that no
   other run found and nothing else uses; kept companies are handed over to the newest run that found them.
+
+### Company research and qualification (`services/research/`, Phase 2)
+
+```
+POST /research {company_ids}  ->  one CompanyResearchRun per company, thread pool (RESEARCH_MAX_CONCURRENT)
+  website.py   validate: ACTIVE / REDIRECTED / PLACEHOLDER / PARKED / FOR_SALE / EMPTY / UNREACHABLE / BLOCKED /
+               NO_WEBSITE / VALIDATION_FAILED. A dead site is a risk signal, never "company closed".
+  crawl.py     home page + up to RESEARCH_MAX_PAGES same-site pages (about, products, factory, locations, export,
+               careers, contact...), RESEARCH_MAX_DEPTH hops, robots.txt + Crawl-delay, overall deadline. Pages are
+               fetched by fetch.py and parsed locally by Crawl4AI (LXML scraping + markdown); Crawl4AI's own
+               browser/HTTP fetching is not used, so every request passes the SSRF checks.
+  evidence.py  deterministic rules -> facts {signal, value, kind EXPLICIT_FACT | LEADFINDER_INFERENCE, quoted
+               sentence, source_url}. Headcount only when stated. Map data (locations, category) is a fact with
+               source "LeadFinder discovery". "name_on_website" checks the site is about this company.
+  rubric.py    fixed weights -> Odoo fit, Frinzo fit (0-100), separate confidence (pages read, corroborating
+               signals), evidence-backed modules / use cases, business-scale signal, qualification status.
+  providers.py the AI review (Claude now; "rules" = none; TECOMSA Engine AI later) sees only facts, short
+               excerpts and the rubric's candidates; it may reject facts, drop candidates, summarise, flag for
+               review. The rubric is then recomputed: the AI never sets a score.
+  -> CompanyQualification (provider, model, qualification/rubric versions, input hash)
+```
+
+- **fetch.py (SSRF):** http/https on ports 80/443 only, no credentials in URLs; every address of a host must be
+  public (no loopback, RFC 1918, link-local/cloud metadata, CGNAT, Docker networks, ULA, multicast, reserved); the
+  socket connects to the checked address (TLS still verified against the host name), so DNS rebinding cannot slip
+  in; redirects are followed manually and re-checked (max 5); responses are streamed with a byte cap, per-read
+  timeout and overall deadline; only HTML/text is read.
+- **Statuses:** run `QUEUED → RESEARCHING → RESEARCHED → COMPLETED`, or `RESEARCH_FAILED` (nothing qualified) /
+  `QUALIFICATION_FAILED` (evidence kept; `POST /research/runs/{id}/qualify` retries without crawling).
+  Qualification: `QUALIFIED` (Odoo or Frinzo fit ≥ `QUALIFY_FIT_THRESHOLD` with ≥ `QUALIFY_MIN_CONFIDENCE`, the
+  site names the company, no website risk), `NEEDS_REVIEW` (good fit but thin evidence, a dead/placeholder site, a
+  site that never names the company, or the AI review flagged it), `LOW_PRIORITY`, `INSUFFICIENT_EVIDENCE`.
+- **Dead website after a good research:** the same user's last evidence is carried into the new run (marked
+  `from_run`), so the lead becomes "needs review" instead of disappearing.
+- **Cost:** only companies already in LeadFinder (never raw map results, never Odoo-protected companies); no AI
+  call when nothing was read; an identical input (evidence + versions + provider + model) reuses the earlier
+  qualification unless "Refresh research" forces it; `AI_MAX_CONCURRENCY`, `RESEARCH_MAX_BATCH`.
+- **Visibility:** a run belongs to whoever started it; managers/admins see all; only for companies the user may see
+  (another agent's private candidate is 404). `GET /research/leads` ranks the latest completed research per company:
+  qualification status, priority, then the better fit.
+- **Replacing Claude with TECOMSA Engine AI:** implement one class with `name`, `model` and
+  `review(payload) -> ProviderReview` in `providers.py`, return it from `get_provider()` for `AI_PROVIDER=tecomsa`.
+  Nothing else changes: the payload, the review schema, the rubric and the stored qualification are provider-neutral.
+
+### Decision-makers and contact enrichment (`services/people/`, Phase 3)
+
+```
+POST /decision-makers/search {company_ids}   free discovery only
+  entry      Phase 2 QUALIFIED for the user, or a manager/admin approval with a reason (audited);
+             never a company TECOMSA's Odoo protects
+  roles.py   title -> role family + seniority; Odoo and Frinzo relevance per family (PRIMARY /
+             SECONDARY / ADJACENT / LOW) from fixed defaults raised by Phase 2 signals
+             (manufacturing -> plant/supply chain, export/group -> finance, Instagram -> marketing...)
+  website.py people listed on the company website (management/team/about/contact pages; Phase 2's
+             pages reused), with the source sentence and URL
+  providers  Apollo People Search (POST /mixed_people/api_search: domain + titles + seniorities,
+             documented 0 credits, no emails/phones, obfuscated surnames)
+  merge      one canonical person per company and salesperson scope: provider id, work email,
+             LinkedIn URL, full name + compatible title, or Apollo first name + obfuscated surname
+             consistent with a known name. Never across companies, never by name alone.
+  scoring.py employer match 0-40 + role relevance 0-30 + seniority 0-15 + corroboration 0-10 +
+             freshness 0-5 (provider dates only) -> HIGH >= 80, MEDIUM >= 60, LOW >= 40, UNRELIABLE.
+             Primary = best PRIMARY/SECONDARY role with >= MEDIUM, employer match >= 30, current,
+             not under review; up to 3 alternatives. Former employees are never recommended;
+             sources that disagree on employment -> needs review.
+POST /decision-makers/{id}/reveal {field, provider}   explicit, paid, one person + one field
+  cached -> PAID_ENRICHMENT_ENABLED -> provider configured -> monthly budget (advisory lock) ->
+  PENDING ledger row (partial unique index: one live/successful request per person + action +
+  version: a double click or two tabs pay once) -> provider -> ledger + person -> rescore
+  Apollo email: POST /people/match by Apollo id, personal emails and waterfall off.
+  Apollo phone: same call with reveal_phone_number + a single-use webhook URL
+  (APOLLO_WEBHOOK_BASE_URL/enrichment/webhooks/apollo/{token}, token stored hashed).
+  Lusha: search by first + last name + company domain (or LinkedIn/email), accepted only when the
+  name AND domain match exactly one contact; then enrich that id (waterfall off).
+```
+
+- **Contact data is separate** from person confidence (email: not searched / available / verified /
+  unverified / not found; phone: not searched / requested / available / not found + DNC). Only work
+  emails are stored (free-mail addresses are dropped).
+- **Ledger** (`enrichment_requests`): provider, action, field, person, company, user, estimated and
+  confirmed credits, status (incl. BUDGET_LIMIT_REACHED and DISABLED: nothing sent). Estimates are a
+  safeguard; provider billing is authoritative.
+- **Privacy:** people, sources, runs and ledger rows belong to the salesperson whose search created
+  them; managers/admins see all. A company becoming Odoo-protected shares the company, never these.
+- **Replacing a provider:** discovery providers expose `search_people(...)`, enrichment providers
+  `enrich(...)` / `find_contact(...)`+`reveal(...)` returning `ProviderPerson` / `EnrichResult`.
 
 ## 3. Authentication and authorization
 
@@ -181,6 +290,23 @@ Authorization is enforced in two places:
 - **Role dependencies** (`app/api/deps.py`): `AdminUser`, `ManagerOrAdmin`, `CurrentUser`.
 - **Record rules** (`app/services/permissions.py`): agents see and manage only their own campaigns and edit only
   companies they created. A campaign the user cannot see returns 404, so its existence is not revealed.
+- **Private discovery** (same module): one shared company record per organisation is kept for deduplication, but a
+  company found by a discovery search is its finder's **private candidate** until imported Odoo data protects it.
+  Agents see only their own searches, results and private candidates; another agent's run, result or company
+  returns 404 and is filtered out of every list, count, duplicate check and the dashboard. When an agent's search
+  finds a colleague's private candidate it is recorded as `RESERVED`: not offered, not linked, and the row is
+  only returned to managers/admins (with the owner). Once Odoo protects the company, its identity and protection
+  status are shared; LeadFinder-only data stays private: agents see only their own notes/activity and contacts
+  (plus contacts imported from Odoo), the discovery evidence and who added it. Managers and admins see everything,
+  including who found each company. Manually added companies remain shared as before.
+- **Candidate ownership** (`companies.owner_id`, migration 0009): one column, so a candidate never has two owners.
+  A search sets it to its creator. `POST /companies/{id}/release` (owner, manager or admin) clears it: the
+  candidate becomes visible to every salesperson; `POST /companies/{id}/claim` takes it with a conditional
+  `UPDATE … WHERE owner_id IS NULL`, so of two simultaneous claims exactly one wins (the other gets 409, or 404
+  once the winner's claim makes it private). Two searches saving the same place at the same moment are resolved
+  by the unique `company_sources (source, external_id)` key: the loser records it as the winner's candidate.
+  Deleting a search or import never removes a company another salesperson owns, another search found
+  (`RESERVED` rows do not count), or that has another source, Odoo data, contacts, notes or campaigns.
 
 The Next.js middleware redirects visitors without a session cookie to `/login`. This is only a convenience; the
 backend check is the real control.

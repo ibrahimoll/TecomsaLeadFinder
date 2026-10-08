@@ -1,0 +1,1029 @@
+{
+ "companies": 100,
+ "people_total": 126,
+ "decision_makers_total": 91,
+ "companies_with_person": 17,
+ "companies_with_decision_maker": 17,
+ "companies_with_2_decision_makers": 15,
+ "companies_contactable_strict": 1,
+ "companies_contactable_2_strict": 0,
+ "companies_reachable_via_switchboard_only": 16,
+ "people_with_verified_email": 0,
+ "decision_makers_with_verified_email": 0,
+ "people_with_published_email": 1,
+ "decision_makers_with_published_email": 1,
+ "people_with_predicted_email": 40,
+ "decision_makers_with_predicted_email": 40,
+ "people_with_catch_all_email": 12,
+ "decision_makers_with_catch_all_email": 12,
+ "people_with_mobile": 0,
+ "decision_makers_with_mobile": 0,
+ "people_with_direct_phone": 0,
+ "decision_makers_with_direct_phone": 0,
+ "people_with_whatsapp": 0,
+ "decision_makers_with_whatsapp": 0,
+ "people_with_extension": 0,
+ "decision_makers_with_extension": 0,
+ "rows": [
+  {
+   "id": 236,
+   "company": "Monsif International School",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 134,
+   "company": "Lebanese American University Byblos Campus",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 245,
+   "company": "Dmeet Public School",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 252,
+   "company": "Beirut Evangelical School for Girls and Boys - Rabieh (BESGB)",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 269,
+   "company": "International College",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 249,
+   "company": "Collège de la Sainte Famille Française",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 144,
+   "company": "Learn and Play",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 140,
+   "company": "Nathalie Kids Academy",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 251,
+   "company": "Iman High School",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 234,
+   "company": "Arcadia College",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 198,
+   "company": "Le Petit Gris",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 159,
+   "company": "Ramada Plaza Hotel",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 170,
+   "company": "Rami Hotel",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 155,
+   "company": "Movenpick Beirut",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 169,
+   "company": "Majestic Byblos Grand Hotel",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 176,
+   "company": "Le Telegraphe de Belle Vue",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 192,
+   "company": "Kissproof Beirut",
+   "industry": "Hospitality",
+   "people": 5,
+   "decision_makers": 3,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 157,
+   "company": "Radisson Blu Martinez",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 166,
+   "company": "Nespresso",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 179,
+   "company": "Mazaj Restaurant",
+   "industry": "Hospitality",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 278,
+   "company": "Valentino",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 283,
+   "company": "Laiterie Massabki - البان وأجبان مسابكي",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 277,
+   "company": "Louis Vuitton",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 270,
+   "company": "Kobkom By D&M",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 273,
+   "company": "Nike",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 275,
+   "company": "Ayoub Computers",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 282,
+   "company": "Bassoul Heneine",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 272,
+   "company": "Chanel",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 271,
+   "company": "Kashkha",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 280,
+   "company": "Ferragamo",
+   "industry": "Retail",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 119,
+   "company": "Koub / Golden Glass",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 101,
+   "company": "Moazin Group SARL",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 110,
+   "company": "Rashid Home Seasons",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 114,
+   "company": "NME Bakery Equipment",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 111,
+   "company": "Laboratoire du Boulevard",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 93,
+   "company": "Netco ceramic tiles",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 108,
+   "company": "Les Caves d'Eden",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 99,
+   "company": "Mainline Dynolog Lebanon",
+   "industry": "Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 30,
+   "company": "Omars Meat",
+   "industry": "Food Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 26,
+   "company": "Rawabi Chatura - Halwani",
+   "industry": "Food Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 15,
+   "company": "Mattahen Al Zawk",
+   "industry": "Food Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 42,
+   "company": "Moor Chocolate Factory",
+   "industry": "Food Manufacturing",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 320,
+   "company": "Ashrafieh Heights",
+   "industry": "Construction",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 316,
+   "company": "محلات حمزة عزّام و أولادهُ _ صديقين",
+   "industry": "Construction",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 318,
+   "company": "CGE Curtain Glass",
+   "industry": "Construction",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 322,
+   "company": "Dergham & Hamdar associates",
+   "industry": "Construction",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 317,
+   "company": "BeitMisk",
+   "industry": "Construction",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 367,
+   "company": "RedRock - Lebanon",
+   "industry": "Real Estate",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 369,
+   "company": "Montelibano SAL",
+   "industry": "Real Estate",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 371,
+   "company": "Mar Mikhael Village",
+   "industry": "Real Estate",
+   "people": 1,
+   "decision_makers": 1,
+   "contactable": 1,
+   "best_department": "sales",
+   "best_method": "published_email"
+  },
+  {
+   "id": 366,
+   "company": "Balamand Village",
+   "industry": "Real Estate",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 365,
+   "company": "Domaine Du Rocher",
+   "industry": "Real Estate",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 285,
+   "company": "Bankmed",
+   "industry": "Financial Services",
+   "people": 21,
+   "decision_makers": 20,
+   "contactable": 0,
+   "best_department": "operations",
+   "best_method": "company_switchboard"
+  },
+  {
+   "id": 286,
+   "company": "Banque de Syrie et du Liban",
+   "industry": "Financial Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 292,
+   "company": "Credit Libanais",
+   "industry": "Financial Services",
+   "people": 5,
+   "decision_makers": 5,
+   "contactable": 0,
+   "best_department": "hr",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 284,
+   "company": "Bank of Beirut S.A.L.",
+   "industry": "Financial Services",
+   "people": 17,
+   "decision_makers": 12,
+   "contactable": 0,
+   "best_department": "hr",
+   "best_method": "company_switchboard"
+  },
+  {
+   "id": 288,
+   "company": "Banque Misr Liban",
+   "industry": "Financial Services",
+   "people": 10,
+   "decision_makers": 8,
+   "contactable": 0,
+   "best_department": "hr",
+   "best_method": "company_switchboard"
+  },
+  {
+   "id": 293,
+   "company": "CSCBank SAL",
+   "industry": "Financial Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 289,
+   "company": "BLC bank",
+   "industry": "Financial Services",
+   "people": 12,
+   "decision_makers": 9,
+   "contactable": 0,
+   "best_department": "hr",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 303,
+   "company": "Cumberland Insurance and Reinsurance Company",
+   "industry": "Insurance",
+   "people": 14,
+   "decision_makers": 8,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 298,
+   "company": "SNA Lebanon",
+   "industry": "Insurance",
+   "people": 3,
+   "decision_makers": 3,
+   "contactable": 0,
+   "best_department": "finance",
+   "best_method": "company_switchboard"
+  },
+  {
+   "id": 301,
+   "company": "Arope Insurance",
+   "industry": "Insurance",
+   "people": 5,
+   "decision_makers": 4,
+   "contactable": 0,
+   "best_department": "finance",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 295,
+   "company": "UCA Insurance",
+   "industry": "Insurance",
+   "people": 3,
+   "decision_makers": 3,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "company_switchboard"
+  },
+  {
+   "id": 302,
+   "company": "Carati Agency",
+   "industry": "Insurance",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 294,
+   "company": "Arabia Insurance Company",
+   "industry": "Insurance",
+   "people": 2,
+   "decision_makers": 2,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "company_switchboard"
+  },
+  {
+   "id": 310,
+   "company": "Fresh Pharma International s.a.l",
+   "industry": "Pharmaceutical",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 313,
+   "company": "Hisham Pharmacy",
+   "industry": "Pharmaceutical",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 304,
+   "company": "Premium Serve Drugstore",
+   "industry": "Pharmaceutical",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 305,
+   "company": "Premiers Soins Pharmacie",
+   "industry": "Pharmaceutical",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 307,
+   "company": "Birex Solutions - Lebanon",
+   "industry": "Pharmaceutical",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 363,
+   "company": "LAU Medical Center Rizk Hospital",
+   "industry": "Healthcare",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 361,
+   "company": "Karentina Governmental Hospital",
+   "industry": "Healthcare",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 356,
+   "company": "Kassab Hospital",
+   "industry": "Healthcare",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 355,
+   "company": "Khoury Dental Clinic",
+   "industry": "Healthcare",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 354,
+   "company": "Hajj Medical Center-Medical & Dental Clinics Naccache - Dr. Marcel Hajj, Dr. Gregory Hage (Allergy-Diet-Fat Free-Exosome)",
+   "industry": "Healthcare",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 358,
+   "company": "Mount Lebanon Hospital UMC مستشفى جبل لبنان الجامعي - MLH UMC",
+   "industry": "Healthcare",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 333,
+   "company": "Sage Computers",
+   "industry": "Technology",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 331,
+   "company": "CODE Technologies",
+   "industry": "Technology",
+   "people": 2,
+   "decision_makers": 2,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 329,
+   "company": "EDM",
+   "industry": "Technology",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 325,
+   "company": "WhiteBeard",
+   "industry": "Technology",
+   "people": 4,
+   "decision_makers": 3,
+   "contactable": 0,
+   "best_department": "it",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 326,
+   "company": "Spacetech",
+   "industry": "Technology",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 327,
+   "company": "NavyBits",
+   "industry": "Technology",
+   "people": 3,
+   "decision_makers": 2,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 339,
+   "company": "Usines Zahar",
+   "industry": "Distribution",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 334,
+   "company": "Najjar Foods",
+   "industry": "Distribution",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 337,
+   "company": "Elie Abi Hanna",
+   "industry": "Distribution",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 343,
+   "company": "Atalium",
+   "industry": "Distribution",
+   "people": 1,
+   "decision_makers": 1,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "company_switchboard"
+  },
+  {
+   "id": 348,
+   "company": "Dar al Saqi",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 349,
+   "company": "Dar al-Kitab al-'Arabi",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 353,
+   "company": "Dar Alfarabi",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 346,
+   "company": "Consulting Center for Studies and Documentation",
+   "industry": "Professional Services",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 381,
+   "company": "Expeditors",
+   "industry": "Logistics",
+   "people": 18,
+   "decision_makers": 5,
+   "contactable": 0,
+   "best_department": "executive",
+   "best_method": "predicted_email"
+  },
+  {
+   "id": 376,
+   "company": "Arabian Cargo",
+   "industry": "Logistics",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 384,
+   "company": "G. Bazerji & Fils s.a.l",
+   "industry": "Automotive",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 395,
+   "company": "Rano's Cell",
+   "industry": "Telecom",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 400,
+   "company": "Mike iStore",
+   "industry": "Telecom",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 372,
+   "company": "LibanPost",
+   "industry": "Logistics",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 394,
+   "company": "KBS Cellular",
+   "industry": "Telecom",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 240,
+   "company": "Collège Saint Elie",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 399,
+   "company": "Cell And More",
+   "industry": "Telecom",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  },
+  {
+   "id": 262,
+   "company": "New Century School",
+   "industry": "Education",
+   "people": 0,
+   "decision_makers": 0,
+   "contactable": 0,
+   "best_department": null,
+   "best_method": null
+  }
+ ]
+}

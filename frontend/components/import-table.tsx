@@ -5,7 +5,7 @@ import { Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { ImportStatusBadge } from "@/components/status-badges";
-import { Alert, Button, ConfirmDialog, DataTable, RowLink } from "@/components/ui";
+import { Alert, Avatar, Button, ConfirmDialog, DataTable, RowLink } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { IMPORT_TYPE_LABEL } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
@@ -184,9 +184,9 @@ export function ImportsTable({
             align: "right",
             cell: (r) =>
               r.status === "COMPLETED" ? (
-                <span title={`${r.inserted_count} new, ${r.updated_count} updated`}>
-                  {r.inserted_count.toLocaleString()}
-                  {r.updated_count > 0 && <span className="text-fg-muted"> +{r.updated_count.toLocaleString()} upd.</span>}
+                <span className="inline-flex items-center gap-1.5" title={`${r.inserted_count} new, ${r.updated_count} updated`}>
+                  <span className="rounded-full bg-success-soft px-2 py-0.5 font-semibold text-success">+{r.inserted_count.toLocaleString()}</span>
+                  {r.updated_count > 0 && <span className="text-xs text-fg-muted">{r.updated_count.toLocaleString()} updated</span>}
                 </span>
               ) : (
                 <span className="text-fg-subtle">—</span>
@@ -196,9 +196,20 @@ export function ImportsTable({
             key: "skipped",
             header: "Skipped",
             align: "right",
-            cell: (r) => (r.skipped_count ? r.skipped_count.toLocaleString() : <span className="text-fg-subtle">0</span>),
+            cell: (r) => (r.skipped_count ? <span className="font-medium text-warning">{r.skipped_count.toLocaleString()}</span> : <span className="text-fg-subtle">0</span>),
           },
-          { key: "by", header: "By", cell: (r) => <span className="text-fg-muted">{r.creator?.name ?? "—"}</span> },
+          {
+            key: "by",
+            header: "By",
+            cell: (r) =>
+              r.creator ? (
+                <span className="inline-flex items-center gap-2 text-fg-muted">
+                  <Avatar name={r.creator.name} size="sm" /> {r.creator.name}
+                </span>
+              ) : (
+                <span className="text-fg-subtle">—</span>
+              ),
+          },
           { key: "at", header: "Date", cell: (r) => <span className="text-fg-muted">{formatDateTime(r.completed_at ?? r.created_at)}</span> },
           {
             key: "actions",
@@ -207,7 +218,7 @@ export function ImportsTable({
             cell: (r) => (
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 className="hover:!text-danger"
                 onClick={() => {
                   setNotice(null);

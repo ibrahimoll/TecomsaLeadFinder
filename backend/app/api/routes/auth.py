@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
-from app.api.deps import CurrentUser, DbSession, can_import, client_ip
+from app.api.deps import CurrentUser, DbSession, client_ip
 from app.core.config import get_settings
 from app.core.exceptions import InvalidCredentialsError
 from app.core.rate_limit import login_limiter
@@ -72,9 +72,5 @@ def logout(request: Request, db: DbSession) -> Response:
 def me(user: CurrentUser):
     return {
         **UserOut.model_validate(user).model_dump(),
-        "capabilities": {
-            "manage_users": user.role == UserRole.ADMIN,
-            "view_crm": user.role in (UserRole.ADMIN, UserRole.SALES_MANAGER),
-            "run_imports": can_import(user),
-        },
+        "capabilities": {"manage_users": user.role == UserRole.ADMIN},
     }

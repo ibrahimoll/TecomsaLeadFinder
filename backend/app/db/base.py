@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy import CheckConstraint, DateTime, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Deterministic constraint names so Alembic migrations stay stable.
@@ -27,3 +27,8 @@ class TimestampMixin(CreatedAtMixin):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+def confidence_check(column: str = "confidence") -> CheckConstraint:
+    """Confidence everywhere is an integer percentage, 0-100 (NULL = not assessed)."""
+    return CheckConstraint(f"{column} IS NULL OR {column} BETWEEN 0 AND 100", name=f"{column}_range")

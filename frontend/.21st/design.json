@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "project": {
+    "name": "tecomsa-leadfinder-frontend",
+    "productType": "internal B2B prospecting dashboard",
+    "stack": [
+      "nextjs",
+      "react",
+      "tailwind-v3"
+    ]
+  },
+  "sources": {
+    "tokens": [
+      "app/globals.css"
+    ],
+    "components": [
+      "components/ui"
+    ],
+    "assets": [],
+    "instructions": []
+  },
+  "design": {
+    "colorMode": "light",
+    "colors": {
+      "--surface-muted": {
+        "value": "244 244 246",
+        "source": "app/globals.css"
+      },
+      "--border": {
+        "value": "232 232 236",
+        "source": "app/globals.css"
+      },
+      "--border-strong": {
+        "value": "214 214 221",
+        "source": "app/globals.css"
+      },
+      "--fg-muted": {
+        "value": "95 95 108",
+        "source": "app/globals.css"
+      },
+      "--accent": {
+        "value": "10 122 96",
+        "source": "app/globals.css"
+      },
+      "--accent-hover": {
+        "value": "8 100 79",
+        "source": "app/globals.css"
+      },
+      "--accent-soft": {
+        "value": "230 245 240",
+        "source": "app/globals.css"
+      }
+    },
+    "typography": {
+      "base": "14px Geist",
+      "display": "Poppins 500-700 (headings, figures, wordmark)",
+      "controls": "13.5px",
+      "pageTitle": "24px semibold"
+    },
+    "spacing": {},
+    "radius": {
+      "sm": "6px",
+      "DEFAULT": "8px",
+      "lg": "12px (cards, dialogs)",
+      "xl": "16px (page panel)"
+    },
+    "shadows": {
+      "xs": "controls",
+      "card": "cards/sections",
+      "panel": "inset page panel",
+      "elevated": "floating layers only"
+    },
+    "motion": {
+      "page": "page-in 280ms on route change",
+      "lists": ".stagger rise-in 360ms, 50ms steps",
+      "figures": "CountUp 700ms ease-out",
+      "reducedMotion": "global prefers-reduced-motion override"
+    },
+    "density": "medium"
+  },
+  "components": {
+    "installed": [
+      "data",
+      "dialog",
+      "layout",
+      "primitives"
+    ],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [
+      "Read colours from CSS variable tokens in app/globals.css",
+      "Primary actions use bg-accent (Tecomsa red 220 30 38)",
+      "Danger is crimson-rose (190 18 80), never the brand red",
+      "Brand lockup via components/brand.tsx TecomsaLogo",
+      "One raised white page panel per page; navigation lives on the canvas",
+      "CSS-only motion; respect prefers-reduced-motion"
+    ],
+    "avoid": [
+      "Decorative gradients outside the login brand cover",
+      "Glass effects",
+      "Hover scaling",
+      "Hardcoded rgb() shadows; use shadow-xs/card/panel",
+      "Internal jargon in UI copy (phase names, vendor names without explanation)"
+    ]
+  },
+  "decisions": [
+    {
+      "date": "2026-10-01",
+      "decision": "Inset Workspace direction",
+      "detail": "Canvas-coloured sidebar, page in a raised rounded white panel, 14px base type, 12px card radius, KPI cards with icon tile + share chip, TECOMSA blue (29 78 216) accent with deep navy ink.",
+      "rejected": [
+        "Command Deck (dark navy sidebar, hairline KPI grid)",
+        "Dense Ops Topbar (top nav, full-width tables)"
+      ]
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "Adopt TECOMSA brand (company profile 2026) on the Inset Workspace layout",
+      "detail": "Accent switched from blue to Tecomsa red; ink near-black; Poppins display font; pixel-mark Tecomsa lockup (hand-traced, replace with official SVG); login uses the red brochure cover. Supersedes the blue accent of the previous decision.",
+      "references": [
+        "Tecomsa Company Profile 26.pdf",
+        "21st: Number Ticker, Animated List, Animated Sidebar (patterns reimplemented in CSS)"
+      ]
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "Intelligence tab: Score Hero",
+      "detail": "Hero card with animated ScoreRing gauges (Odoo/Frinzo fit, 70+ green, 40-69 amber), verdict line and research meta row; reasons as check rows with source chips; staggered evidence/signals.",
+      "rejected": [
+        "Research Story (vertical pipeline)",
+        "Evidence Board (sticky verdict + evidence feed)"
+      ],
+      "references": [
+        "21st: Animated Radial Chart, Lighthouse Scores Radial Chart"
+      ]
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "Site-wide liveliness pass",
+      "detail": "Company logos in Avatar via DuckDuckGo icon service (domain only) with initials fallback; branded floating empty-state art with pixel mark; sliding tab underline; table row fade-in; primary button hover lift; icons on all primary/save buttons; red welcome banner on dashboard."
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "Branded page chrome everywhere",
+      "detail": "PageHeader auto-selects a red gradient section icon tile from the URL (top-level pages), animated red rule under every header; Tecomsa logo loading splash; branded 404; ErrorState matches EmptyState floating art."
+    },
+    {
+      "date": "2026-10-02",
+      "decision": "Motion direction: Live Data",
+      "detail": "Motion tracks real data: numbers count up from 0 once per session per page (CountUp reveal), then animate on change; table rows flash when a refetch/poll changes them; new activity slides in at the top; skeletons dissolve into content (blur fade). No sparklines: the API has no time series, so trends would be invented.",
+      "rejected": [
+        "Spring Motion (motion library)",
+        "Spotlight & Glow"
+      ],
+      "references": [
+        "21st: Number Ticker, Number Ticker Real-Time Metrics Counter"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "fact": "components.installed",
+      "source": "components/ui"
+    },
+    {
+      "fact": "design.colorMode:light",
+      "source": "app/globals.css"
+    },
+    {
+      "fact": "design.tokens",
+      "source": "app/globals.css"
+    },
+    {
+      "fact": "project.stack:nextjs",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:tailwind-v3",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-10-01T09:30:36.677Z"
+}

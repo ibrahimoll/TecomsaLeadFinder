@@ -1,0 +1,302 @@
+[
+ {
+  "id": 108,
+  "name": "Les Caves d'Eden",
+  "industry": "Manufacturing",
+  "website": "http://www.lescavesdeden.com/"
+ },
+ {
+  "id": 93,
+  "name": "Netco ceramic tiles",
+  "industry": "Manufacturing",
+  "website": "http://www.netcoceramictiles.com/"
+ },
+ {
+  "id": 119,
+  "name": "Koub / Golden Glass",
+  "industry": "Manufacturing",
+  "website": "http://www.koubeitriglass.com/"
+ },
+ {
+  "id": 99,
+  "name": "Mainline Dynolog Lebanon",
+  "industry": "Manufacturing",
+  "website": "http://www.mainlinelebanon.com/"
+ },
+ {
+  "id": 37,
+  "name": "Matahen Frem - Ephrem's Mills",
+  "industry": "Food Manufacturing",
+  "website": null
+ },
+ {
+  "id": 101,
+  "name": "Moazin Group SARL",
+  "industry": "Manufacturing",
+  "website": "http://www.moazingroup.com/"
+ },
+ {
+  "id": 40,
+  "name": "Linda Chocolate Factory",
+  "industry": "Food Manufacturing",
+  "website": "http://www.lindachocolate.com/"
+ },
+ {
+  "id": 114,
+  "name": "NME Bakery Equipment",
+  "industry": "Manufacturing",
+  "website": null
+ },
+ {
+  "id": 30,
+  "name": "Omars Meat",
+  "industry": "Food Manufacturing",
+  "website": null
+ },
+ {
+  "id": 104,
+  "name": "Orjoan",
+  "industry": "Manufacturing",
+  "website": "http://orjoan.com/"
+ },
+ {
+  "id": 276,
+  "name": "Furla",
+  "industry": "Retail",
+  "website": "https://www.furla.com/int/en/eshop/storedetails?StoreID=07MLB001--SO"
+ },
+ {
+  "id": 279,
+  "name": "Calzedonia",
+  "industry": "Retail",
+  "website": "https://www.calzedonia.com/?utm_medium=organic&utm_source=Facebook&utm_campaign=local&utm_term=LB-CAY4&y_source=1_MTQ4NjkyNDYtNTU5LWxvY2F0aW9uLndlYnNpdGU%3D"
+ },
+ {
+  "id": 277,
+  "name": "Louis Vuitton",
+  "industry": "Retail",
+  "website": "https://eu.louisvuitton.com/eng-e1/point-of-sale/lebanon/louis-vuitton-beirut?source=yext%2FP61"
+ },
+ {
+  "id": 281,
+  "name": "Kiko Milano",
+  "industry": "Retail",
+  "website": "http://www.kikocosmetics.com/"
+ },
+ {
+  "id": 274,
+  "name": "Michael Kors",
+  "industry": "Retail",
+  "website": "https://locations.michaelkors.com/lebanon/beirut/dbaye-highway.html"
+ },
+ {
+  "id": 282,
+  "name": "Bassoul Heneine",
+  "industry": "Retail",
+  "website": "http://www.bashen.com"
+ },
+ {
+  "id": 270,
+  "name": "Kobkom By D&M",
+  "industry": "Retail",
+  "website": "https://kobkombydm.com"
+ },
+ {
+  "id": 271,
+  "name": "Kashkha",
+  "industry": "Retail",
+  "website": "http://www.kashkha.com/"
+ },
+ {
+  "id": 164,
+  "name": "Le Gray",
+  "industry": "Hospitality",
+  "website": "http://www.legray.com/"
+ },
+ {
+  "id": 171,
+  "name": "McDonald's",
+  "industry": "Hospitality",
+  "website": "http://WWW.MCDELIVERY.MCDONALDS.COM.LB/"
+ },
+ {
+  "id": 189,
+  "name": "La Siesta Resort Khalde",
+  "industry": "Hospitality",
+  "website": "http://lasiestabeachresort.com/"
+ },
+ {
+  "id": 192,
+  "name": "Kissproof Beirut",
+  "industry": "Hospitality",
+  "website": "http://www.kissproofbeirut.com/"
+ },
+ {
+  "id": 198,
+  "name": "Le Petit Gris",
+  "industry": "Hospitality",
+  "website": "http://www.lepetitgris.com/"
+ },
+ {
+  "id": 183,
+  "name": "Lancaster Tamar Hotel",
+  "industry": "Hospitality",
+  "website": "http://www.lancastertamar.com/"
+ },
+ {
+  "id": 177,
+  "name": "Loris Restaurant",
+  "industry": "Hospitality",
+  "website": "http://www.rosebeirut.com/"
+ },
+ {
+  "id": 170,
+  "name": "Rami Hotel",
+  "industry": "Hospitality",
+  "website": "http://www.ramihotel.com/"
+ },
+ {
+  "id": 331,
+  "name": "CODE Technologies",
+  "industry": "Technology",
+  "website": "http://www.code-technologies.com/"
+ },
+ {
+  "id": 324,
+  "name": "BMB",
+  "industry": "Technology",
+  "website": "https://bmbgroup.com/"
+ },
+ {
+  "id": 332,
+  "name": "Verge Technologies",
+  "industry": "Technology",
+  "website": "http://www.verge-tech.net/"
+ },
+ {
+  "id": 325,
+  "name": "WhiteBeard",
+  "industry": "Technology",
+  "website": "https://www.whitebeard.nl/"
+ },
+ {
+  "id": 330,
+  "name": "Terabyte Computers - Ras Al Nabea",
+  "industry": "Technology",
+  "website": "http://www.terabyte.computer/"
+ },
+ {
+  "id": 326,
+  "name": "Spacetech",
+  "industry": "Technology",
+  "website": "http://www.Spacetechlb.com/"
+ },
+ {
+  "id": 333,
+  "name": "Sage Computers",
+  "industry": "Technology",
+  "website": "http://Www.Sage-Computers.Com/"
+ },
+ {
+  "id": 327,
+  "name": "NavyBits",
+  "industry": "Technology",
+  "website": "https://www.navybits.com/"
+ },
+ {
+  "id": 377,
+  "name": "Tilia Express",
+  "industry": "Logistics",
+  "website": null
+ },
+ {
+  "id": 381,
+  "name": "Expeditors",
+  "industry": "Logistics",
+  "website": "http://www.expeditors.com/"
+ },
+ {
+  "id": 374,
+  "name": "El FIL Shipping SAL",
+  "industry": "Logistics",
+  "website": "https://elfilshipping.com/"
+ },
+ {
+  "id": 336,
+  "name": "Daccache Liquor Store",
+  "industry": "Distribution",
+  "website": "http://daccachestore.com/"
+ },
+ {
+  "id": 337,
+  "name": "Elie Abi Hanna",
+  "industry": "Distribution",
+  "website": null
+ },
+ {
+  "id": 373,
+  "name": "The Net Global",
+  "industry": "Logistics",
+  "website": "https://www.thenetglobal.group"
+ },
+ {
+  "id": 320,
+  "name": "Ashrafieh Heights",
+  "industry": "Construction",
+  "website": "http://www.ashrafieheights.com/"
+ },
+ {
+  "id": 316,
+  "name": "محلات حمزة عزّام و أولادهُ _ صديقين",
+  "industry": "Construction",
+  "website": null
+ },
+ {
+  "id": 369,
+  "name": "Montelibano SAL",
+  "industry": "Real Estate",
+  "website": "https://montelibanogroup.com/"
+ },
+ {
+  "id": 318,
+  "name": "CGE Curtain Glass",
+  "industry": "Construction",
+  "website": "http://www.cgecurtains.com/"
+ },
+ {
+  "id": 365,
+  "name": "Domaine Du Rocher",
+  "industry": "Real Estate",
+  "website": "http://www.domainedurocher.org/"
+ },
+ {
+  "id": 351,
+  "name": "Dar Al-Marefah Printing & Publishing",
+  "industry": "Professional Services",
+  "website": "https://www.marefah.com"
+ },
+ {
+  "id": 352,
+  "name": "Dar al-Mashari'",
+  "industry": "Professional Services",
+  "website": "http://www.dmcpublisher.com"
+ },
+ {
+  "id": 347,
+  "name": "Dar Al Kalam",
+  "industry": "Professional Services",
+  "website": "http://www.alkalam.com/"
+ },
+ {
+  "id": 353,
+  "name": "Dar Alfarabi",
+  "industry": "Professional Services",
+  "website": "http://dar-alfarabi.com/"
+ },
+ {
+  "id": 349,
+  "name": "Dar al-Kitab al-'Arabi",
+  "industry": "Professional Services",
+  "website": "https://www.kitabalarabi.com"
+ }
+]

@@ -1,9 +1,10 @@
 "use client";
 
+import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-import { Alert, Button, Checkbox, Field, Input, Section, Select } from "@/components/ui";
+import { Alert, Button, Checkbox, Field, Input, Section, Select, toast } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useCurrentUser } from "@/lib/auth";
 import { USER_ROLES } from "@/lib/constants";
@@ -39,6 +40,7 @@ export function UserForm({ user }: { user?: User }) {
     try {
       if (user) await api(`/users/${user.id}`, { method: "PATCH", body });
       else await api("/users", { method: "POST", body });
+      toast.success(user ? "User saved" : "User created");
       router.push("/admin");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -107,8 +109,8 @@ export function UserForm({ user }: { user?: User }) {
             <Button type="button" variant="secondary" onClick={() => router.push("/admin")}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : user ? "Save changes" : "Create user"}
+            <Button type="submit" loading={saving}>
+              <Save className="h-3.5 w-3.5" aria-hidden /> {user ? "Save changes" : "Create user"}
             </Button>
           </div>
         </div>

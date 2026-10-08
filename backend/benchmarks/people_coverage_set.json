@@ -1,0 +1,602 @@
+[
+ {
+  "id": 236,
+  "name": "Monsif International School",
+  "industry": "Education",
+  "website": null
+ },
+ {
+  "id": 134,
+  "name": "Lebanese American University Byblos Campus",
+  "industry": "Education",
+  "website": "http://pharmacy.lau.edu.lb/"
+ },
+ {
+  "id": 245,
+  "name": "Dmeet Public School",
+  "industry": "Education",
+  "website": null
+ },
+ {
+  "id": 252,
+  "name": "Beirut Evangelical School for Girls and Boys - Rabieh (BESGB)",
+  "industry": "Education",
+  "website": "http://www.besgb.edu.lb/"
+ },
+ {
+  "id": 269,
+  "name": "International College",
+  "industry": "Education",
+  "website": null
+ },
+ {
+  "id": 249,
+  "name": "Collège de la Sainte Famille Française",
+  "industry": "Education",
+  "website": "http://www.sainte-famille.edu.lb/"
+ },
+ {
+  "id": 144,
+  "name": "Learn and Play",
+  "industry": "Education",
+  "website": "http://www.learn-and-play.com/"
+ },
+ {
+  "id": 140,
+  "name": "Nathalie Kids Academy",
+  "industry": "Education",
+  "website": null
+ },
+ {
+  "id": 251,
+  "name": "Iman High School",
+  "industry": "Education",
+  "website": "http://www.ihs.edu.lb/"
+ },
+ {
+  "id": 234,
+  "name": "Arcadia College",
+  "industry": "Education",
+  "website": "http://www.arcadiacollege.edu.lb/"
+ },
+ {
+  "id": 198,
+  "name": "Le Petit Gris",
+  "industry": "Hospitality",
+  "website": "http://www.lepetitgris.com/"
+ },
+ {
+  "id": 159,
+  "name": "Ramada Plaza Hotel",
+  "industry": "Hospitality",
+  "website": "http://www.ramadaplazabeirut.com/"
+ },
+ {
+  "id": 170,
+  "name": "Rami Hotel",
+  "industry": "Hospitality",
+  "website": "http://www.ramihotel.com/"
+ },
+ {
+  "id": 155,
+  "name": "Movenpick Beirut",
+  "industry": "Hospitality",
+  "website": "https://www.movenpick.com/beirut"
+ },
+ {
+  "id": 169,
+  "name": "Majestic Byblos Grand Hotel",
+  "industry": "Hospitality",
+  "website": "http://majesticbyblos.com/"
+ },
+ {
+  "id": 176,
+  "name": "Le Telegraphe de Belle Vue",
+  "industry": "Hospitality",
+  "website": "http://www.chateaubelle-vue.com/"
+ },
+ {
+  "id": 192,
+  "name": "Kissproof Beirut",
+  "industry": "Hospitality",
+  "website": "http://www.kissproofbeirut.com/"
+ },
+ {
+  "id": 157,
+  "name": "Radisson Blu Martinez",
+  "industry": "Hospitality",
+  "website": "https://www.radissonhotels.com/en-us/hotels/radisson-blu-beirut"
+ },
+ {
+  "id": 166,
+  "name": "Nespresso",
+  "industry": "Hospitality",
+  "website": "http://www.nespresso.com"
+ },
+ {
+  "id": 179,
+  "name": "Mazaj Restaurant",
+  "industry": "Hospitality",
+  "website": "http://www.mazajzahle.com/"
+ },
+ {
+  "id": 278,
+  "name": "Valentino",
+  "industry": "Retail",
+  "website": "https://boutiques.valentino.com/en-wx/lebanon/valentino-beirut-lebanon/?utm_source=StorePages&utm_medium=GMB&utm_content=LB&utm_campaign=valentino-beirut-lebanon"
+ },
+ {
+  "id": 283,
+  "name": "Laiterie Massabki - البان وأجبان مسابكي",
+  "industry": "Retail",
+  "website": "http://www.laiteriemassabki.com/"
+ },
+ {
+  "id": 277,
+  "name": "Louis Vuitton",
+  "industry": "Retail",
+  "website": "https://eu.louisvuitton.com/eng-e1/point-of-sale/lebanon/louis-vuitton-beirut?source=yext%2FP61"
+ },
+ {
+  "id": 270,
+  "name": "Kobkom By D&M",
+  "industry": "Retail",
+  "website": "https://kobkombydm.com"
+ },
+ {
+  "id": 273,
+  "name": "Nike",
+  "industry": "Retail",
+  "website": "https://www.nike.com/lb/retail/s/nike-abc-dbayeh?cp=61872410739_seo_&y_source=1_NTkxMjAyMi01NTktbG9jYXRpb24ud2Vic2l0ZQ%3D%3D"
+ },
+ {
+  "id": 275,
+  "name": "Ayoub Computers",
+  "industry": "Retail",
+  "website": "https://www.ayoubcomputers.com/"
+ },
+ {
+  "id": 282,
+  "name": "Bassoul Heneine",
+  "industry": "Retail",
+  "website": "http://www.bashen.com"
+ },
+ {
+  "id": 272,
+  "name": "Chanel",
+  "industry": "Retail",
+  "website": "https://www.chanel.com/ae-en/storelocator/store/chanel-beirut-316/?y_source=1_MTQ5MzA2MDMtNTU5LWxvY2F0aW9uLndlYnNpdGU%3D"
+ },
+ {
+  "id": 271,
+  "name": "Kashkha",
+  "industry": "Retail",
+  "website": "http://www.kashkha.com/"
+ },
+ {
+  "id": 280,
+  "name": "Ferragamo",
+  "industry": "Retail",
+  "website": "https://store.ferragamo.com/en/lebanon/beirut"
+ },
+ {
+  "id": 119,
+  "name": "Koub / Golden Glass",
+  "industry": "Manufacturing",
+  "website": "http://www.koubeitriglass.com/"
+ },
+ {
+  "id": 101,
+  "name": "Moazin Group SARL",
+  "industry": "Manufacturing",
+  "website": "http://www.moazingroup.com/"
+ },
+ {
+  "id": 110,
+  "name": "Rashid Home Seasons",
+  "industry": "Manufacturing",
+  "website": "https://rashid-home-season.herokuapp.com/"
+ },
+ {
+  "id": 114,
+  "name": "NME Bakery Equipment",
+  "industry": "Manufacturing",
+  "website": null
+ },
+ {
+  "id": 111,
+  "name": "Laboratoire du Boulevard",
+  "industry": "Manufacturing",
+  "website": "http://www.blvdlab.com/"
+ },
+ {
+  "id": 93,
+  "name": "Netco ceramic tiles",
+  "industry": "Manufacturing",
+  "website": "http://www.netcoceramictiles.com/"
+ },
+ {
+  "id": 108,
+  "name": "Les Caves d'Eden",
+  "industry": "Manufacturing",
+  "website": "http://www.lescavesdeden.com/"
+ },
+ {
+  "id": 99,
+  "name": "Mainline Dynolog Lebanon",
+  "industry": "Manufacturing",
+  "website": "http://www.mainlinelebanon.com/"
+ },
+ {
+  "id": 30,
+  "name": "Omars Meat",
+  "industry": "Food Manufacturing",
+  "website": null
+ },
+ {
+  "id": 26,
+  "name": "Rawabi Chatura - Halwani",
+  "industry": "Food Manufacturing",
+  "website": "http://www.rawabichtaura.com/"
+ },
+ {
+  "id": 15,
+  "name": "Mattahen Al Zawk",
+  "industry": "Food Manufacturing",
+  "website": null
+ },
+ {
+  "id": 42,
+  "name": "Moor Chocolate Factory",
+  "industry": "Food Manufacturing",
+  "website": null
+ },
+ {
+  "id": 320,
+  "name": "Ashrafieh Heights",
+  "industry": "Construction",
+  "website": "http://www.ashrafieheights.com/"
+ },
+ {
+  "id": 316,
+  "name": "محلات حمزة عزّام و أولادهُ _ صديقين",
+  "industry": "Construction",
+  "website": null
+ },
+ {
+  "id": 318,
+  "name": "CGE Curtain Glass",
+  "industry": "Construction",
+  "website": "http://www.cgecurtains.com/"
+ },
+ {
+  "id": 322,
+  "name": "Dergham & Hamdar associates",
+  "industry": "Construction",
+  "website": "http://www.derghamhamdar.com/"
+ },
+ {
+  "id": 317,
+  "name": "BeitMisk",
+  "industry": "Construction",
+  "website": "http://www.beitmisk.com/"
+ },
+ {
+  "id": 367,
+  "name": "RedRock - Lebanon",
+  "industry": "Real Estate",
+  "website": "http://www.demcoproperties.com/redrock"
+ },
+ {
+  "id": 369,
+  "name": "Montelibano SAL",
+  "industry": "Real Estate",
+  "website": "https://montelibanogroup.com/"
+ },
+ {
+  "id": 371,
+  "name": "Mar Mikhael Village",
+  "industry": "Real Estate",
+  "website": "http://www.marmikhaelvillage.com/"
+ },
+ {
+  "id": 366,
+  "name": "Balamand Village",
+  "industry": "Real Estate",
+  "website": "http://www.balamandvillage.com/"
+ },
+ {
+  "id": 365,
+  "name": "Domaine Du Rocher",
+  "industry": "Real Estate",
+  "website": "http://www.domainedurocher.org/"
+ },
+ {
+  "id": 285,
+  "name": "Bankmed",
+  "industry": "Financial Services",
+  "website": "http://www.bankmed.com.lb/"
+ },
+ {
+  "id": 286,
+  "name": "Banque de Syrie et du Liban",
+  "industry": "Financial Services",
+  "website": "http://www.bslbank.com"
+ },
+ {
+  "id": 292,
+  "name": "Credit Libanais",
+  "industry": "Financial Services",
+  "website": "http://www.creditlibanais.com/"
+ },
+ {
+  "id": 284,
+  "name": "Bank of Beirut S.A.L.",
+  "industry": "Financial Services",
+  "website": "http://www.bankofbeirut.com"
+ },
+ {
+  "id": 288,
+  "name": "Banque Misr Liban",
+  "industry": "Financial Services",
+  "website": "https://www.bml.com.lb/"
+ },
+ {
+  "id": 293,
+  "name": "CSCBank SAL",
+  "industry": "Financial Services",
+  "website": "http://www.cscgroup.com"
+ },
+ {
+  "id": 289,
+  "name": "BLC bank",
+  "industry": "Financial Services",
+  "website": "http://www.blcbank.com/"
+ },
+ {
+  "id": 303,
+  "name": "Cumberland Insurance and Reinsurance Company",
+  "industry": "Insurance",
+  "website": "http://www.cumberland.com.lb/"
+ },
+ {
+  "id": 298,
+  "name": "SNA Lebanon",
+  "industry": "Insurance",
+  "website": "http://www.sna.com.lb/"
+ },
+ {
+  "id": 301,
+  "name": "Arope Insurance",
+  "industry": "Insurance",
+  "website": "http://www.arope.com/"
+ },
+ {
+  "id": 295,
+  "name": "UCA Insurance",
+  "industry": "Insurance",
+  "website": "http://www.uca.com.lb/"
+ },
+ {
+  "id": 302,
+  "name": "Carati Agency",
+  "industry": "Insurance",
+  "website": "http://www.caratiagency.com/"
+ },
+ {
+  "id": 294,
+  "name": "Arabia Insurance Company",
+  "industry": "Insurance",
+  "website": "http://www.arabiainsurance.com/"
+ },
+ {
+  "id": 310,
+  "name": "Fresh Pharma International s.a.l",
+  "industry": "Pharmaceutical",
+  "website": "http://www.freshpharmainternational.com/"
+ },
+ {
+  "id": 313,
+  "name": "Hisham Pharmacy",
+  "industry": "Pharmaceutical",
+  "website": null
+ },
+ {
+  "id": 304,
+  "name": "Premium Serve Drugstore",
+  "industry": "Pharmaceutical",
+  "website": "http://www.psddrugstore.com/"
+ },
+ {
+  "id": 305,
+  "name": "Premiers Soins Pharmacie",
+  "industry": "Pharmaceutical",
+  "website": null
+ },
+ {
+  "id": 307,
+  "name": "Birex Solutions - Lebanon",
+  "industry": "Pharmaceutical",
+  "website": "https://birexchute.com/"
+ },
+ {
+  "id": 363,
+  "name": "LAU Medical Center Rizk Hospital",
+  "industry": "Healthcare",
+  "website": "http://laumcrh.com/"
+ },
+ {
+  "id": 361,
+  "name": "Karentina Governmental Hospital",
+  "industry": "Healthcare",
+  "website": null
+ },
+ {
+  "id": 356,
+  "name": "Kassab Hospital",
+  "industry": "Healthcare",
+  "website": "http://www.kassabhospital.com/"
+ },
+ {
+  "id": 355,
+  "name": "Khoury Dental Clinic",
+  "industry": "Healthcare",
+  "website": "https://www.khourydentalclinic.com/"
+ },
+ {
+  "id": 354,
+  "name": "Hajj Medical Center-Medical & Dental Clinics Naccache - Dr. Marcel Hajj, Dr. Gregory Hage (Allergy-Diet-Fat Free-Exosome)",
+  "industry": "Healthcare",
+  "website": null
+ },
+ {
+  "id": 358,
+  "name": "Mount Lebanon Hospital UMC مستشفى جبل لبنان الجامعي - MLH UMC",
+  "industry": "Healthcare",
+  "website": "https://www.mlh.com.lb/"
+ },
+ {
+  "id": 333,
+  "name": "Sage Computers",
+  "industry": "Technology",
+  "website": "http://Www.Sage-Computers.Com/"
+ },
+ {
+  "id": 331,
+  "name": "CODE Technologies",
+  "industry": "Technology",
+  "website": "http://www.code-technologies.com/"
+ },
+ {
+  "id": 329,
+  "name": "EDM",
+  "industry": "Technology",
+  "website": "https://www.edm-tech.com/"
+ },
+ {
+  "id": 325,
+  "name": "WhiteBeard",
+  "industry": "Technology",
+  "website": "https://www.whitebeard.nl/"
+ },
+ {
+  "id": 326,
+  "name": "Spacetech",
+  "industry": "Technology",
+  "website": "http://www.Spacetechlb.com/"
+ },
+ {
+  "id": 327,
+  "name": "NavyBits",
+  "industry": "Technology",
+  "website": "https://www.navybits.com/"
+ },
+ {
+  "id": 339,
+  "name": "Usines Zahar",
+  "industry": "Distribution",
+  "website": null
+ },
+ {
+  "id": 334,
+  "name": "Najjar Foods",
+  "industry": "Distribution",
+  "website": "http://www.alnajjarmills.com/"
+ },
+ {
+  "id": 337,
+  "name": "Elie Abi Hanna",
+  "industry": "Distribution",
+  "website": null
+ },
+ {
+  "id": 343,
+  "name": "Atalium",
+  "industry": "Distribution",
+  "website": "https://www.atalium.com/"
+ },
+ {
+  "id": 348,
+  "name": "Dar al Saqi",
+  "industry": "Professional Services",
+  "website": "https://www.daralsaqi.com/"
+ },
+ {
+  "id": 349,
+  "name": "Dar al-Kitab al-'Arabi",
+  "industry": "Professional Services",
+  "website": "https://www.kitabalarabi.com"
+ },
+ {
+  "id": 353,
+  "name": "Dar Alfarabi",
+  "industry": "Professional Services",
+  "website": "http://dar-alfarabi.com/"
+ },
+ {
+  "id": 346,
+  "name": "Consulting Center for Studies and Documentation",
+  "industry": "Professional Services",
+  "website": "https://dirasat.net/"
+ },
+ {
+  "id": 381,
+  "name": "Expeditors",
+  "industry": "Logistics",
+  "website": "http://www.expeditors.com/"
+ },
+ {
+  "id": 376,
+  "name": "Arabian Cargo",
+  "industry": "Logistics",
+  "website": "http://www.arabiancargolb.com/"
+ },
+ {
+  "id": 384,
+  "name": "G. Bazerji & Fils s.a.l",
+  "industry": "Automotive",
+  "website": "http://www.maserati.com/lb"
+ },
+ {
+  "id": 395,
+  "name": "Rano's Cell",
+  "industry": "Telecom",
+  "website": "http://ranocell.com/"
+ },
+ {
+  "id": 400,
+  "name": "Mike iStore",
+  "industry": "Telecom",
+  "website": null
+ },
+ {
+  "id": 372,
+  "name": "LibanPost",
+  "industry": "Logistics",
+  "website": "http://www.libanpost.com.lb"
+ },
+ {
+  "id": 394,
+  "name": "KBS Cellular",
+  "industry": "Telecom",
+  "website": "http://www.kbscellular.com/"
+ },
+ {
+  "id": 240,
+  "name": "Collège Saint Elie",
+  "industry": "Education",
+  "website": null
+ },
+ {
+  "id": 399,
+  "name": "Cell And More",
+  "industry": "Telecom",
+  "website": null
+ },
+ {
+  "id": 262,
+  "name": "New Century School",
+  "industry": "Education",
+  "website": null
+ }
+]

@@ -1,10 +1,10 @@
 "use client";
 
 import clsx from "clsx";
-import { AlertTriangle, ArrowDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import { Button } from "./primitives";
 
@@ -29,7 +29,8 @@ const dotClass: Record<Tone, string> = {
   info: "bg-info",
 };
 
-export function Badge({ tone = "neutral", dot, children }: { tone?: Tone; dot?: boolean; children: ReactNode }) {
+/** `live` adds a pinging ring to the dot for work in progress. */
+export function Badge({ tone = "neutral", dot, live, children }: { tone?: Tone; dot?: boolean; live?: boolean; children: ReactNode }) {
   return (
     <span
       className={clsx(
@@ -37,7 +38,12 @@ export function Badge({ tone = "neutral", dot, children }: { tone?: Tone; dot?: 
         toneClass[tone],
       )}
     >
-      {dot && <span className={clsx("h-1.5 w-1.5 shrink-0 rounded-full", dotClass[tone])} aria-hidden />}
+      {dot && (
+        <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
+          {live && <span className={clsx("absolute inset-0 animate-ping rounded-full opacity-70", dotClass[tone])} />}
+          <span className={clsx("relative h-1.5 w-1.5 rounded-full", dotClass[tone])} />
+        </span>
+      )}
       {children}
     </span>
   );
@@ -63,13 +69,18 @@ export function EmptyState({
   compact?: boolean;
 }) {
   return (
-    <div className={clsx("flex flex-col items-center justify-center px-6 text-center", compact ? "py-7" : "py-14")}>
+    <div className={clsx("flex animate-page-in flex-col items-center justify-center px-6 text-center", compact ? "py-7" : "py-14")}>
       {icon && (
-        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-fg-muted shadow-[0_1px_0_rgb(17_17_20/0.04)] [&_svg]:h-4 [&_svg]:w-4">
+        <div
+          className={clsx(
+            "flex items-center justify-center rounded-lg bg-surface-muted text-fg-muted ring-1 ring-inset ring-border [&_svg]:h-[18px] [&_svg]:w-[18px]",
+            compact ? "mb-2.5 h-9 w-9" : "mb-3 h-10 w-10",
+          )}
+        >
           {icon}
         </div>
       )}
-      <p className="text-[13px] font-medium text-fg">{title}</p>
+      <p className="font-display text-[14px] font-semibold text-fg">{title}</p>
       {description && <p className="mt-1 max-w-sm text-[13px] text-fg-muted">{description}</p>}
       {action && <div className="mt-4 flex gap-2">{action}</div>}
     </div>
@@ -78,11 +89,11 @@ export function EmptyState({
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div role="alert" className="flex flex-col items-center justify-center px-6 py-12 text-center">
-      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg border border-danger/20 bg-danger-soft text-danger">
-        <AlertTriangle className="h-4 w-4" aria-hidden />
+    <div role="alert" className="flex animate-page-in flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-danger-soft text-danger ring-1 ring-inset ring-danger/20">
+        <AlertTriangle className="h-[18px] w-[18px]" aria-hidden />
       </div>
-      <p className="text-[13px] font-medium text-fg">Could not load this data</p>
+      <p className="font-display text-[14px] font-semibold text-fg">Could not load this data</p>
       <p className="mt-1 max-w-md text-[13px] text-fg-muted">{message}</p>
       {onRetry && (
         <Button variant="secondary" size="sm" className="mt-4" onClick={onRetry}>
@@ -109,7 +120,7 @@ export function Alert({
     info: "border-info/20 bg-info-soft/70 [&_.alert-title]:text-info",
   }[tone];
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className={clsx("rounded border px-3 py-2 text-[13px]", styles)}>
+    <div role={tone === "danger" ? "alert" : "status"} className={clsx("animate-page-in rounded border px-3 py-2 text-[13px]", styles)}>
       {title && <p className="alert-title font-medium">{title}</p>}
       {children && <div className={clsx(title && "mt-0.5", "text-fg")}>{children}</div>}
     </div>
@@ -154,7 +165,7 @@ function IndeterminateCheckbox({
       aria-label={label}
       checked={checked}
       onChange={(e) => onChange(e.target.checked)}
-      className="m-0 block h-3.5 w-3.5 cursor-pointer rounded-sm accent-[rgb(var(--ink))]"
+      className="m-0 block h-3.5 w-3.5 cursor-pointer rounded-sm accent-[rgb(var(--accent))]"
     />
   );
 }
@@ -194,8 +205,33 @@ export function DataTable<T, K extends string | number = string | number>({
   rowHref?: (row: T) => string | null;
 }) {
   const router = useRouter();
+  // Live data: when a refetch/poll changes a row that was already on screen, flash it briefly.
+  // Never on first load or page change (those rows are new, not changed).
+  const previous = useRef<Map<K, string>>(new Map());
+  const [flashing, setFlashing] = useState<Set<K>>(() => new Set());
+  useEffect(() => {
+    if (!rows) return;
+    const next = new Map<K, string>();
+    const changed = new Set<K>();
+    for (const row of rows) {
+      const key = rowKey(row);
+      const signature = JSON.stringify(row);
+      next.set(key, signature);
+      const before = previous.current.get(key);
+      if (before !== undefined && before !== signature) changed.add(key);
+    }
+    previous.current = next;
+    if (!changed.size) return;
+    setFlashing(changed);
+    const timer = setTimeout(() => setFlashing(new Set()), 1600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rowKey is a stable selector in practice
+  }, [rows]);
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
-  const showSkeleton = loading && !rows;
+  // No rows yet = loading, even before the request has flagged it (e.g. the first render after a tab
+  // switch). Rendering `rows` while undefined used to crash the page.
+  const showSkeleton = !rows;
+  const refreshing = Boolean(loading && rows);
   if (!showSkeleton && rows && rows.length === 0) return <>{empty ?? <EmptyState title="Nothing here yet" />}</>;
 
   const keys = rows?.map(rowKey) ?? [];
@@ -225,8 +261,13 @@ export function DataTable<T, K extends string | number = string | number>({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border-separate border-spacing-0 text-[13px]">
+    <div className="relative overflow-x-auto" aria-busy={refreshing || undefined}>
+      {refreshing && (
+        <span className="pointer-events-none absolute inset-x-0 top-0 z-[3] block h-0.5 overflow-hidden bg-accent-soft" aria-hidden>
+          <span className="absolute inset-y-0 left-0 w-1/3 animate-[loading-bar_1.1s_ease-in-out_infinite] bg-accent" />
+        </span>
+      )}
+      <table className={clsx("min-w-full border-separate border-spacing-0 text-[13px] transition-opacity duration-200", refreshing && "opacity-60")}>
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
           <tr>
@@ -273,7 +314,7 @@ export function DataTable<T, K extends string | number = string | number>({
             })}
           </tr>
         </thead>
-        <tbody>
+        <tbody key={showSkeleton ? "skeleton" : "rows"} className={showSkeleton ? undefined : "animate-content-in"}>
           {showSkeleton
             ? Array.from({ length: 8 }, (_, i) => (
                 <tr key={i}>
@@ -294,7 +335,8 @@ export function DataTable<T, K extends string | number = string | number>({
                     onClick={rowHref ? (e) => onRowClick(e, row) : undefined}
                     aria-selected={selection ? isSelected : undefined}
                     className={clsx(
-                      "group transition-colors",
+                      "group transition-colors duration-150",
+                      flashing.has(key) && "animate-row-flash",
                       isSelected ? "bg-accent-soft/60" : "hover:bg-surface-hover/70",
                       rowHref?.(row) && "cursor-pointer",
                     )}
@@ -384,13 +426,13 @@ export function Pagination({
       </span>
       {pages > 1 && (
         <div className="flex items-center gap-1">
-          <Button variant="secondary" size="sm" className="h-6 w-6 px-0" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
+          <Button variant="secondary" size="icon" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
           <span className="tabular px-1.5">
             Page {page} of {pages}
           </span>
-          <Button variant="secondary" size="sm" className="h-6 w-6 px-0" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="Next page">
+          <Button variant="secondary" size="icon" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label="Next page">
             <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -401,30 +443,128 @@ export function Pagination({
 
 // ---- Metrics / lists ---------------------------------------------------------
 
+/** "12 / 50" with a short bar: progress toward a target, green once reached. */
+export function Meter({ value, max, className }: { value: number; max: number; className?: string }) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return (
+    <span className={clsx("inline-flex items-center gap-2 tabular", className)} title={`${value} of ${max}`}>
+      <span className="h-1.5 w-14 overflow-hidden rounded-full bg-surface-muted" aria-hidden>
+        <span className={clsx("block h-full origin-left animate-grow-x rounded-full", pct >= 100 ? "bg-success" : "bg-accent")} style={{ width: `${Math.max(pct, value ? 4 : 0)}%` }} />
+      </span>
+      <span>
+        <span className="font-medium text-fg">{value}</span>
+        <span className="text-fg-subtle"> / {max}</span>
+      </span>
+    </span>
+  );
+}
+
 export interface Metric {
   label: string;
   value: number | string;
   href?: string;
   hint?: string;
+  icon?: LucideIcon;
+  /** Small chip beside the hint, e.g. a share of the total (pattern adapted from 21st.dev "Statistics Card 10"). */
+  badge?: { label: string; tone?: Tone };
 }
 
-/** A single compact strip of figures, divided by rules rather than separate cards. */
+/**
+ * Shows `value` immediately, then animates from the old to the new value when it changes
+ * (pattern from 21st.dev "Number Ticker"). Instant when the user prefers reduced motion.
+ */
+/**
+ * "12 min ago", kept current (re-renders every 30s); the exact date and time are in the tooltip.
+ * Live data: a salesperson sees at a glance how fresh a search or import is.
+ */
+export function TimeAgo({ value }: { value: string | null | undefined }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  if (!value) return <span className="text-fg-subtle">—</span>;
+  const date = new Date(value);
+  const s = Math.max(0, Math.round((now - date.getTime()) / 1000));
+  const label =
+    s < 45 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : s < 7 * 86400 ? `${Math.round(s / 86400)} d ago` : date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  return (
+    <time dateTime={value} title={date.toLocaleString()} className="whitespace-nowrap">
+      {label}
+    </time>
+  );
+}
+
+/** Numbers already revealed in this browser session (path + key), so they do not recount on every visit. */
+const revealed = new Set<string>();
+
+export function CountUp({ value, duration = 600, reveal }: { value: number; duration?: number; reveal?: string }) {
+  // `reveal`: count up from 0 the first time this number is shown in the session.
+  // Pure check here (React may call initialisers twice); the visit is recorded in the effect below.
+  const [shown, setShown] = useState(() =>
+    reveal && typeof window !== "undefined" && !revealed.has(`${window.location.pathname}|${reveal}`) ? 0 : value,
+  );
+  useEffect(() => {
+    if (reveal) revealed.add(`${window.location.pathname}|${reveal}`);
+  }, [reveal]);
+  // Track what is actually on screen. The animation restarts from there, so it survives React re-running
+  // the effect (Strict Mode in development) and value changes mid-animation.
+  const onScreen = useRef(shown);
+  useEffect(() => {
+    if (onScreen.current === value) return;
+    const show = (n: number) => {
+      onScreen.current = n;
+      setShown(n);
+    };
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      show(value);
+      return;
+    }
+    const origin = onScreen.current;
+    const span = origin === 0 && reveal ? Math.max(duration, 900) : duration;
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / span);
+      show(Math.round(origin + (value - origin) * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration, reveal]);
+  return <>{shown.toLocaleString()}</>;
+}
+
+/** KPI cards: label + icon tile, a large figure, an optional chip and hint. */
 export function MetricStrip({ items, loading }: { items: Metric[]; loading?: boolean }) {
   return (
-    <dl className="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-surface sm:grid-cols-3 lg:grid-flow-col lg:auto-cols-fr lg:grid-cols-none">
+    <dl className="stagger grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-flow-col lg:auto-cols-fr lg:grid-cols-none">
       {items.map((item) => {
+        const Icon = item.icon;
         const body = (
           <>
-            <dt className="text-xs text-fg-muted">{item.label}</dt>
-            <dd className="mt-1 text-[22px] font-semibold leading-7 tracking-tight tabular text-fg">
-              {loading ? <Skeleton className="h-6 w-12" /> : typeof item.value === "number" ? item.value.toLocaleString() : item.value}
+            <div className="flex items-start justify-between gap-2">
+              <dt className="text-[12.5px] font-medium text-fg-muted">{item.label}</dt>
+              {Icon && <Icon className="h-4 w-4 shrink-0 text-fg-subtle" strokeWidth={1.75} aria-hidden />}
+            </div>
+            <dd className="mt-2 font-display text-[26px] font-semibold leading-8 tracking-[-0.02em] tabular text-fg">
+              {loading ? <Skeleton className="h-7 w-16" /> : typeof item.value === "number" ? <CountUp value={item.value} reveal={`metric:${item.label}`} /> : item.value}
             </dd>
-            {item.hint && <dd className="mt-0.5 text-2xs text-fg-subtle">{item.hint}</dd>}
+            {(item.badge || item.hint) && (
+              <dd className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
+                {item.badge && !loading && <Badge tone={item.badge.tone}>{item.badge.label}</Badge>}
+                {item.hint}
+              </dd>
+            )}
           </>
         );
-        const cls = "block border-b border-r border-border px-4 py-3 -mb-px -mr-px";
+        const cls = "block rounded-lg border border-border bg-surface p-4 shadow-xs";
         return item.href ? (
-          <Link key={item.label} href={item.href} className={clsx(cls, "transition-colors hover:bg-surface-hover/60")}>
+          <Link
+            key={item.label}
+            href={item.href}
+            className={clsx(cls, "transition-[border-color,box-shadow] duration-150 hover:border-border-strong hover:shadow-card-hover")}
+          >
             {body}
           </Link>
         ) : (
@@ -491,7 +631,12 @@ const AVATAR_HUES = [
   "bg-[#F2F0E8] text-[#5E5530]",
 ];
 
-export function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+/**
+ * Initials avatar. With `domain`, shows the company's site icon (via DuckDuckGo's icon service,
+ * which receives only the domain) and falls back to initials if there is none.
+ */
+export function Avatar({ name, size = "md", domain }: { name: string; size?: "sm" | "md" | "lg" | "xl"; domain?: string | null }) {
+  const [logoFailed, setLogoFailed] = useState(false);
   const initials =
     name
       .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -510,9 +655,22 @@ export function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md"
         size === "sm" && "h-6 w-6 text-[10px]",
         size === "md" && "h-7 w-7 text-[11px]",
         size === "lg" && "h-10 w-10 text-sm",
+        size === "xl" && "h-14 w-14 rounded-xl text-lg",
+        domain && !logoFailed && "bg-surface",
       )}
     >
-      {initials}
+      {domain && !logoFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element -- tiny third-party icon, no optimisation needed
+        <img
+          src={`https://icons.duckduckgo.com/ip3/${encodeURIComponent(domain)}.ico`}
+          alt=""
+          loading="lazy"
+          className="h-[70%] w-[70%] animate-[fade-in_200ms_ease-out] object-contain"
+          onError={() => setLogoFailed(true)}
+        />
+      ) : (
+        initials
+      )}
     </span>
   );
 }

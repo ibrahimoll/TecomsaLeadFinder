@@ -17,17 +17,11 @@ class AuditAction:
     USER_ACTIVATED = "user.activated"
     COMPANY_CREATED = "company.created"
     COMPANY_UPDATED = "company.updated"
-    COMPANY_NOTE_ADDED = "company.note_added"
-    CONTACT_CREATED = "contact.created"
-    CAMPAIGN_CREATED = "campaign.created"
-    CAMPAIGN_UPDATED = "campaign.updated"
-    CAMPAIGN_COMPANY_ADDED = "campaign.company_added"
-    IMPORT_UPLOADED = "import.uploaded"
-    IMPORT_COMPLETED = "import.completed"
-    IMPORT_FAILED = "import.failed"
-    IMPORT_CANCELLED = "import.cancelled"
-    IMPORT_DELETED = "import.deleted"
-    SALESPERSON_UPDATED = "salesperson.updated"
+    COMPANY_STATUS_CHANGED = "company.status_changed"
+    COMPANY_DELETED = "company.deleted"
+    COMPANY_RESEARCH_REQUESTED = "company.research_requested"
+    COMPANY_PERSON_CORRECTED = "company.person_corrected"
+    LEAD_SEARCH_CREATED = "lead_search.created"
 
 
 def record(

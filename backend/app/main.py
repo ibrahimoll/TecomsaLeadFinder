@@ -9,25 +9,39 @@ from app import __version__
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.exceptions import AppError
+from app.core.http_security import SecurityMiddleware
 
 logger = logging.getLogger("leadfinder")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Discovery runs execute in background threads; any left "running" by a previous
-    # process can never finish, so mark them as interrupted.
-    from app.db.session import SessionLocal
-    from app.services.discovery.service import fail_interrupted_runs
+    if get_settings().is_production:
+        _refuse_demo_accounts()
+    from app.services import jobs
 
-    try:
-        with SessionLocal() as db:
-            count = fail_interrupted_runs(db)
-            if count:
-                logger.warning("Marked %s interrupted discovery run(s)", count)
-    except Exception:  # never block startup on this
-        logger.exception("Could not check for interrupted discovery runs")
+    if get_settings().discovery_worker_enabled:
+        jobs.start_worker()  # discovery jobs run in a background thread, never in a request
+    if get_settings().environment != "test":
+        from app.services import company_lookup
+
+        company_lookup.warm()  # the direct-search index of the cached extracts, built in the background
     yield
+    jobs.stop_worker()
+
+
+def _refuse_demo_accounts() -> None:
+    """Fail closed: the fictional development accounts share a password published in the repository."""
+    from sqlalchemy import select
+
+    from app.db.session import SessionLocal
+    from app.models import User
+
+    with SessionLocal() as db:
+        demo = db.scalars(select(User.email).where(User.is_active.is_(True), User.email.like("demo.%@example.com"))).all()
+    if demo:
+        raise RuntimeError(f"Refusing to start in production: {len(demo)} active development demo account(s) "
+                           "(demo.*@example.com). Deactivate or delete them first.")
 
 
 def create_app() -> FastAPI:
@@ -36,7 +50,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         lifespan=lifespan,
-        title="TECOMSA LeadFinder AI API",
+        title="TECOMSA LeadFinder API",
         version=__version__,
         # Interactive docs are only exposed outside production.
         docs_url=None if settings.is_production else "/docs",
@@ -51,6 +65,7 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
+    app.add_middleware(SecurityMiddleware)  # CSRF origin check, body size limit, security headers
 
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:

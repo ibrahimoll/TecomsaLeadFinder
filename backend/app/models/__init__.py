@@ -1,36 +1,51 @@
 """Import every model so Base.metadata is complete (used by Alembic)."""
 
 from app.db.base import Base
-from app.models.activity import LeadActivity
 from app.models.audit import AuditLog
-from app.models.campaign import Campaign, CampaignCompany
-from app.models.company import Company
-from app.models.contact import Contact
-from app.models.discovery import CompanySourceRecord, DiscoveryResult, DiscoveryRun
-from app.models.import_run import ImportRun
-from app.models.lusha_usage import LushaUsage
-from app.models.odoo import CrmLead, OdooContact
-from app.models.odoo_match import OdooMatch
-from app.models.salesperson import Salesperson
+from app.models.company import (Company, CompanyAlias, CompanyGapReason, CompanyIdentifier, CompanyLocation,
+                                CompanyOffering, CompanyRelationship, CompanySignal, CompanyDomain, CompanyEmailPattern, CompanyLookup, SourceLookup,
+                                CompanyStatusHistory, CompanyWebPage, DiscoverySuppression, ExternalDocument,
+                                ExternalSearchCache, OpportunityAnalysis, PossibleDuplicate)
+from app.models.integration import Integration
+from app.models.people import CompanyPerson, ContactFeedback, Email, Person, Phone, PossibleDuplicatePerson
+from app.models.provenance import Evidence, Source
+from app.models.search import LeadSearch, LeadSearchResult, ResearchRun
 from app.models.user import User, UserSession
 
 __all__ = [
     "AuditLog",
     "Base",
-    "Campaign",
-    "CampaignCompany",
     "Company",
-    "CompanySourceRecord",
-    "Contact",
-    "CrmLead",
-    "DiscoveryResult",
-    "DiscoveryRun",
-    "ImportRun",
-    "LeadActivity",
-    "LushaUsage",
-    "OdooContact",
-    "OdooMatch",
-    "Salesperson",
+    "CompanyIdentifier",
+    "CompanyLocation",
+    "CompanyOffering",
+    "CompanyPerson",
+    "CompanyAlias",
+    "CompanyGapReason",
+    "CompanyRelationship",
+    "SourceLookup",
+    "CompanyLookup",
+    "CompanyDomain",
+    "CompanyEmailPattern",
+    "CompanySignal",
+    "CompanyStatusHistory",
+    "CompanyWebPage",
+    "ContactFeedback",
+    "DiscoverySuppression",
+    "Email",
+    "Evidence",
+    "ExternalDocument",
+    "ExternalSearchCache",
+    "Integration",
+    "LeadSearch",
+    "LeadSearchResult",
+    "OpportunityAnalysis",
+    "Person",
+    "Phone",
+    "PossibleDuplicate",
+    "PossibleDuplicatePerson",
+    "ResearchRun",
+    "Source",
     "User",
     "UserSession",
 ]

@@ -64,8 +64,10 @@ def test_published_pattern_predicted_and_company_mailboxes(client_for, db, site)
     assert predicted.last_verified_at is None and "observed company pattern" in predicted.evidence
     # the People API: strongest channel first, a prediction never counted as contactable
     people = {p["person"]["full_name"]: p for p in agent.get(f"/companies/{company_id}/people").json()}
-    assert people["Joseph Haddad"]["contacts"][0] == {"kind": "published_email", "label": "Published",
-                                                      "value": "joseph.haddad@omegafoods.example"}
+    best = people["Joseph Haddad"]["contacts"][0]
+    assert {k: best[k] for k in ("kind", "label", "value")} == {"kind": "published_email", "label": "Published",
+                                                                 "value": "joseph.haddad@omegafoods.example"}
+    assert best["since"] and best["stale"] is False  # how fresh: last confirmed / seen
     assert people["Tony Rizk"]["contactable"] is False
     assert people["Tony Rizk"]["contacts"][0]["label"] == "Predicted"
     # a re-run never reads its own prediction back as a published address
@@ -128,6 +130,35 @@ def test_mailbox_verification_states(client_for, db, site, monkeypatch, probe, e
     if expected == "verified":
         row = db.scalar(select(Email).where(Email.email == "rana.saad@omegafoods.example"))
         assert row.last_verified_at is not None and row.verification["smtp"] == "verified"
+
+
+def test_mailbox_check_uses_configured_sender(monkeypatch):
+    senders = []
+
+    class FakeSMTP:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def ehlo_or_helo_if_needed(self): pass
+        def mail(self, sender): senders.append(sender); return (250, b"ok")
+        def rcpt(self, address): return (550, b"5.1.1 user unknown")
+        def rset(self): pass
+    monkeypatch.setattr(contacts.smtplib, "SMTP", FakeSMTP)
+    monkeypatch.setattr(get_settings(), "email_smtp_mail_from", "verify@tecomsa.example")
+    contacts.SmtpEmailVerifier._probe("mx.example", "example", ["a@example"])
+    monkeypatch.setattr(get_settings(), "email_smtp_mail_from", "")
+    contacts.SmtpEmailVerifier._probe("mx.example", "example", ["a@example"])
+    assert senders == ["verify@tecomsa.example", ""]  # "" = the null sender <>
+
+
+@pytest.mark.parametrize("code,reply,invalid", [
+    (550, b"5.1.1 User does not exist", True),
+    (550, b"<x@cumberland.com.lb>, Recipient unknown", True),  # real reply, no enhanced code
+    (550, b"5.7.1 Client host blocked using Spamhaus", False),
+    (550, b"Mail rejected by <Zoho Mail> for policy reasons", False),
+])
+def test_no_such_user_vs_policy_refusal(code, reply, invalid):
+    assert contacts._no_such_user(code, reply) is invalid
 
 
 def test_no_mail_setup_nothing_predicted_and_human_contacts_untouched(client_for, db, site, monkeypatch):  # noqa: F811

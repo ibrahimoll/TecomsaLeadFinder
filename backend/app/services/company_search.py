@@ -30,12 +30,11 @@ Autocomplete (GET /companies/search) is the database search only: no public sour
 import logging
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Company, CompanyAlias, CompanyDomain, CompanyIdentifier, CompanyLookup
@@ -147,7 +146,7 @@ def parse(raw: str) -> Query:
     q.skeletons = {k for k in keys if k.startswith("~")}
     q.cores = {f"^{k}" for k in q.keys}  # the whole query as a brand ('BLOM')
     q.query_cores = {f"^{c}" for k in q.keys if (c := _core(k))}  # its distinctive part ('Movenpick Hotel Beirut')
-    from app.services.people.external.lebanon.records import _SECTOR, PLACES
+    from app.services.people.external.lebanon.records import PLACES
 
     places = PLACES | _COUNTRY
     q.unplaced = {u for k in q.keys if (u := " ".join(t for t in k.split() if t not in places)) and u != k} - q.keys
@@ -407,7 +406,6 @@ def lookup(db: Session, raw: str, *, user_id: int | None, country: str | None = 
         result.update(status="ambiguous" if hits else "not_found", candidates=[h.out() for h in hits],
                       failure_reason="WEAK_EVIDENCE" if hits else "NO_LOCAL_MATCH")
     if result["company"]:
-        from app.services.enrichment import orchestrator as enrichment  # noqa: F401  (priority constants)
         from app.services.people import orchestrator as people
 
         company = db.get(Company, result["company"]["company_id"])

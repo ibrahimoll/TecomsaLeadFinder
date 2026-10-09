@@ -78,6 +78,15 @@ def rows_records(rows: list[list], *, columns: dict | None = None, default_compa
     return records
 
 
+def _domains_of(website: str | None) -> list[str]:
+    """'www.omega.example' / 'https://omega.example/en' -> ['omega.example']."""
+    if not website:
+        return []
+    from app.services.people.external.lebanon.parsers import _domains
+
+    return _domains(website) or _domains(f"https://{_clean(website)}")
+
+
 def entry_records(entry: dict, *, default_company: str | None = None, event: dict | None = None,
                   excerpt: str = "", page: int | None = None) -> list[Record]:
     """An organisation record (company facts / event participation) and, when the entry names a person with a title,
@@ -88,11 +97,7 @@ def entry_records(entry: dict, *, default_company: str | None = None, event: dic
     emails = _EMAIL.findall(entry.get("email") or "")
     personal = next((e.lower() for e in emails if not ROLE_MAILBOX.match(e)), None)
     mailbox = next((e.lower() for e in emails if ROLE_MAILBOX.match(e)), None)
-    domains = []
-    if entry.get("website"):
-        from app.services.people.external.lebanon.parsers import _domains
-
-        domains = _domains(entry["website"]) or _domains(f"https://{_clean(entry['website'])}")
+    domains = _domains_of(entry.get("website"))
     facts: dict = {}
     if mailbox:
         facts["email"] = mailbox

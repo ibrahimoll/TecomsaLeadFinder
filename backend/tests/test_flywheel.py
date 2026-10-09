@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from app.models import Company, CompanyPerson, ContactFeedback, Email, Person, Phone
 from app.models.enums import UserRole
 from app.services import contact_intelligence as contacts
-from app.services import internal_seed
+from app.services import contributions
 from tests.test_contacts import CONTACT, HOME, TEAM, omega
 from tests.test_enrichment import research, site  # noqa: F401 - the mocked-web fixture
 
@@ -81,25 +81,25 @@ def test_internal_seed_resolution_provenance_and_visibility(client_for, db, site
     owner, owner_user = client_for(UserRole.SALES_AGENT)
     company_id = omega(owner, site)
     research(owner, company_id)
-    report = internal_seed.ingest(db, system="odoo", file_name="contacts.csv", raw=SEED.encode(),
-                                  owner_user_id=owner_user.id, restricted=True)
-    assert (report["people_new"], report["unmatched_company"], report["companies"]) == (1, 2, 1)
+    report = contributions.ingest(db, system="ODOO_CRM", file_name="contacts.csv", raw=SEED.encode(),
+                                  owner_user_id=owner_user.id, visibility="managers", apply=True)
+    assert (report["person_new"], report["company_unmatched"], report["companies_matched"]) == (1, 2, 1)
     email = db.scalar(select(Email).where(Email.email == "nadine.frem@omegafoods.example"))
-    assert (email.provenance, email.restricted, email.owner_user_id) == ("internal_crm", True, owner_user.id)
+    assert (email.provenance, email.visibility, email.owner_user_id) == ("internal_crm", "managers", owner_user.id)
     assert db.scalar(select(Phone.phone_type).where(Phone.person_id == email.person_id)) == "business_mobile"
     assert people(owner, company_id)["Nadine Frem"]["contactable"]
     other, _ = client_for(UserRole.SALES_AGENT, email="other.agent@tecomsa.example")
     assert "Nadine Frem" not in people(other, company_id)  # another salesperson's restricted contact
     manager, _ = client_for(UserRole.SALES_MANAGER, email="manager@tecomsa.example")
     assert people(manager, company_id)["Nadine Frem"]["contacts"][0]["label"] == "TECOMSA CRM"
-    again = internal_seed.ingest(db, system="odoo", file_name="contacts.csv", raw=SEED.encode(),
-                                 owner_user_id=owner_user.id, restricted=True)
-    assert again["people_matched"] == 1 and db.scalar(select(func.count()).select_from(Person).where(
+    again = contributions.ingest(db, system="ODOO_CRM", file_name="contacts.csv", raw=SEED.encode(),
+                                 owner_user_id=owner_user.id, visibility="managers", apply=True)
+    assert again["person_exact"] == 1 and db.scalar(select(func.count()).select_from(Person).where(
         Person.full_name == "Nadine Frem")) == 1
     contacts.run(db, company_id, force=True)  # research never touches TECOMSA CRM contacts
     assert db.scalar(select(Email.provenance).where(Email.id == email.id)) == "internal_crm"
     assert db.scalar(select(func.count()).select_from(Company)) == 1  # nothing created from a file
-    from scripts.contact_coverage import contributions
+    from scripts.contact_coverage import contributions as source_contributions
 
-    sources = contributions([company_id])  # source contribution: the internal seed made the company contactable
+    sources = source_contributions([company_id])  # source contribution: the internal seed made the company contactable
     assert sources["internal_seed"]["contactable_companies"] == 1 and sources["internal_seed"]["decision_makers"] == 1

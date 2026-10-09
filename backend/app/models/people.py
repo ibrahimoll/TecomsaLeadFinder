@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base, CreatedAtMixin, TimestampMixin, confidence_check
-from app.models.enums import PROVENANCES, DuplicateStatus, EmailStatus, EmploymentStatus, PhoneStatus, sql_in
+from app.models.enums import PROVENANCES, VISIBILITIES, DuplicateStatus, EmailStatus, EmploymentStatus, PhoneStatus, sql_in
 
 
 class Person(TimestampMixin, Base):
@@ -40,6 +40,7 @@ class CompanyPerson(TimestampMixin, Base):
               postgresql_where=text("is_current")),
         CheckConstraint(sql_in("employment_status", EmploymentStatus), name="employment_status_valid"),
         CheckConstraint("is_current = (employment_status = 'current')", name="is_current_matches_status"),
+        CheckConstraint(f"visibility IN ({', '.join(repr(v) for v in VISIBILITIES)})", name="visibility_valid"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -68,7 +69,7 @@ class CompanyPerson(TimestampMixin, Base):
     corrected_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     corrected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    restricted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="organization")
 
     # is_current and employment_status always agree (also a CHECK constraint): code that only sets is_current
     # (older callers) gets the matching status; research sets employment_status, then is_current.
@@ -119,6 +120,7 @@ class Email(TimestampMixin, Base):
                         name="predicted_not_verified"),
         CheckConstraint("status <> 'verified' OR last_verified_at IS NOT NULL", name="verified_has_date"),
         CheckConstraint(f"provenance IN ({', '.join(repr(p) for p in PROVENANCES)})", name="provenance_valid"),
+        CheckConstraint(f"visibility IN ({', '.join(repr(v) for v in VISIBILITIES)})", name="visibility_valid"),
         confidence_check(),
         Index("uq_emails_person_email", "person_id", "email", unique=True,
               postgresql_where=text("person_id IS NOT NULL")),
@@ -142,9 +144,9 @@ class Email(TimestampMixin, Base):
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # public / predicted / verified / human_confirmed / internal_crm: research never overwrites the last two
     provenance: Mapped[str] = mapped_column(String(20), nullable=False, server_default="public")
-    # TECOMSA internal contacts: whose they are; restricted = shown only to the owner and managers / admins
+    # TECOMSA / contributed contacts: whose they are and who sees them (enums.VISIBILITIES)
     owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    restricted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="organization")
     evidence: Mapped[str | None] = mapped_column(String(500))  # why it belongs to the person / company
     # how the address was checked: {"syntax", "mx", "provider", "catch_all", "smtp", "checked_at"}
     verification: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
@@ -157,6 +159,7 @@ class Phone(TimestampMixin, Base):
         CheckConstraint(sql_in("status", PhoneStatus), name="status_valid"),
         CheckConstraint("status <> 'verified' OR last_verified_at IS NOT NULL", name="verified_has_date"),
         CheckConstraint(f"provenance IN ({', '.join(repr(p) for p in PROVENANCES)})", name="provenance_valid"),
+        CheckConstraint(f"visibility IN ({', '.join(repr(v) for v in VISIBILITIES)})", name="visibility_valid"),
         confidence_check(),
         Index("uq_phones_person_phone", "person_id", "normalized_phone", unique=True,
               postgresql_where=text("person_id IS NOT NULL AND normalized_phone IS NOT NULL")),
@@ -181,9 +184,9 @@ class Phone(TimestampMixin, Base):
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # public / predicted / verified / human_confirmed / internal_crm: research never overwrites the last two
     provenance: Mapped[str] = mapped_column(String(20), nullable=False, server_default="public")
-    # TECOMSA internal contacts: whose they are; restricted = shown only to the owner and managers / admins
+    # TECOMSA / contributed contacts: whose they are and who sees them (enums.VISIBILITIES)
     owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    restricted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=false())
+    visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="organization")
     evidence: Mapped[str | None] = mapped_column(String(500))  # why it belongs to the person / company
 
 
@@ -213,4 +216,40 @@ class ContactFeedback(Base):
     note: Mapped[str | None] = mapped_column(String(500))
     effect: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # what it changed
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # a delivery / bounce / reply notification's own id: the same event is never applied twice
+    event_key: Mapped[str | None] = mapped_column(String(200), index=True, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
+
+
+class ContactEvidence(Base):
+    """One observation of an e-mail / phone (its evidence trail): published by a source, predicted from a pattern,
+    imported from TECOMSA, delivered, replied, bounced, confirmed by a person. Accumulated, never replaced: the
+    contact's status is the strongest; its history is all of them."""
+
+    __tablename__ = "contact_evidence"
+    __table_args__ = (CheckConstraint("num_nonnulls(email_id, phone_id) = 1", name="one_contact"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    email_id: Mapped[int | None] = mapped_column(ForeignKey("emails.id", ondelete="CASCADE"), index=True)
+    phone_id: Mapped[int | None] = mapped_column(ForeignKey("phones.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(30), nullable=False)
+    source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id", ondelete="SET NULL"))
+    feedback_id: Mapped[int | None] = mapped_column(ForeignKey("contact_feedback.id", ondelete="SET NULL"))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    detail: Mapped[str | None] = mapped_column(String(300))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False,
+                                                  server_default=text("now()"))
+
+
+class PersonSuppression(CreatedAtMixin, Base):
+    """A person removed on request (privacy / right to erasure): never researched or imported again at that company.
+    Only a hash of the company and the person's name key is kept, never the name."""
+
+    __tablename__ = "person_suppressions"
+    __table_args__ = (UniqueConstraint("company_id", "key_hash", name="uq_person_suppressions_company_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason: Mapped[str] = mapped_column(String(300), nullable=False)
+    requested_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

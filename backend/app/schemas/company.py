@@ -190,6 +190,8 @@ class ContactOut(OutModel):
     #            office_extension / catch_all_email / predicted_email (strongest first)
     value: str
     label: str
+    since: str | None = None  # last confirmed (else last seen), ISO date
+    stale: bool = False  # older than two years: possibly outdated
 
 
 class CompanyPersonOut(OutModel):
@@ -230,6 +232,32 @@ class ContactFeedbackIn(InModel):
     company_person_id: int | None = None
     value: str | None = Field(default=None, max_length=320)
     note: str | None = Field(default=None, max_length=500)
+    event_key: str | None = Field(default=None, max_length=200)  # the notification's own id: applied once
+
+
+class ContributionIn(InModel):
+    """One business contact a user contributes on a company's page (a card, a signature, a meeting, by hand).
+    `signature`: a pasted professional e-mail signature, read for the fields not given."""
+
+    channel: str = Field(default="CONTRIBUTED_BUSINESS_CONTACT", max_length=40)
+    person: str | None = Field(default=None, max_length=300)
+    title: str | None = Field(default=None, max_length=300)
+    department: str | None = Field(default=None, max_length=100)
+    email: str | None = Field(default=None, max_length=320)
+    mobile: str | None = Field(default=None, max_length=50)
+    phone: str | None = Field(default=None, max_length=50)
+    whatsapp: str | None = Field(default=None, max_length=50)
+    extension: str | None = Field(default=None, max_length=10)
+    signature: str | None = Field(default=None, max_length=3000)
+    visibility: str = Field(default="organization", max_length=20)
+
+
+class ContactEventIn(InModel):
+    """A delivery / bounce / reply notification for an address (no company needed)."""
+
+    event: str = Field(max_length=30)
+    email: str = Field(min_length=3, max_length=320)
+    event_key: str | None = Field(default=None, max_length=200)
 
 
 class CompanyPersonCorrection(InModel):
@@ -407,3 +435,9 @@ class CompanyDetail(OutModel):
     offerings: list[OfferingOut] = []  # products / services / categories
     conflicts: list[ConflictOut] = []  # fields whose sources disagree
     overview: str | None = None  # factual summary built only from the stored fields (no AI)
+
+
+class PersonRemovalIn(InModel):
+    """A removal request (the person asked to be deleted, or no lawful basis to keep them): who asked, how."""
+
+    reason: str = Field(min_length=3, max_length=300)

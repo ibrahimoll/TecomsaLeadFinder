@@ -319,5 +319,14 @@ if __name__ == "__main__":
     for sig in (signal.SIGTERM, signal.SIGINT):  # docker stop / watchfiles reload: stop cleanly
         signal.signal(sig, lambda *_: stop_worker())
     start_worker()
+    purged_at = 0.0
     while not _stop.wait(1):
-        pass
+        if time.monotonic() - purged_at > 86400:  # contact retention, daily (idempotent: any worker may run it)
+            purged_at = time.monotonic()
+            try:
+                from app.services.privacy import purge_expired
+
+                with SessionLocal() as db:
+                    purge_expired(db)
+            except Exception:
+                logger.exception("retention purge failed (retried tomorrow)")

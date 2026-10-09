@@ -141,7 +141,8 @@ def test_shop_and_home_page_text_is_not_people():
     html = """<h3>Foundation Finder</h3><p>Skincare Pro Advisor</p>
     <p>Visit the eco-friendly farm tended by Chief Gardener - Mohamed Ramadan</p>
     <p>Head of IT &amp; PMO, ABC Mall, Lebanon</p><p>IT Director, BDO ESNAD, Egypt</p>
-    <p>Group Head of Technology, Newroz Telecom – Iraq</p>"""  # client testimonial credits
+    <p>Group Head of Technology, Newroz Telecom – Iraq</p>
+    <h3>Role Description</h3><p>Senior Sales Manager</p>"""  # client testimonial credits, a job posting
     ctx = Context("Kiko", "LB", "Lebanon", "kiko.example")
     for page_type in ("homepage", "about"):
         assert not people_extract.extract(parse(html, "https://kiko.example/"), page_type, ctx=ctx, source_id=1,

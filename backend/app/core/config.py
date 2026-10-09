@@ -90,6 +90,12 @@ class Settings(BaseSettings):
     email_smtp_verification: bool = False
     email_smtp_timeout_seconds: float = 8
     email_smtp_helo: str = "localhost"
+    # MAIL FROM of the check ("" = the null sender <>). Backscatter filters refuse <>: a real mailbox of TECOMSA's
+    # domain (verify@...) gets an answer from them.
+    email_smtp_mail_from: str = ""
+    # Publicly researched people / contacts not seen again by any source for this long are deleted (daily, worker).
+    # TECOMSA's own (Odoo, contributed) and colleague-confirmed data is kept. 0 = never.
+    contact_retention_days: int = 730
     commoncrawl_budget_seconds: float = 45  # Common Crawl's share of one company's deep research
     commoncrawl_down_seconds: float = 600  # after the index failed: skipped for every company for this long
     commoncrawl_min_interval_seconds: float = 1.5  # Common Crawl's public index is shared: never hammered

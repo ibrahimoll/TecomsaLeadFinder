@@ -23,7 +23,6 @@ import logging
 import random
 import re
 import smtplib
-import socket
 import string
 import time
 import unicodedata
@@ -36,8 +35,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models import (Company, CompanyEmailPattern, CompanyPerson, CompanyWebPage, Email, ExternalDocument,
-                        Person, Phone, ResearchRun)
+from app.models import (Company, CompanyEmailPattern, CompanyPerson, CompanyWebPage, ContactEvidence, Email,
+                        ExternalDocument, Person, Phone, ResearchRun)
 from app.models.enums import EmailStatus, EnrichmentStatus, ResearchRunStatus
 
 logger = logging.getLogger("leadfinder.contacts")
@@ -209,7 +208,7 @@ class SmtpEmailVerifier(DnsEmailVerifier):
         timeout = get_settings().email_smtp_timeout_seconds
         with smtplib.SMTP(host, 25, timeout=timeout, local_hostname=get_settings().email_smtp_helo) as smtp:
             smtp.ehlo_or_helo_if_needed()
-            if smtp.mail("")[0] >= 400:  # null sender: a verification, never a message
+            if smtp.mail(get_settings().email_smtp_mail_from)[0] >= 400:  # closed before DATA: never a message
                 raise smtplib.SMTPException("sender refused")
             probe = "".join(random.choices(string.ascii_lowercase, k=14)) + "@" + domain
             probe_code, probe_text = smtp.rcpt(probe)
@@ -230,7 +229,7 @@ def _no_such_user(code: int, reply: bytes | str) -> bool:
     refusal (5.7.x: this host is blocked, rate limited...) proves nothing."""
     text_ = reply.decode("latin-1", "replace") if isinstance(reply, bytes) else str(reply)
     return code in (550, 551, 553) and bool(re.search(
-        r"\b5\.1\.[0-9]\b|user unknown|unknown user|no such user|does not exist|mailbox unavailable|"
+        r"\b5\.1\.[0-9]\b|(?:user|recipient) unknown|unknown (?:user|recipient)|no such user|does not exist|mailbox unavailable|"
         r"recipient (?:address )?rejected|invalid recipient|not found", text_, re.IGNORECASE)) and not re.search(
         r"\b5\.7\.[0-9]\b|blocked|spamhaus|policy|blacklist|denied|reputation", text_, re.IGNORECASE)
 
@@ -241,28 +240,44 @@ def verifier() -> EmailVerifier:
 
 # ---- ranking (what the People tab shows first) ----------------------------------------------------------------------
 
-RANK = ("confirmed_email", "verified_email", "published_email", "business_mobile", "direct_business_phone",
-        "whatsapp", "office_extension", "business_phone", "high_confidence_email", "catch_all_email",
-        "predicted_email")
+# The order a lead generator sees (Step 6.2 result priority): confirmed, published, TECOMSA CRM, delivered,
+# high-confidence predicted, predicted. A phone of the person ranks with the published contacts.
+RANK = ("confirmed_email", "verified_email", "corroborated_email", "published_email", "business_mobile", "direct_business_phone",
+        "whatsapp", "office_extension", "internal_email", "business_phone", "delivered_email", "high_confidence_email",
+        "catch_all_email", "predicted_email")
 LABEL = {"confirmed_email": "Confirmed (reply received)", "verified_email": "Verified", "published_email": "Published",
          "business_mobile": "Published business mobile",
          "direct_business_phone": "Published direct line", "whatsapp": "Published WhatsApp",
          "office_extension": "Office extension", "catch_all_email": "Unconfirmed (domain accepts any address)",
          "predicted_email": "Predicted", "company_switchboard": "Company switchboard",
          "company_email": "Company email", "human_confirmed": "Confirmed by a colleague",
-         "business_phone": "Phone (type not confirmed)",
-         "high_confidence_email": "Predicted (high confidence)"}
-USABLE = set(RANK[:7])  # directly contactable; a phone whose type is not confirmed is not counted
+         "business_phone": "Phone (type not confirmed)", "internal_email": "TECOMSA CRM",
+         "delivered_email": "Delivered (no reply yet)", "high_confidence_email": "Predicted (high confidence)",
+         "corroborated_email": "Corroborated (2+ sources)", "contributed": "Contributed business contact"}
+USABLE = set(RANK[:9])  # directly contactable; delivered / predicted addresses and untyped phones are not
+STALE_DAYS = 730  # a contact last confirmed / seen longer ago is shown as possibly outdated (never deleted)
 
 
-def channels(emails, phones) -> list[dict]:
-    """A person's contact methods, strongest first (a predicted address never above a published channel)."""
+def channels(emails, phones, corroborated: frozenset = frozenset()) -> list[dict]:
+    """A person's contact methods, strongest first (a predicted address never above a published channel), each with
+    when it was last confirmed (else last seen) and whether that is old."""
     out = []
+    now = datetime.now(timezone.utc)
 
     def label(kind: str, provenance: str) -> str:
+        if kind in ("confirmed_email", "corroborated_email"):
+            return LABEL[kind]
         if provenance == "internal_crm":
             return "TECOMSA CRM"
+        if provenance == "contributed":
+            return LABEL["contributed"]
         return LABEL["human_confirmed" if provenance == "human_confirmed" else kind]
+
+    def entry(kind: str, value: str, row) -> dict:
+        when = row.last_verified_at or row.last_seen_at or row.first_seen_at
+        return {"kind": kind, "value": value, "label": label(kind, row.provenance),
+                "since": when.date().isoformat() if when else None,
+                "stale": bool(when and (now - when).days > STALE_DAYS)}
 
     for e in emails:
         if e.status in ("invalid",):
@@ -270,15 +285,24 @@ def channels(emails, phones) -> list[dict]:
         kind = {"verified": "verified_email", "published": "published_email", "discovered": "published_email",
                 "catch_all": "catch_all_email", "predicted": "predicted_email", "confirmed": "confirmed_email",
                 "high_confidence_predicted": "high_confidence_email"}.get(e.status)
+        if kind == "published_email" and e.provenance == "internal_crm":
+            kind = "internal_email"
+        if kind in ("published_email", "internal_email") and ("email", e.id) in corroborated:
+            kind = "corroborated_email"  # two or more independent sources state it
+        if kind in ("predicted_email", "high_confidence_email") and (e.verification or {}).get("delivered"):
+            kind = "delivered_email"  # a real outreach reached it: stronger than a guess, not yet confirmed
         if kind:
-            out.append({"kind": kind, "value": e.email, "label": label(kind, e.provenance)})
+            out.append(entry(kind, e.email, e))
     for p in phones:
         kind = {"business_mobile": "business_mobile", "mobile": "business_mobile", "whatsapp": "whatsapp",
                 "office_extension": "office_extension", "extension": "office_extension",
                 "unknown_business": "business_phone"}.get(p.phone_type or "", "direct_business_phone")
         if p.phone_type == "company_switchboard" or p.status == "invalid":
-            continue  # a wrong number (sales feedback) / the company's number: shown as the company fallback, never as the person's line
-        out.append({"kind": kind, "value": p.phone, "label": label(kind, p.provenance)})
+            continue  # a wrong number (sales feedback) / the company's number: the company fallback, never the person's
+        row = entry(kind, p.phone, p)
+        if ("phone", p.id) in corroborated:
+            row["label"] = f"{row['label']} · corroborated"
+        out.append(row)
     return sorted(out, key=lambda c: RANK.index(c["kind"]))
 
 
@@ -488,3 +512,5 @@ def _save_email(db: Session, company: Company, person_id: int, address: str, sta
         row.verification
     row.last_verified_at = now if status == EmailStatus.VERIFIED else None
     db.flush()
+    db.add(ContactEvidence(email_id=row.id, kind=status.value, source_id=source_id, detail=evidence[:300],
+                           observed_at=now))  # the address's evidence trail: this observation added, none replaced

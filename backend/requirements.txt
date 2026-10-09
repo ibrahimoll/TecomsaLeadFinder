@@ -6,9 +6,9 @@ alembic>=1.13,<2
 pydantic>=2.7,<3
 pydantic-settings>=2.3,<3
 email-validator>=2.1,<3
+dnspython>=2.6,<3  # MX lookups for company e-mail domains (contact research)
 argon2-cffi>=23.1
 pyjwt>=2.8,<3
-python-multipart>=0.0.9
 openpyxl>=3.1,<4
 duckdb>=1.3,<2
 # Phase 2: website research (Crawl4AI parses pages locally; fetching is LeadFinder's SSRF-safe httpx client)
@@ -18,6 +18,4 @@ httpcore>=1.0,<1.1
 lxml>=5,<7
 pypdf>=6,<7  # native PDF text extraction for public documents (people discovery); no OCR
 xlrd>=2,<3  # Ministry of Industry .xls lists (Lebanon source pack)
-crawl4ai>=0.9,<0.10
 # Phase 2: qualification review (AI_PROVIDER=claude)
-anthropic>=1.11,<2

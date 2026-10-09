@@ -43,11 +43,3 @@ def search(db: Session, query: str, *, limit: int = 20) -> list[dict]:
     return [{"id": r.id, "url": r.url, "title": r.title, "category": r.category, "rank": round(r.rank, 4)}
             for r in rows]
 
-
-def backfill(db: Session) -> int:
-    n = 0
-    for row in db.scalars(select(ExternalDocument).where(ExternalDocument.search_vector.is_(None))):
-        index(db, row)
-        n += 1
-    db.commit()
-    return n

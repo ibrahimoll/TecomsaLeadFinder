@@ -27,13 +27,31 @@ DIRECT = ("direct_business_phone", "office", "landline")
 MOBILE = ("business_mobile", "mobile")
 
 
-def person_channels(db, person_id: int, company_id: int) -> dict:
-    emails = db.scalars(select(Email).where(Email.person_id == person_id)).all()
-    phones = db.scalars(select(Phone).where(Phone.person_id == person_id)).all()
+PROPRIETARY = ("internal_crm", "human_confirmed", "contributed")  # TECOMSA data, contributions, confirmations
+PROPRIETARY_SOURCES = ("internal_seed", "business_card", "email_signature", "meeting_contact", "contributed_contact")
+
+
+def _public(email: Email):
+    """What public research alone knows of an address (None: nothing): a reply-confirmed prediction is, publicly, a
+    prediction; a reply-confirmed published address is published."""
+    if email.provenance in PROPRIETARY:
+        return None
+    if email.status == "confirmed":
+        return "predicted" if email.provenance == "predicted" else "published"
+    return email.status
+
+
+def person_channels(db, person_id: int, company_id: int, public: bool = False) -> dict:
+    emails = db.scalars(select(Email).where(Email.person_id == person_id, Email.status != "invalid")).all()
+    phones = db.scalars(select(Phone).where(Phone.person_id == person_id, Phone.status != "invalid")).all()
+    if public:
+        emails = [type("E", (), {"status": st, "email_type": e.email_type})() for e in emails if (st := _public(e))]
+        phones = [p for p in phones if p.provenance not in PROPRIETARY]
     return {
         "verified_email": any(e.status == "verified" for e in emails),
         "published_email": any(e.status in PUBLISHED and e.email_type == "work" for e in emails),
         "predicted_email": any(e.status == "predicted" for e in emails),
+        "internal_email": any(e.status in PUBLISHED and getattr(e, "provenance", "") == "internal_crm" for e in emails),
         "high_confidence_email": any(e.status == "high_confidence_predicted" for e in emails),
         "confirmed_email": any(e.status == "confirmed" for e in emails),
         "catch_all_email": any(e.status == "catch_all" for e in emails),
@@ -58,8 +76,18 @@ def best_method(ch: dict) -> str | None:
     return None
 
 
-def measure(ids: list[int]) -> dict:
+TARGETS = {"IT": ("it", "e_commerce"), "Finance": ("finance",), "HR": ("hr",), "Sales": ("sales",),
+           "Marketing": ("marketing",), "Operations": ("operations", "manufacturing"),
+           "Procurement": ("procurement", "supply_chain"), "Management": ("executive",)}
+
+
+def measure(ids: list[int], public: bool = False) -> dict:
+    """public: what LeadFinder discovers independently (no TECOMSA internal data, no contribution, no colleague
+    confirmation)."""
+    from app.models import Evidence, Source
+
     out = Counter()
+    departments = {t: Counter() for t in TARGETS}
     rows = []
     with SessionLocal() as db:
         for cid in ids:
@@ -69,11 +97,20 @@ def measure(ids: list[int]) -> dict:
                 CompanyPerson.employment_status == "current")).all()
             switchboard = bool(company.primary_phone or db.scalar(select(Phone.id).where(
                 Phone.company_id == cid, Phone.person_id.is_(None)).limit(1)))
+            if public:  # roles known only from TECOMSA's internal data are not public knowledge
+                roles = [r for r in roles if db.scalar(select(Evidence.id).join(Source).where(
+                    Evidence.company_person_id == r.id, Source.source_type.not_in(PROPRIETARY_SOURCES)).limit(1))]
             people = {r.person_id: r for r in roles}
             dms = {pid: r for pid, r in people.items() if r.department in DM_DEPARTMENTS
                    and r.seniority in DM_SENIORITY}
-            channels = {pid: person_channels(db, pid, cid) for pid in people}
+            channels = {pid: person_channels(db, pid, cid, public) for pid in people}
             contactable = [pid for pid in dms if usable(channels[pid])]
+            for target, depts in TARGETS.items():
+                here = [pid for pid, r in dms.items() if r.department in depts]
+                departments[target]["companies_with_person"] += bool(here)
+                departments[target]["companies_contactable"] += any(pid in contactable for pid in here)
+                departments[target]["people"] += len(here)
+                departments[target]["people_contactable"] += sum(pid in contactable for pid in here)
             for pid, ch in channels.items():
                 for key, value in ch.items():
                     out[f"people_with_{key}"] += value
@@ -92,7 +129,59 @@ def measure(ids: list[int]) -> dict:
                          "decision_makers": len(dms), "contactable": len(contactable),
                          "best_department": next((dms[p].department for p in contactable or dms), None),
                          "best_method": best or ("company_switchboard" if dms and switchboard else None)})
-    return {"companies": len(ids), **dict(out), "sources": contributions(ids), "rows": rows}
+    return {"scope": "public" if public else "public + TECOMSA", "companies": len(ids), **dict(out),
+            "departments": {t: dict(c) for t, c in departments.items()}, "sources": contributions(ids),
+            "feedback": feedback_metrics(), "network": network_metrics(), "rows": rows}
+
+
+def feedback_metrics() -> dict:
+    """Sales feedback received (all companies) and what it says about LeadFinder's predictions: of the predicted
+    addresses salespeople actually used, how many were delivered, answered, bounced."""
+    from sqlalchemy import func
+
+    from app.models import ContactEvidence, ContactFeedback
+
+    with SessionLocal() as db:
+        events = dict(db.execute(select(ContactFeedback.event, func.count()).group_by(ContactFeedback.event)).all())
+        predicted = set(db.scalars(select(ContactEvidence.email_id).where(
+            ContactEvidence.kind.in_(("predicted", "high_confidence_predicted")))))
+        used: dict[str, set[int]] = {}
+        for email_id, event in db.execute(select(ContactFeedback.email_id, ContactFeedback.event).where(
+                ContactFeedback.email_id.in_(predicted or {0}))):
+            used.setdefault(event, set()).add(email_id)
+    tried = set().union(*used.values()) if used else set()
+    rate = lambda e: round(len(used.get(e, set())) / len(tried), 3) if tried else None  # noqa: E731
+    return {"events": events, "predicted_addresses_used": len(tried), "predicted_to_delivered": rate("delivered"),
+            "predicted_to_replied": rate("replied"), "predicted_to_invalid": rate("hard_bounce")}
+
+
+def network_metrics() -> dict:
+    """The network effect (all companies): contacts several sources / contributors state, and what became of
+    LeadFinder's own predictions once real records and real activity met them."""
+    from sqlalchemy import func
+
+    from app.models import ContactEvidence
+
+    with SessionLocal() as db:
+        out = {}
+        for kind, column in (("emails", ContactEvidence.email_id), ("phones", ContactEvidence.phone_id)):
+            out[f"{kind}_with_2plus_sources"] = db.scalar(select(func.count()).select_from(
+                select(column).where(column.is_not(None), ContactEvidence.source_id.is_not(None)).group_by(column)
+                .having(func.count(func.distinct(ContactEvidence.source_id)) >= 2).subquery()))
+            out[f"{kind}_with_2plus_contributors"] = db.scalar(select(func.count()).select_from(
+                select(column).where(column.is_not(None), ContactEvidence.user_id.is_not(None)).group_by(column)
+                .having(func.count(func.distinct(ContactEvidence.user_id)) >= 2).subquery()))
+        kinds: dict[int, set[str]] = {}
+        for email_id, kind in db.execute(select(ContactEvidence.email_id, ContactEvidence.kind).where(
+                ContactEvidence.email_id.is_not(None))):
+            kinds.setdefault(email_id, set()).add(kind)
+        status = dict(db.execute(select(Email.id, Email.status).where(Email.id.in_(list(kinds) or [0]))).all())
+    predicted = {i for i, k in kinds.items() if k & {"predicted", "high_confidence_predicted"}}
+    attested = {i for i in predicted if any(k.endswith(("_published", "_confirmed")) for k in kinds[i])}
+    out |= {"predicted_to_corroborated": len(attested),
+            "predicted_to_confirmed": sum(status.get(i) == "confirmed" for i in predicted),
+            "published_to_confirmed": sum(status.get(i) == "confirmed" for i, k in kinds.items() if "published" in k)}
+    return out
 
 
 USABLE_EMAIL = ("published", "discovered", "verified", "confirmed")
@@ -141,7 +230,9 @@ if __name__ == "__main__":
     data = json.loads(source.read_text(encoding="utf-8"))
     data = data if isinstance(data, list) else data.get("companies", data)
     ids = [r["id"] if isinstance(r, dict) else int(r) for r in data]
-    result = measure(ids)
+    public = "--public" in sys.argv
+    result = measure(ids, public)
+    label = f"{label}_public" if public else label
     (BENCHMARKS / f"contact_coverage_{'sales_' if sales else ''}{label}.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in result.items() if k != "rows"}, indent=1))

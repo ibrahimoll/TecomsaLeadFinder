@@ -54,7 +54,9 @@ investor investors relations media centre center fresh time current welcome hist
 annual report reports division divisions sector sectors sme smes consumer commercial university universite
 university college school ecole hospital hopital clinic association foundation fondation institute institut church eglise
 ministry municipality syndicate order council committee club federation chamber
-northern southern eastern western border region regions area zone americas europe asia pacific africa""".split())
+northern southern eastern western border region regions area zone americas europe asia pacific africa
+role description job vacancy vacancies requirements responsibilities qualifications summary overview opening
+apply""".split())
 _LATIN = re.compile(r"^(?:[A-ZÀ-ÖØ-Þ][a-zß-öø-ÿ'’\-]+(?:-[A-ZÀ-ÖØ-Þ][a-zß-öø-ÿ'’]+)?|[A-ZÀ-ÖØ-Þ]{2,}|[A-Z]\.)$")
 _ARABIC = re.compile(r"^[ء-ي٠-٩]{2,}$")
 _AR_NOT_NAME = {"مدير", "مديرة", "رئيس", "رئيسة", "قسم", "شركة", "فريق", "الادارة", "الإدارة", "مجلس", "العام",

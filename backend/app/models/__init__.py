@@ -7,7 +7,8 @@ from app.models.company import (Company, CompanyAlias, CompanyGapReason, Company
                                 CompanyStatusHistory, CompanyWebPage, DiscoverySuppression, ExternalDocument,
                                 ExternalSearchCache, OpportunityAnalysis, PossibleDuplicate)
 from app.models.integration import Integration
-from app.models.people import CompanyPerson, ContactFeedback, Email, Person, Phone, PossibleDuplicatePerson
+from app.models.people import (CompanyPerson, ContactEvidence, ContactFeedback, Email, Person, PersonSuppression, Phone,
+                               PossibleDuplicatePerson)
 from app.models.provenance import Evidence, Source
 from app.models.search import LeadSearch, LeadSearchResult, ResearchRun
 from app.models.user import User, UserSession
@@ -30,6 +31,8 @@ __all__ = [
     "CompanySignal",
     "CompanyStatusHistory",
     "CompanyWebPage",
+    "ContactEvidence",
+    "PersonSuppression",
     "ContactFeedback",
     "DiscoverySuppression",
     "Email",

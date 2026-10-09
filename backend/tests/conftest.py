@@ -102,6 +102,8 @@ def public_apis(monkeypatch):
             return httpx.Response(200, json={"search": [], "entities": {}})
         if request.url.path == "/collinfo.json":
             return httpx.Response(200, json=[])
+        if request.url.path == "/cc-index/collections/index.html":  # Common Crawl's static index: no crawl listed
+            return httpx.Response(200, text="")
         return httpx.Response(404, text="")
 
     monkeypatch.setattr(pack, "api_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))

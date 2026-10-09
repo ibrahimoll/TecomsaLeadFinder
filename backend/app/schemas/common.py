@@ -37,10 +37,6 @@ class UserBrief(OutModel):
     name: str
 
 
-class EntityRef(OutModel):
-    id: int
-    name: str
-
 
 def validate_phone(value: str | None) -> str | None:
     if value is not None and not _PHONE_RE.match(value):

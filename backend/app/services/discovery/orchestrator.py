@@ -1,6 +1,6 @@
 """Discovery orchestrator: runs one lead search's discovery job (in the job worker, never in a request).
 
-    Search (already holds the companies LeadFinder knew, see search_service)
+    Search (Find Leads returns NEW companies only: the ones LeadFinder already has are counted, not returned)
       -> connectors, concurrently (bounded), each within a deadline; one failing never stops the others
       -> CompanyCandidates -> validate -> consolidate (branches / duplicate listings) -> normalize
       -> resolve against the master database (deduplication) -> persist company + sources + evidence
@@ -134,11 +134,11 @@ def _process(db: Session, search: LeadSearch, plan: Plan, config: ConnectorConfi
                     branches_merged=len(window) - len(groups))
     norms: dict = {}
     in_results = _result_ids(db, search)
-    confirming = 0
+    examined = confirming = 0  # new companies tried (companies LeadFinder already had never use up the budget)
     for i, group in enumerate(groups):
         full = search.companies_found >= search.requested_count
         confirming += full
-        if confirming > limit or i >= limit * MAX_GROUPS_PER_LIMIT:
+        if confirming > limit or examined >= limit * MAX_GROUPS_PER_LIMIT:
             stats["not_matched"] = len(groups) - i  # lower-ranked listings: not needed for this search
             break
         for c in group.records:  # only the groups actually used are normalized
@@ -152,12 +152,16 @@ def _process(db: Session, search: LeadSearch, plan: Plan, config: ConnectorConfi
             stats["suppressed"] += 1
             db.rollback()
             continue
-        known = resolution.company is not None
-        if full and not (known and resolution.company.id in in_results):
-            db.rollback()  # the search is full: only confirm companies it already returned
+        if resolution.company is not None and resolution.company.id not in in_results:
+            stats["already_known"] += 1  # Find Leads finds companies LeadFinder does not have yet
+            db.rollback()
             continue
+        if full and resolution.company is None:
+            db.rollback()  # the search is full: only confirm the companies it found (more sources, evidence)
+            continue
+        examined += resolution.company is None  # a company this search found, seen by another source: confirmed
         assessment = assess(group)
-        if not known and _too_weak(group, norms, assessment):
+        if _too_weak(group, norms, assessment):
             stats["low_confidence"] += 1  # never fill a search with junk
             db.rollback()
             continue
@@ -245,7 +249,7 @@ def run(db: Session, search: LeadSearch, connectors: list[Connector] | None = No
     plan = plan_for(search)
     connectors = build_connectors(plan.country) if connectors is None else connectors
     configs = {c.config.key: c.config for c in connectors}
-    deficit = max(0, search.requested_count - search.companies_found)
+    deficit = max(0, search.requested_count - search.companies_found)  # every result is a new company
     limit = deficit + max(5, math.ceil(deficit * BUFFER))
     query = SearchQuery(plan.country, plan.area, plan.profile, limit=limit, region_text=search.region,
                         city_text=search.city)
@@ -254,7 +258,8 @@ def run(db: Session, search: LeadSearch, connectors: list[Connector] | None = No
     timings = dict((search.progress or {}).get("timings", {}))  # db_lookup, measured by the request
     if queue_wait is not None:
         timings["queue_wait"] = round(queue_wait, 2)
-    progress: dict = {"connectors": {}, "timings": timings}
+    progress: dict = {"connectors": {}, "timings": timings,
+                      "already_known": (search.progress or {}).get("already_known")}
     search.progress = copy.deepcopy(progress)
     db.commit()
     failures = 0
@@ -300,8 +305,11 @@ def run(db: Session, search: LeadSearch, connectors: list[Connector] | None = No
         search.status, search.message = LeadSearchStatus.FAILED.value, "The discovery sources could not be reached. Try again later."
     else:
         search.status = LeadSearchStatus.PARTIAL.value
-        search.message = (f"Only {found} trustworthy {'company matches' if found == 1 else 'companies match'} this "
-                          f"search so far." + (" Some sources were unavailable." if failures else ""))
+        known = (search.progress or {}).get("already_known") or 0
+        search.message = (f"Only {found} new {'company' if found == 1 else 'companies'} found for this search"
+                          + (f"; {known} matching {'company is' if known == 1 else 'companies are'} already in "
+                             f"LeadFinder (Companies)" if known else "") + "."
+                          + (" Some sources were unavailable." if failures else ""))
     timings |= {stage: round(v, 3) for stage, v in clock.stages.items()}
     timings |= {"first_result": round(clock.first_result, 2) if clock.first_result is not None else None,
                 "discovery_total": round(time.perf_counter() - clock.started, 2)}

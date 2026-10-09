@@ -315,10 +315,6 @@ class Assessment:
     concerns: list[str]
     signals: list[str]
 
-    def as_dict(self) -> dict:
-        return {"confidence": self.confidence.value, "reasons": self.reasons, "concerns": self.concerns,
-                "signals": self.signals}
-
 
 def assess(group: Group) -> Assessment:
     records = group.records

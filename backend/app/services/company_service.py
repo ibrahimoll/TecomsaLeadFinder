@@ -186,11 +186,14 @@ def _key_roles(roles: list[CompanyPerson]) -> set[int]:
 def company_people(db: Session, company_id: int, user: User | None = None) -> list[dict[str, Any]]:
     """Every role at the company (current and most senior first), each with the person's public emails/phones
     for this company, the sources stating it and whether it is the department's key decision-maker. TECOMSA
-    internal contacts marked restricted are shown only to their owner and to managers / admins."""
+    internal / contributed contacts follow their visibility: organization, managers (owner + managers / admins),
+    private (owner only)."""
     get_company(db, company_id)
 
     def visible(row) -> bool:
-        return not row.restricted or user is None or is_privileged(user) or row.owner_user_id == user.id
+        if row.visibility == "organization" or user is None or row.owner_user_id == user.id:
+            return True
+        return row.visibility == "managers" and is_privileged(user)  # private: the owner only
     rows = db.execute(
         select(CompanyPerson, Person).join(Person, Person.id == CompanyPerson.person_id)
         .where(CompanyPerson.company_id == company_id)
@@ -219,10 +222,20 @@ def company_people(db: Session, company_id: int, user: User | None = None) -> li
             if visible(point):
                 contact[key][point.person_id].append(point)
     from app.services.contact_intelligence import USABLE, channels
+    from app.models import ContactEvidence
+
+    corroborated = set()  # contact points two or more independent sources state
+    for column, kind in ((ContactEvidence.email_id, "email"), (ContactEvidence.phone_id, "phone")):
+        ids = [p.id for points in contact[f"{kind}s"].values() for p in points]
+        for contact_id, n in db.execute(select(column, func.count(func.distinct(ContactEvidence.source_id)))
+                                        .where(column.in_(ids or [0]), ContactEvidence.source_id.is_not(None))
+                                        .group_by(column)):
+            if n >= 2:
+                corroborated.add((kind, contact_id))
 
     out = []
     for role, person in rows:
-        ranked = channels(contact["emails"][person.id], contact["phones"][person.id])
+        ranked = channels(contact["emails"][person.id], contact["phones"][person.id], frozenset(corroborated))
         out.append({**_columns(role), "person": person, "emails": contact["emails"][person.id],
                     "phones": contact["phones"][person.id], "is_key": role.id in key_roles,
                     "sources": role_sources[role.id], "contacts": ranked,

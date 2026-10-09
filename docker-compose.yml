@@ -33,8 +33,6 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-leadfinder}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-leadfinder}
       TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-leadfinder}:${POSTGRES_PASSWORD}@db:5432/leadfinder_test
       ENVIRONMENT: development
-      # Set AI_PROVIDER in .env (claude / rules); the shell value wins for one-off runs.
-      AI_PROVIDER: ${AI_PROVIDER:-claude}
       # Discovery jobs run in the `worker` service, never in the API process.
       DISCOVERY_WORKER_ENABLED: "false"
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"

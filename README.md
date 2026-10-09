@@ -1,76 +1,75 @@
-# TECOMSA LeadFinder AI
+# TECOMSA LeadFinder
 
-Internal B2B sales intelligence platform for TECOMSA (Frinzo, Odoo ERP and IT Solutions), starting with the
-Lebanese market.
+Internal B2B sales-intelligence platform for TECOMSA (Frinzo, Odoo ERP and IT Solutions), starting with the
+Lebanese market. A lead generator finds companies, opens one, picks the department they sell to (IT, Finance,
+HR, …) and gets the right current person with the best available business contact, each with its evidence.
 
-**Current state: Phase 1 (automatic company discovery).** LeadFinder has:
+What it does:
 
-- authentication, users and roles
-- a company database with deterministic duplicate protection
-- an **Odoo import center**: contacts and CRM leads/opportunities from CSV/XLSX, with automatic column detection,
-  preview, duplicate detection, import history and deletion (with or without the imported data)
-- a TECOMSA relationship status on every company, so companies TECOMSA already knows are never treated as new prospects
-- CRM records and sales-team views, campaigns, contacts, and a full audit trail
-- **Find companies**: automatic discovery of Lebanese companies by industry and area from free public data
-  (Overture Maps Places, plus OpenStreetMap), with every result checked against LeadFinder and TECOMSA's Odoo
-  data before anything is saved
+- **Find Leads** — discovers companies LeadFinder does not have yet, by industry and area, from free public data
+  (Overture Maps Places, OpenStreetMap, Wikidata, public directories). Known companies are counted, never re-offered.
+- **Company search** — finds one company by name, Arabic / French / English variants, domain or phone.
+- **Company research** — reads the company's own website (and permitted public sources) for facts, locations,
+  products, signals and people, with the source of every fact.
+- **People and contacts** — decision-makers by department with current / former status, published business
+  emails and phones (classified: direct line, business mobile, WhatsApp, extension, company switchboard),
+  email-pattern predictions clearly labelled as predictions, and evidence for each.
+- **Proprietary contact network** — TECOMSA CRM exports, business cards, email signatures, meeting contacts and
+  contacts added by hand; sales feedback (delivered / replied / bounced, phone right / wrong, person left) that
+  confirms or invalidates contacts for the next salesperson. Internal contacts keep their owner and visibility.
 
-It does **not** call the Odoo API, Lusha or any AI provider, and it never shows simulated results.
+No paid contact-data provider is used, and nothing is ever sent to a contact to test it.
 
 | Document | Contents |
 | --- | --- |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architecture, database schema, matching and protection rules, API, UI system |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Production deployment, database access, backups and restore, troubleshooting |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Deployment, database access, backups and restore, people sources, imports, benchmarks, troubleshooting |
+| [SECURITY.md](SECURITY.md) | Security model and hardening |
 
 ---
 
-## 1. Technical architecture
+## 1. Architecture
 
 ```
 Browser ──► Next.js (frontend, :3000) ──/api/* proxy──► FastAPI (backend, :8000) ──► PostgreSQL 16
+                                                              └── job worker (research, discovery, contacts)
 ```
 
-- **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS (one token-based design system)
-- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Pydantic 2, Alembic, openpyxl for XLSX parsing
-- **Database:** PostgreSQL 16
-- **Auth:** email + password (Argon2id hashes), server-side sessions, signed token in an httpOnly cookie
-- **Runtime:** Docker Compose (development and production files). No Redis, queues or paid services.
-
-The browser only ever talks to the Next.js server, which forwards `/api/*` to FastAPI. The session cookie is
-therefore same-origin and the backend is never exposed directly.
+- **Frontend:** Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2, Pydantic 2, Alembic; DuckDB for the map-data extracts
+- **Database:** PostgreSQL 16 (pg_trgm); background jobs are a PostgreSQL queue (no Redis)
+- **Auth:** email + password (Argon2id), server-side sessions, signed token in an httpOnly cookie
 
 ```
 .
 ├── backend/
 │   ├── app/
-│   │   ├── api/               Routes and dependencies (auth, role checks, pagination)
-│   │   ├── core/              Settings, security, rate limiting, domain exceptions
-│   │   ├── models/            ORM models (companies, odoo, salesperson, import_run, …)
-│   │   ├── schemas/           Pydantic request/response models
-│   │   ├── services/          Business logic: imports, matching, relationship status, permissions
-│   │   └── integrations/      odoo/ and lusha/ API interfaces (disconnected in Phase 0)
-│   ├── migrations/            Alembic migrations (0001 foundation, 0002 Odoo import foundation)
-│   ├── scripts/               create_admin.py, seed_dev.py, sample_odoo_files.py
-│   ├── storage/imports/       Uploaded import files (git-ignored; not the datastore)
-│   └── tests/                 pytest suite (separate test database)
+│   │   ├── api/          Routes and dependencies (auth, roles, pagination)
+│   │   ├── core/         Settings, security, exceptions
+│   │   ├── models/       ORM models (companies, people, emails, phones, evidence, sources, …)
+│   │   ├── schemas/      Request / response models
+│   │   └── services/     discovery/ (Find Leads), enrichment/ (company research), people/ (people research,
+│   │                     public people sources), contact_intelligence, contributions, contact_feedback, jobs
+│   ├── migrations/       Alembic migrations
+│   ├── scripts/          create_admin, seed_dev, benchmarks (contact_coverage, people_coverage, search_*,
+│   │                     source_inventory), lebanon_sources
+│   ├── benchmarks/       Fixed benchmark sets and their latest results
+│   └── tests/            pytest suite (separate test database)
 ├── frontend/
-│   ├── app/                   Pages
-│   ├── components/ui/         Design-system primitives (tables, forms, tabs, dialogs, states)
-│   ├── components/            App shell, forms, status badges, activity timeline
-│   ├── lib/                   API client, URL-state hooks, constants, formatting
-│   └── types/                 Shared TypeScript types
-├── samples/                   FICTIONAL Odoo export files for trying the import workflow
-├── docker/postgres/init/      Dev-only DB init (creates the test database)
-├── scripts/                   Database backup / restore scripts
-├── docker-compose.yml         Development stack
-├── docker-compose.prod.yml    Production stack (+ scheduled backups)
-└── .env.example               Environment template
+│   ├── app/              Pages (companies, find-leads, admin, settings)
+│   ├── components/       App shell, design-system primitives (components/ui), feature components
+│   ├── lib/              API client, constants, formatting
+│   └── types/            Shared TypeScript types
+├── docker/postgres/init/ Dev-only DB init (creates the test database)
+├── scripts/              Database backup / restore scripts
+├── docker-compose.yml        Development stack
+├── docker-compose.prod.yml   Production stack (+ scheduled backups)
+└── .env.example              Environment template
 ```
 
 ## 2. Requirements
 
 - Docker Desktop (or Docker Engine) with Docker Compose v2, **or**
-- For running without Docker: Python 3.12+, Node.js 20+ (22 LTS recommended), PostgreSQL 16
+- Without Docker: Python 3.12+, Node.js 20+ (22 LTS recommended), PostgreSQL 16
 
 ## 3. Quick start (Docker)
 
@@ -89,148 +88,37 @@ On startup the backend runs `alembic upgrade head`. Then:
 | API (direct) | http://localhost:8000 (interactive docs at `/docs` outside production) |
 | PostgreSQL | `localhost:5432` (bound to localhost only) |
 
-Create the first administrator (section 9), then sign in at http://localhost:3000.
+Create the first administrator (section 7), then sign in. For **fictional** demo users and companies in
+development: `docker compose exec backend python -m scripts.seed_dev --companies` (all demo users share the password
+`LeadFinder-Dev-2026!`; the script refuses to run in staging or production).
 
-To load **fictional** demo users and companies for development:
-
-```bash
-docker compose exec backend python -m scripts.seed_dev --companies
-```
-
-| Demo user (fictional) | Role |
-| --- | --- |
-| demo.admin@example.com | Administrator |
-| demo.manager@example.com | Sales Manager |
-| demo.agent1@example.com | Salesperson |
-| demo.agent2@example.com | Salesperson |
-
-All demo users share the password `LeadFinder-Dev-2026!`. The seed script refuses to run when `ENVIRONMENT` is
-`staging` or `production`. Demo companies have the source **Demo data**, so they are never mistaken for imported Odoo
-records.
-
-## 4. Importing Odoo data
-
-Odoo is the source of truth for existing TECOMSA relationships. Until Odoo data is imported, every company shows
-**Not checked**.
-
-1. **Export from Odoo** (list view → select all → *Export*, as XLSX or CSV):
-   - **CRM → Pipeline**: include archived and lost records. Useful fields: Opportunity, Customer, Contact Name,
-     Email, Phone, Salesperson, Sales Team, Stage, Type, Expected Revenue, Probability, Active, Lost Reason,
-     Created on, Last Updated on. Include the **ID** field so re-imports update records instead of duplicating them.
-   - **Contacts**: include companies and individuals. LeadFinder reads Company Name, Contact Name, Job Position,
-     Phone / Mobile (mobile preferred), Email, Country and City. It also uses ID and Is a Company when present.
-2. In LeadFinder, go to **Data sources → Odoo imports** and choose the file. It is uploaded immediately.
-3. Columns are **detected automatically** from the headers (case, spaces, underscores and hyphens are ignored, so
-   `Company Name`, `company_name` and `COMPANY NAME` are the same). There is no mapping step. A file with no
-   Company Name or Contact Name column is rejected with a message listing the columns that were found.
-4. Check the **preview**: rows detected, ready, duplicates, warnings, and the rows as LeadFinder will save them.
-   A person is never turned into a company: `Mohammad Hassan / General Manager` at `ABC Foods SAL` is stored as a
-   contact of that company (shown in its Contacts tab), and the row's phone and email fill the company's phone and
-   email when those are empty. A contact without a company is kept without one; a row with neither is skipped.
-   A contacts import never creates CRM leads or opportunities: those companies are marked *Existing Odoo contact*.
-   A contacts list uploaded as a CRM file is rejected (a CRM file needs an Opportunity / Lead name column).
-5. Click **Import records.** Every company's relationship status is recalculated.
-6. To undo, use the delete icon in the imports list:
-   - **Delete import only** removes the history entry and stored file and keeps the records.
-   - **Delete import and imported data** also removes the records and companies that came only from that import.
-     Companies used in a campaign or with contacts or notes are kept, and so is anything a later import also
-     contains.
-
-To try it without real data, use the fictional files in `samples/`. Regenerate them with
-`python -m scripts.sample_odoo_files` from `backend/`.
-
-Relationship statuses, in order of precedence:
-
-| Status | Meaning |
-| --- | --- |
-| Customer | A won opportunity (stage contains "Won" or probability 100%), or an Odoo contact flagged as a customer |
-| Open opportunity / Open lead | An active, not lost, not won CRM record |
-| Lost opportunity | Lost or archived CRM record |
-| Odoo contact | Exists in Odoo contacts, with no CRM record |
-| Available | Odoo data exists and nothing in it matches this company |
-| Not checked | No Odoo import has completed yet |
-
-Every status except *Available* and *Not checked* is **protected**. The company profile shows the reason, the owning
-salesperson, the matching CRM records and the matching Odoo contacts.
-
-## 5. Finding new companies (Phase 1)
-
-1. Open **Find companies**, choose the country (Lebanon), an industry (or *Other / custom* to type one, e.g.
-   "Plastic packaging manufacturer"), a city or governorate (or all of Lebanon) and how many new companies you want.
-2. Click **Find companies.** The search runs in the background; the page shows each stage as the backend reports it
-   (downloading/using the Overture data, matches found, companies examined, new / known / protected / duplicates).
-3. Every record goes through the Phase 1 quality checks (`backend/app/services/discovery/quality.py`):
-   - **Closed:** rejected only on explicit source evidence (Overture `permanently_closed`, OSM `disused`/`abandoned`/
-     `end_date`, "(closed)" in the name). Unknown status is not evidence.
-   - **Industry relevance:** structured category first, name last. Restaurants, cafes, supermarkets, grocery stores,
-     caterers and delivery never count as manufacturers; when their name looks like a match they are kept as
-     *Wrong industry* with the reason.
-   - **Branches:** map sources list places, not companies. Records sharing a company website, phone, email domain,
-     the source's brand, or the same name once a location suffix is removed ("McDonald's Hamra", "Wooden Bakery -
-     Adma") become **one company with several locations**. A suffix is removed only when another record of the
-     search carries the root name *and* the suffix is clearly a location. Similar names, a common word as root,
-     different company websites, different operators (franchisees) or legal forms (SAL / SARL) stay separate.
-   - **Discovery confidence** High / Medium / Low from the evidence (category, website, phone, address, industrial
-     site, independent sources, locations). It is not company size, fit or sales readiness.
-   - Then the LeadFinder and Odoo checks. Odoo protects only on strong evidence (same partner, domain, phone, or same
-     name in the same city); a name-only or similar-name match is a *Possible Odoo match* for the user to inspect.
-4. Only High/Medium candidates with no match are saved, with their source records and the evidence. The requested
-   number is a target: if only 32 credible candidates exist, 32 are returned, never weaker ones. Nothing is created in
-   the CRM.
-5. The results show **one row per company** with its number of locations ("26 locations · Beirut + other
-   locations"); the company page has a **Locations** tab. The search summary separates places found, unique
-   companies, branches consolidated and duplicate listings. The results open on **Credible candidates**; other tabs show low-confidence records, companies already in
-   LeadFinder, protected and possible Odoo matches, duplicates & branches, and rejections (closed, wrong industry),
-   each with its reason. Searches stay in **Search history**; running the same search again adds nothing twice (new
-   locations are added to the existing company). Admins can delete a search, optionally with the companies only it
-   added.
-
-Sources and access (no accounts, no keys, no paid services):
-
-- **Overture Maps Places**: the latest release is found in the STAC catalog, only the GeoParquet file(s) covering
-  the country are read over HTTPS with DuckDB, filtered by bounding box and country code. The Lebanon extract
-  (~50,000 places, ~3 MB) is cached per release in `DISCOVERY_CACHE_DIR`; the first search of a release takes about
-  a minute, later searches about a second.
-- **OpenStreetMap** (Geofabrik country extract): the ~50 MB Lebanon file is downloaded, the named
-  industrial/business places are extracted with DuckDB, and only those are cached for a week. If the download
-  fails the search still completes from Overture and is marked *Partially completed*.
-
-Industries are mapped to source categories and name keywords in
-`backend/app/services/discovery/industries.py`; cities and governorates in `geography.py`. Place data ©
-Overture Maps Foundation and contributors (CDLA Permissive 2.0 and other open licences) and © OpenStreetMap
-contributors (ODbL).
-
-## 6. Environment variables
+## 4. Environment variables
 
 Copy `.env.example` to `.env`. Never commit `.env`.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `ENVIRONMENT` | yes | `development`, `test`, `staging` or `production` |
-| `APP_SECRET` | prod | Reserved for app-level encryption/signing (≥32 random chars in production) |
-| `JWT_SECRET` | prod | Signs session tokens (≥32 random chars in production) |
+| `APP_SECRET` / `JWT_SECRET` | prod | ≥32 random characters in production (sessions are signed with `JWT_SECRET`) |
 | `FRONTEND_URL` | yes | Public frontend URL, used for CORS |
 | `SESSION_EXPIRE_MINUTES` | no | Session lifetime (default 480) |
 | `COOKIE_SECURE` | prod | `true` in production (HTTPS-only cookie) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | yes | Database credentials used by Docker Compose |
+| `APP_DB_USER` / `APP_DB_PASSWORD` | prod | The application's own non-superuser role (production compose) |
 | `DATABASE_URL` | local | Backend DB URL when running **outside** Docker |
 | `TEST_DATABASE_URL` | tests | Separate test DB; its name must end in `_test` |
-| `MANAGERS_CAN_IMPORT` | no | `true` lets Sales Managers run Odoo imports (default: Admins only) |
-| `IMPORT_STORAGE_DIR` | no | Where uploaded source files are kept (default `storage/imports`) |
-| `IMPORT_MAX_BYTES` / `IMPORT_MAX_ROWS` | no | Upload limits (default 20 MB / 50,000 rows) |
+| `DISCOVERY_CACHE_DIR` | no | Where map-data extracts are cached (default `storage/discovery`) |
 | `BACKEND_INTERNAL_URL` | local | Where Next.js proxies `/api/*` when running outside Docker |
 | `BACKUP_RETENTION_DAYS` / `BACKUP_INTERVAL_SECONDS` | no | Scheduled backup settings (production compose) |
-| `ODOO_BASE_URL`, `ODOO_DATABASE`, `ODOO_API_KEY`, `LUSHA_API_KEY`, `AI_API_KEY` | no | **Reserved.** Not used in Phase 0 |
 
-Generate secrets with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. In development, empty
-`APP_SECRET`/`JWT_SECRET` fall back to insecure development values. In staging and production the backend refuses to
-start without strong values.
+Every other setting has a safe default in `backend/app/core/config.py` (research time limits, Common Crawl budget,
+`EMAIL_SMTP_VERIFICATION` — off by default). Generate secrets with
+`python -c "import secrets; print(secrets.token_urlsafe(48))"`. In staging and production the backend refuses to start
+without strong secrets.
 
-## 7. Running without Docker
+## 5. Running without Docker
 
 Start PostgreSQL 16 yourself and create two databases, `leadfinder` and `leadfinder_test`. Then:
-
-**Backend**
 
 ```bash
 cd backend
@@ -241,143 +129,60 @@ alembic upgrade head               # reads DATABASE_URL from ../.env
 uvicorn app.main:app --reload --port 8000
 ```
 
-**Frontend**
-
 ```bash
 cd frontend
 npm ci
 npm run dev                        # http://localhost:3000, proxies /api to BACKEND_INTERNAL_URL
 ```
 
-For a production-like frontend, run `npm run build`, copy `.next/static` into `.next/standalone/.next/static` and
-`public/` into `.next/standalone/public`, then run `node .next/standalone/server.js`. The production Docker image
-does exactly this.
+## 6. Database migrations
 
-## 8. Database migrations
-
-Run these commands from `backend/` (or prefix them with `docker compose exec backend`).
+From `backend/` (or prefixed with `docker compose exec backend`):
 
 ```bash
 alembic upgrade head                              # apply all migrations
 alembic current                                   # show the applied revision
-alembic history                                   # list revisions
 alembic revision --autogenerate -m "add x to y"   # create a migration after changing models
 alembic check                                     # verify models and migrations are in sync
 alembic downgrade -1                              # roll back the last migration
 ```
 
-Always review autogenerated migrations before committing them. Take a backup before running migrations in production
+Review autogenerated migrations before committing them, and back up before migrating production
 (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
-## 9. Creating the initial administrator
+## 7. Creating the initial administrator
 
 ```bash
 docker compose exec backend python -m scripts.create_admin --email you@tecomsa.me --name "Your Name"
 ```
 
-You will be prompted for the password (minimum 10 characters). For non-interactive provisioning, set
-`LEADFINDER_ADMIN_PASSWORD` in the environment of that one command. After that, administrators create all other
-accounts from **Administration → Users**. Self-registration does not exist.
+You are prompted for the password (minimum 10 characters); for non-interactive provisioning set
+`LEADFINDER_ADMIN_PASSWORD` for that one command. Administrators create all other accounts under
+**Administration → Users**. There is no self-registration.
 
-## 10. Running tests
+## 8. Running tests
 
-Tests use the separate `leadfinder_test` database. The development compose file creates it automatically the first
-time the Postgres volume is initialised. Each test run migrates it from scratch (downgrade to base, then upgrade to
-head), and tables are emptied between tests.
+Tests use the separate `leadfinder_test` database, rebuilt from the migrations at the start of each run and emptied
+between tests. Run one test session at a time: two sessions on the same test database interfere.
 
 ```bash
 docker compose exec backend pytest
-# or locally, from backend/:
-TEST_DATABASE_URL=postgresql+psycopg://leadfinder:<pw>@localhost:5432/leadfinder_test pytest
+cd frontend && npm run typecheck && npm run build
 ```
 
-The 71 tests cover:
-
-- **Auth and access:** login, rejection, rate limiting, logout revocation, deactivation, role and record permissions,
-  import and CRM permissions
-- **Companies and campaigns:** company creation and normalisation (including Lebanese phone numbers and
-  `ABC Foods SAL` / `S.A.L.` / `ABC FOODS`), campaigns and linking, audit and activity events
-- **Odoo imports:** CRM and contact imports (XLSX and CSV), automatic header detection and variants, company/person
-  split, preview without writes, in-file duplicates, idempotent re-imports, deleting imports with and without data
-  (no orphans), invalid and corrupt files
-- **Protection:** relationship statuses, protection of manually added duplicates, dashboard counts, company filters
-- **Acceptance:** the full Phase 0 acceptance scenarios
-
-Frontend: `cd frontend && npm run typecheck && npm run build`.
-
-## 11. Roles
+## 9. Roles
 
 | Capability | Admin | Sales Manager | Salesperson |
 | --- | :-: | :-: | :-: |
-| Dashboard, companies (view all, add), relationship reasons | ✓ | ✓ | ✓ |
-| Edit a company | all | all | only ones they created |
-| Campaigns: view / edit | all | all | only their own |
-| CRM records and sales team views | ✓ | ✓ | – |
-| Odoo imports and import history | ✓ | if `MANAGERS_CAN_IMPORT=true` | – |
-| Link salespeople to user accounts | ✓ | – | – |
-| Users, audit log, integrations and settings | ✓ | – | – |
+| Companies, people and contacts (view, add, research, correct, give feedback) | ✓ | ✓ | ✓ |
+| Delete a company; remove a person on request (privacy) | ✓ | ✓ | – |
+| Find Leads searches | all | all | their own |
+| TECOMSA / contributed contacts marked *managers* | ✓ | ✓ | only their own |
+| TECOMSA / contributed contacts marked *private* | owner only | owner only | owner only |
+| See the user list | ✓ | ✓ | – |
+| Create / edit users, audit log, system status | ✓ | – | – |
 
-All rules are enforced by the backend. The frontend only hides what a role cannot use.
+All rules are enforced by the backend; the frontend only hides what a role cannot use.
 
-## 12. Current limitations
-
-- Odoo data arrives only through CSV/XLSX imports. There is no Odoo API sync, and relationship status is only as
-  current as the latest import.
-- Matching is deterministic: Odoo ID, website domain, company email domain, phone and normalised name. Two different
-  organisations with the same normalised name are treated as the same company.
-- "Won" is inferred from a stage name containing "Won" or a probability of 100%, because Odoo exports have no explicit
-  won flag.
-- No Lusha or decision-maker search. Lusha usage stays 0. Website research reads HTML only (no JavaScript),
-  English/French text rules, and never bypasses bot protection.
-- Discovery is limited by what the free sources contain. Overture has no specific "food manufacturing" category for
-  Lebanon, so industries are matched by category + name keywords: companies whose names say nothing about what they
-  make can be missed. Many localities are in Arabic and are shown as the source gives them.
-- Phase 1 cannot know company size, revenue, employees, ERP budget or fit: confidence only measures how well the
-  sources support a company being real and in the industry. Websites are not visited, so a dead or for-sale website
-  still counts as "website found"; closure is only known when a source says so (Overture marks almost no Lebanese
-  place closed). Overture files some dairy and roastery *shops* under producer categories; without their own website
-  these stay Low confidence.
-- Governorate boundaries are approximated with boxes; cities with a radius around the centre.
-- Discovery runs in a background thread of the backend process; a run interrupted by a restart is marked failed or
-  partially completed at the next start.
-- Campaigns can only move between `DRAFT`, `READY` and `CANCELLED`.
-- The login rate limiter is in-memory per backend process.
-
-## 13. Company research and qualification (Phase 2)
-
-Open a company and use **Research company** on its *Intelligence* tab, or select several companies on the
-*Companies* page and use **Research selected**. LeadFinder checks the website, reads a few of its pages
-(about, products, factory, locations, export, careers, contact), extracts facts with their source URLs, scores the
-Odoo and Frinzo fit with a fixed rubric and, with `AI_PROVIDER=claude`, has Claude review the evidence (it can
-reject unsupported facts and explain, never set a score). Results appear under **Qualified leads**.
-
-- `AI_PROVIDER=claude` needs `AI_API_KEY` (or the Anthropic SDK's `ANTHROPIC_API_KEY`). Without a key the research
-  is kept and the run ends *Qualification failed*; retry after setting the key. `AI_PROVIDER=rules` qualifies with
-  the rubric alone, at no cost.
-- Only companies already in LeadFinder can be researched, never ones TECOMSA's Odoo protects. Unchanged websites
-  reuse the previous qualification; *Refresh research* asks the AI again.
-- Nothing is estimated without evidence: no revenue, headcount or company size unless a page states it. A dead or
-  parked website is shown as a risk, never as "company closed".
-- No paid enrichment (Lusha, Apollo, Apify...), no decision-maker search, no Odoo opportunity creation.
-
-## 14. Decision-makers (Phase 3)
-
-On a qualified company's *Decision makers* tab (or *Find decision makers* for selected companies),
-LeadFinder reads the company website's management/team pages and, when `APOLLO_API_KEY` is set,
-runs Apollo's credit-free People Search by company domain and target titles. People are merged
-into one record per person, scored 0-100 (employer, role relevance, seniority, sources,
-freshness) and ranked into primary / alternative Odoo and Frinzo contacts, each with "why".
-
-Emails and phones are never revealed automatically. *Reveal work email*, *Reveal phone* and
-*Try Lusha* each ask for confirmation with the expected credit cost, require
-`PAID_ENRICHMENT_ENABLED=true`, respect `APOLLO_MONTHLY_CREDIT_LIMIT` / `LUSHA_MONTHLY_CREDIT_LIMIT`,
-and never buy data LeadFinder already has. Apollo phone numbers need a public
-`APOLLO_WEBHOOK_BASE_URL`. No outreach, sequences or Odoo syncing.
-
-### Deferred
-
-- **Real TECOMSA Odoo validation — pending CEO/Odoo access.** Odoo protection logic: engineering verified with
-  fixture data. Real TECOMSA Odoo data: not yet validated.
-- **TECOMSA Engine AI** — the future replacement for Claude (`AI_PROVIDER=tecomsa`); not implemented yet.
-- Apollo and Lusha live validation — pending API keys (adapters built from the official docs and tested with mocks).
-- Automated outreach, sequences and Odoo opportunity/contact creation — later phases.
+Place data © Overture Maps Foundation and contributors (CDLA Permissive 2.0 and other open licences) and
+© OpenStreetMap contributors (ODbL).

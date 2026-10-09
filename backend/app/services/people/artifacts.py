@@ -1,5 +1,6 @@
 """Contact artifacts on the company's own site (Step 6.1): business cards (.vcf) and people documents (team /
-management / staff / directory / company profile / brochure: PDF, Word, Excel, CSV) linked from its stored pages.
+management / staff / directory / company profile: Word, Excel, CSV) linked from its stored pages. (PDFs are external
+research's company documents, read with their own date.)
 
 Each artifact is fetched once (robots-aware, paced, bounded: MAX_VCARDS + MAX_DOCUMENTS per site, re-checked after
 ARTIFACT_DAYS), read into people + their published business contacts, and stored with the document as its source
@@ -26,7 +27,8 @@ from app.services.people.external.lebanon.records import candidate
 logger = logging.getLogger("leadfinder.people.artifacts")
 MAX_VCARDS, MAX_DOCUMENTS = 8, 3
 ARTIFACT_DAYS = 60
-_DOC_EXT = ("pdf", "docx", "xlsx", "xls", "csv")
+# PDFs are read (and dated: an old profile is history) by external research's company documents; not again here
+_DOC_EXT = ("docx", "xlsx", "xls", "csv")
 _PEOPLE_DOC = re.compile(r"team|staff|management|leadership|directory|contacts?\b|profile|brochure|catalog|"
                          r"presentation|organi[sz]ation|annual[-_ ]?report|board|who[-_ ]we[-_ ]are|people|"
                          r"directors|executives", re.IGNORECASE)
@@ -91,8 +93,8 @@ def run(db: Session, company: Company, pages: list[CompanyWebPage], ctx: Context
         elif ext == "csv":
             records = generic.rows_records(generic.csv_rows(raw.decode("utf-8-sig", "replace")),
                                            default_company=company.name)
-        else:  # PDF / Word: the website reader on the document's text, as the company's own page
-            texts = [(n, t) for n, t in documents.pdf_pages(raw)[0]] if ext == "pdf" else [(1, generic.docx_text(raw))]
+        else:  # Word: the website reader on the document's text, as the company's own page
+            texts = [(1, generic.docx_text(raw))]
             kind = "team" if re.search(r"team|staff|management|leadership|board|directors|people", url, re.I) \
                 else "about"
             for number, text in texts:

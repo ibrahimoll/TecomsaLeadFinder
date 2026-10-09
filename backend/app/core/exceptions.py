@@ -13,9 +13,6 @@ class NotFoundError(AppError):
     status_code = 404
 
 
-class PermissionDeniedError(AppError):
-    status_code = 403
-
 
 class ConflictError(AppError):
     status_code = 409

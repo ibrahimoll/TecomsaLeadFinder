@@ -21,7 +21,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.models import Company, CompanyGapReason, CompanyPerson, CompanyWebPage, Evidence, Source, SourceLookup
+from app.models import Company, CompanyGapReason, CompanyPerson, CompanyWebPage, SourceLookup
 
 GAP_REASONS = (
     "NO_WEBSITE", "WEBSITE_UNREACHABLE", "WEBSITE_NO_PEOPLE", "NO_EXTERNAL_PERSON_SOURCE", "SOURCE_HAS_COMPANY_ONLY",
@@ -141,16 +141,3 @@ def classify(db: Session, company: Company, *, persist: bool = True) -> list[tup
     return reasons
 
 
-def distribution(db: Session, company_ids: list[int]) -> Counter:
-    counts: Counter = Counter()
-    for (reason,) in db.execute(select(CompanyGapReason.gap_reason).where(
-            CompanyGapReason.company_id.in_(company_ids))).all():
-        counts[reason] += 1
-    return counts
-
-
-def website_people(db: Session, company_id: int) -> int:
-    return db.scalar(select(func.count(func.distinct(CompanyPerson.person_id))).select_from(CompanyPerson)
-                     .join(Evidence, Evidence.company_person_id == CompanyPerson.id)
-                     .join(Source, Source.id == Evidence.source_id)
-                     .where(CompanyPerson.company_id == company_id, Source.source_type == "company_website")) or 0

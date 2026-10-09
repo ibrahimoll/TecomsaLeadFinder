@@ -16,7 +16,7 @@ A group / holding is another entity: 'X Group' never matches 'X' (and the revers
 
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -228,6 +228,3 @@ def _phone(raw: str | None) -> str | None:
 
     return normalize_phone(raw, "Lebanon") if raw else None
 
-
-def year_date(year: int | None) -> datetime | None:
-    return datetime(year, 12, 31, tzinfo=timezone.utc) if year and 1990 < year <= date.today().year else None

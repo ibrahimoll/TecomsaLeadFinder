@@ -115,28 +115,30 @@ def test_common_crawl_outage_is_bounded_and_skipped_for_the_next_company(client_
     second = new_company(agent, "Delta Tech", industry="Technology", website="https://deltatech.example")
 
     def hang(request):
-        raise httpx.ReadTimeout("index too slow")  # a read timeout is retried; a refused connection is not
+        raise httpx.ReadTimeout("index too slow")
 
+    base = "/cc-index/collections"
     public_apis.routes.update({
-        ("index.commoncrawl.org", "/collinfo.json"): lambda r: httpx.Response(200, json=[{"id": "CC-MAIN-2026-39"}]),
-        ("index.commoncrawl.org", "/CC-MAIN-2026-39-index"): hang})
+        ("data.commoncrawl.org", f"{base}/index.html"): lambda r: httpx.Response(200, text="CC-MAIN-2026-39"),
+        ("data.commoncrawl.org", f"{base}/CC-MAIN-2026-39/indexes/cluster.idx"): hang})
+    index = lambda: [r for r in public_apis.requests if r.endswith("cluster.idx")]  # noqa: E731
     result = external.run(db, first, force=True)
     assert result["status"] in ("completed", "partial")  # finished: the archive's failure never hangs the company
-    index_calls = [r for r in public_apis.requests if r.endswith("-index")]
-    assert len(index_calls) == commoncrawl.RETRIES  # one host retried, then the archive is marked down
+    index_calls = index()
+    assert len(index_calls) == commoncrawl.RETRIES  # retried, then the archive is marked down
     assert not commoncrawl.available()
     assert {(l.status, l.failure_reason) for l in db.scalars(select(SourceLookup))} == {("failed", "NETWORK_ERROR")}
     assert "COMMON_CRAWL_ERROR" in state_of(db, first)["gap_reasons"]
     result = external.run(db, second, force=True)
     assert result["commoncrawl_unavailable"] == 1
-    assert len([r for r in public_apis.requests if r.endswith("-index")]) == len(index_calls)  # not waited on again
+    assert len(index()) == len(index_calls)  # not waited on again
     assert "SOURCE_FETCH_ERROR" in state_of(db, second)["gap_reasons"]
     monkeypatch.setattr(commoncrawl, "_down_until", [0.0])
-    public_apis.routes[("index.commoncrawl.org", "/CC-MAIN-2026-39-index")] = lambda r: (_ for _ in ()).throw(
-        httpx.ConnectError("refused"))
+    public_apis.routes[("data.commoncrawl.org", f"{base}/CC-MAIN-2026-39/indexes/cluster.idx")] = lambda r: (
+        _ for _ in ()).throw(httpx.ConnectError("refused"))
     external.run(db, new_company(agent, "Sigma Tech", industry="Technology", website="https://sigmatech.example"),
                  force=True)
-    assert len([r for r in public_apis.requests if r.endswith("-index")]) == len(index_calls) + 1  # no retry
+    assert len(index()) == 2 * commoncrawl.RETRIES  # the CDN refuses now and then: retried too, then down
     assert not commoncrawl.available()
 
 

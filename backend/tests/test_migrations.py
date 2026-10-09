@@ -11,7 +11,7 @@ from app.db.session import engine
 from app.models import Base
 from tests.conftest import alembic_config, reset_schema
 
-V2_TABLES = {"companies", "company_locations", "company_relationships", "company_aliases", "company_lookups", "company_domains", "company_email_patterns", "company_gap_reasons",
+V2_TABLES = {"companies", "company_locations", "company_relationships", "company_aliases", "company_lookups", "company_domains", "company_email_patterns", "contact_evidence", "person_suppressions", "contact_feedback", "company_gap_reasons",
              "source_lookups", "people", "company_people", "emails",
              "phones", "sources", "evidence",
              "lead_searches", "lead_search_results", "research_runs", "opportunity_analysis",

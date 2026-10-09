@@ -43,8 +43,7 @@ from app.services.enrichment.pages import parse
 from app.services.people import persistence
 from app.services.people.external import corpus, documents
 from app.services.people.external.lebanon import configured, identity, news, parsers
-from app.services.people.external.lebanon.records import (Record, candidate, company_names, keys_of, match,
-                                                           published_date)
+from app.services.people.external.lebanon.records import (Record, candidate, published_date)
 from app.services.people.external.sources import blocked
 from app.services.people.resolution import MIN_COMPANY_MATCH, resolve
 from app.services.people.titles import classify, fold

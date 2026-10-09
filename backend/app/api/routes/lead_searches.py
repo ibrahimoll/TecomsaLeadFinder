@@ -13,6 +13,7 @@ def _out(db, user, search) -> LeadSearchOut:
     out = LeadSearchOut.model_validate(search)
     out.diagnostics = search.progress if permissions.is_privileged(user) else None
     out.enrichment_status = search_service.research_status(db, search.id)
+    out.already_known = (search.progress or {}).get("already_known")
     return out
 
 

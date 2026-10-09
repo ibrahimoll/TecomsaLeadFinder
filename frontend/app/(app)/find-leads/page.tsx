@@ -39,7 +39,7 @@ const COUNT_PRESETS = ["25", "50", "100", "200"];
 function SearchProgress({ s, newCount }: { s: LeadSearch; newCount: number }) {
   const pct = s.requested_count > 0 ? Math.min(100, (s.companies_found / s.requested_count) * 100) : 0;
   const running = s.status === "researching" || s.status === "pending";
-  const known = s.companies_found - newCount;
+  const known = s.already_known ?? 0; // already in LeadFinder: in Companies, never returned again here
   return (
     <div className="border-b border-border px-4 py-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -55,7 +55,7 @@ function SearchProgress({ s, newCount }: { s: LeadSearch; newCount: number }) {
           )}
           {known > 0 && (
             <span className="animate-pop-in rounded-full bg-surface-muted px-2.5 py-1 font-medium text-fg-muted">
-              <CountUp value={known} /> already known
+              <CountUp value={known} /> already in LeadFinder
             </span>
           )}
         </div>

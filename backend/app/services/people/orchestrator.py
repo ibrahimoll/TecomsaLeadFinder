@@ -303,7 +303,8 @@ def run(db: Session, company_id: int, *, force: bool = False, queue_wait: float 
             stats["resolution_seconds"] += t3 - t2
             stats["merged" if match.person else "new_people"] += 1
             stats["possible_duplicates"] += len(match.possible)
-            seen.add(persistence.save(db, company, c, match, now).id)
+            if role := persistence.save(db, company, c, match, now):
+                seen.add(role.id)
             stats["persistence_seconds"] += time.perf_counter() - t3
         if page.page_type == "team" and seen:
             stats["no_longer_listed"] += persistence.mark_absent(db, company, source.url, seen)

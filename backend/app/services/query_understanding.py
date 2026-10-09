@@ -99,10 +99,6 @@ class Intent:
     def to_json(self) -> dict:
         return {k: v for k, v in asdict(self).items() if v not in (None, [], "")}
 
-    @property
-    def has_context(self) -> bool:
-        return bool(self.country or self.city or self.industry)
-
 
 def _place(words: list[str]) -> tuple[str | None, str | None, str | None]:
     """(city, region, country) named by these words (one or two words: 'abu dhabi')."""

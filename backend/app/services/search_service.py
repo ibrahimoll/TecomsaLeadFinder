@@ -4,10 +4,9 @@ companies are discovered (asynchronously, by the job worker).
     POST /lead-searches
       1. persist the search (country / region / city normalized: 'Liban' -> Lebanon, 'Mount Lebanon' is a
          region, 'Jounieh' a city in Mount Lebanon)
-      2. rank the matching companies already in the database -> lead_search_results (is_new = false)
-      3. deficit = requested - found
-         0          -> completed now, no external lookup at all
-         > 0        -> researching: a discovery job is queued; the response returns immediately
+      2. count the matching companies already in LeadFinder (shown as a count, never returned: Find Leads is for
+         finding companies LeadFinder does not have yet; known ones are in Companies)
+      3. a discovery job is queued for `requested` NEW companies; the response returns immediately
          no source  -> partial: discovery is not available for that country yet
 """
 
@@ -24,7 +23,7 @@ from app.schemas.lead_search import LeadSearchCreate
 from app.services import audit_service, jobs, permissions
 from app.services.audit_service import AuditAction
 from app.services.discovery.orchestrator import connector_configs, plan_for
-from app.services.discovery.ranking import in_country, in_requested_area, industry_fit, load_facts, ordered
+from app.services.discovery.ranking import in_country, in_requested_area, industry_fit, load_facts
 from app.services.pagination import PageParams
 
 logger = logging.getLogger("leadfinder.discovery")
@@ -35,7 +34,8 @@ EXCLUDED = (CompanyStatus.DO_NOT_CONTACT.value, CompanyStatus.ARCHIVED.value)
 LOCAL_SCAN_LIMIT = 20_000
 
 
-def _local_results(db: Session, search: LeadSearch) -> int:
+def _known_matches(db: Session, search: LeadSearch) -> int:
+    """How many companies LeadFinder already has for this search (country / area / industry)."""
     plan = plan_for(search)
     if plan.country is None:
         return 0
@@ -48,11 +48,7 @@ def _local_results(db: Session, search: LeadSearch) -> int:
     facts = {cid: f for cid, f in load_facts(db, companies).items()
              if in_country(f, plan.country) and in_requested_area(f, plan.area, plan.country)
              and industry_fit(f.company, plan.profile) > 0}
-    for rank, (f, score) in enumerate(ordered(facts, plan.profile, plan.area, plan.country)[:search.requested_count], 1):
-        db.add(LeadSearchResult(search_id=search.id, company_id=f.company.id, rank=rank, relevance_score=score,
-                                is_new=False))
-        search.companies_found = rank
-    return search.companies_found
+    return len(facts)
 
 
 def create_search(db: Session, user: User, data: LeadSearchCreate) -> LeadSearch:
@@ -69,17 +65,14 @@ def create_search(db: Session, user: User, data: LeadSearchCreate) -> LeadSearch
     audit_service.record(db, action=AuditAction.LEAD_SEARCH_CREATED, user_id=user.id, entity_type="lead_search",
                          entity_id=search.id)
     started = time.perf_counter()
-    found = _local_results(db, search)
+    known = _known_matches(db, search)
     db_lookup = round(time.perf_counter() - started, 3)
-    search.progress = {"timings": {"db_lookup": db_lookup}}
-    logger.info("search=%s db_lookup=%ss found=%s/%s", search.id, db_lookup, found, search.requested_count)
-    if found >= search.requested_count:
-        search.status, search.started_at = LeadSearchStatus.COMPLETED.value, func.now()
-        search.completed_at = func.now()
-    elif not connector_configs(plan.country):
+    search.progress = {"timings": {"db_lookup": db_lookup}, "already_known": known}
+    logger.info("search=%s db_lookup=%ss already_known=%s", search.id, db_lookup, known)
+    if not connector_configs(plan.country):
         search.status, search.completed_at = LeadSearchStatus.PARTIAL.value, func.now()
-        search.message = (f"Automatic discovery is not available for {search.country} yet; "
-                          "showing the companies already in LeadFinder.")
+        search.message = (f"Automatic discovery is not available for {search.country} yet; {known} matching "
+                          "companies are already in LeadFinder (Companies).")
     else:
         search.status, search.started_at = LeadSearchStatus.RESEARCHING.value, func.now()
         search.connectors_total = len(connector_configs(plan.country))

@@ -11,10 +11,11 @@
 from datetime import datetime
 from urllib.parse import urlsplit
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Company, CompanyPerson, Email, Evidence, Person, Phone, PossibleDuplicatePerson, Source
+from app.models import (Company, CompanyPerson, ContactEvidence, Email, Evidence, Person, Phone, PossibleDuplicatePerson,
+                        Source)
 from app.models.enums import EmailStatus, EmploymentStatus, PhoneStatus
 from app.services.people.candidate import PersonCandidate
 from app.services.people.names import name_key
@@ -41,9 +42,14 @@ def _status(role: CompanyPerson, status: str) -> None:
         role.is_current = status == EmploymentStatus.CURRENT
 
 
-def save(db: Session, company: Company, c: PersonCandidate, match: Match, now: datetime) -> CompanyPerson:
+def save(db: Session, company: Company, c: PersonCandidate, match: Match, now: datetime) -> CompanyPerson | None:
+    """None: the person was removed from this company on request and is never added again."""
     person = match.person
     if person is None:
+        from app.services.privacy import is_suppressed
+
+        if is_suppressed(db, company.id, c.full_name):
+            return None
         person = Person(full_name=c.full_name[:300], first_name=(c.first_name or "")[:150] or None,
                         last_name=(c.last_name or "")[:150] or None,
                         normalized_name=" ".join(name_key(c.full_name))[:300], profile_url=c.profile_url)
@@ -117,19 +123,27 @@ def _contacts(db: Session, company: Company, person: Person, c: PersonCandidate,
     the phone later: mobile / direct / extension / the company's switchboard)."""
     evidence = f"published with the person's entry: {(c.source_url or '')[:200]}"
     if c.email and not db.scalar(select(Email.id).where(Email.person_id == person.id, Email.email == c.email)):
-        db.add(Email(person_id=person.id, company_id=company.id, email=c.email, email_type="work",
-                     status=EmailStatus.PUBLISHED.value, is_public=True, confidence=score, source_id=c.source_id,
-                     first_seen_at=now, last_seen_at=now, provenance="public", evidence=evidence))
+        email = Email(person_id=person.id, company_id=company.id, email=c.email, email_type="work",
+                      status=EmailStatus.PUBLISHED.value, is_public=True, confidence=score, source_id=c.source_id,
+                      first_seen_at=now, last_seen_at=now, provenance="public", evidence=evidence)
+        db.add(email)
+        db.flush()
+        db.add(ContactEvidence(email_id=email.id, kind="published", source_id=c.source_id, detail=evidence[:300],
+                               observed_at=c.observed_at))
     if c.phone and not db.scalar(select(Phone.id).where(Phone.person_id == person.id,
                                                         Phone.normalized_phone == c.phone)):
         from app.services.contact_intelligence import classify_phone
 
         context = (c.raw_metadata or {}).get("context") or ""
-        db.add(Phone(person_id=person.id, company_id=company.id, phone=c.phone, normalized_phone=c.phone,
-                     phone_type=classify_phone(c.phone, company_numbers=set(), context=context[:300]),
-                     status=PhoneStatus.DISCOVERED.value, is_public=True, confidence=score,
-                     source_id=c.source_id, first_seen_at=now, last_seen_at=now, provenance="public",
-                     evidence=f"{evidence} {context[:200]}"[:500]))
+        phone = Phone(person_id=person.id, company_id=company.id, phone=c.phone, normalized_phone=c.phone,
+                      phone_type=classify_phone(c.phone, company_numbers=set(), context=context[:300]),
+                      status=PhoneStatus.DISCOVERED.value, is_public=True, confidence=score,
+                      source_id=c.source_id, first_seen_at=now, last_seen_at=now, provenance="public",
+                      evidence=f"{evidence} {context[:200]}"[:500])
+        db.add(phone)
+        db.flush()
+        db.add(ContactEvidence(phone_id=phone.id, kind="published", source_id=c.source_id, detail=evidence[:300],
+                               observed_at=c.observed_at))
     db.flush()
 
 

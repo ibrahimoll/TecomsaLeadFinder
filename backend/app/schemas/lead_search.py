@@ -39,6 +39,7 @@ class LeadSearchOut(OutModel):
     message: str | None
     # Per-source counts and errors: managers and admins only.
     diagnostics: dict[str, Any] | None = None
+    already_known: int | None = None  # matching companies LeadFinder already has (Find Leads returns new ones)
 
 
 class LeadSearchResultOut(OutModel):

@@ -16,7 +16,10 @@ import {
   ErrorState,
   PageHeader,
   Section,
+  Field,
+  Input,
   Select,
+  Textarea,
   Skeleton,
   Tabs,
   toast,
@@ -277,6 +280,11 @@ const SOURCE_LABEL: Record<string, string> = {
   public_directory: "Directory",
   public_web: "Public web",
   web_archive: "Archived website",
+  internal_seed: "TECOMSA internal",
+  business_card: "Business card",
+  email_signature: "Email signature",
+  meeting_contact: "Meeting contact",
+  contributed_contact: "Contributed by a colleague",
   open_dataset: "Wikidata",
 };
 
@@ -325,6 +333,7 @@ function GroupContacts({ detail }: { detail: CompanyDetail }) {
 
 const CONTACT_TONE: Record<string, Tone> = {
   confirmed_email: "success",
+  corroborated_email: "success",
   verified_email: "success",
   published_email: "info",
   business_mobile: "info",
@@ -333,6 +342,8 @@ const CONTACT_TONE: Record<string, Tone> = {
   office_extension: "info",
   business_phone: "warning",
   high_confidence_email: "warning",
+  internal_email: "info",
+  delivered_email: "info",
   catch_all_email: "warning",
   predicted_email: "warning",
 };
@@ -347,6 +358,7 @@ function BestContact({ person, switchboard, generalEmail }: { person: CompanyPer
           {best.kind.endsWith("email") ? <Mail className="h-3.5 w-3.5 text-fg-subtle" aria-hidden /> : <Phone className="h-3.5 w-3.5 text-fg-subtle" aria-hidden />}
           <span className="tabular text-fg">{best.value}</span>
           <Badge tone={CONTACT_TONE[best.kind] ?? "neutral"}>{best.label}</Badge>
+          {best.since && <span className="text-fg-subtle">{best.stale ? `${formatDate(best.since)} · may be outdated` : formatDate(best.since)}</span>}
           {others.length > 0 && <span className="text-fg-subtle">+{others.length}</span>}
         </span>
       ) : null}
@@ -404,6 +416,167 @@ function Feedback({ companyId, person, onChanged }: { companyId: number; person:
   );
 }
 
+// "Who do you need?": the departments a lead generator targets, each the LeadFinder departments it covers.
+const TARGETS: { key: string; label: string; departments: string[] }[] = [
+  { key: "it", label: "IT", departments: ["it", "e_commerce"] },
+  { key: "finance", label: "Finance", departments: ["finance"] },
+  { key: "hr", label: "HR", departments: ["hr"] },
+  { key: "sales", label: "Sales", departments: ["sales"] },
+  { key: "marketing", label: "Marketing", departments: ["marketing"] },
+  { key: "operations", label: "Operations", departments: ["operations", "manufacturing"] },
+  { key: "procurement", label: "Procurement", departments: ["procurement", "supply_chain"] },
+  { key: "management", label: "Management", departments: ["executive"] },
+];
+const SENIORITY_ORDER = ["owner", "c_level", "vp", "director", "head", "manager"];
+// Result priority: confirmed > published (email or the person's own number) > TECOMSA CRM > delivered >
+// high-confidence predicted > predicted > nothing of the person's own (the company line fallback).
+const CONTACT_TIER: Record<string, number> = {
+  confirmed_email: 0, verified_email: 0, corroborated_email: 1, published_email: 2, business_mobile: 2,
+  direct_business_phone: 2, whatsapp: 2, office_extension: 2, internal_email: 3, business_phone: 4, delivered_email: 4,
+  high_confidence_email: 5, catch_all_email: 6, predicted_email: 6,
+};
+const contactTier = (p: CompanyPerson) => Math.min(7, ...(p.contacts ?? []).map((c) => CONTACT_TIER[c.kind] ?? 7));
+const STATUS_ORDER = { current: 0, unknown: 1, former: 2 } as const;
+
+/** The right people for a department, most senior current first; the best-reachable one is pointed out. */
+function TargetPerson({ people, switchboard, generalEmail }: { people: CompanyPerson[]; switchboard: string | null; generalEmail: string | null }) {
+  const [target, setTarget] = useState("it");
+  const group = TARGETS.find((t) => t.key === target) ?? TARGETS[0];
+  const rank = (p: CompanyPerson) => {
+    const s = SENIORITY_ORDER.indexOf(p.seniority ?? "");
+    return [STATUS_ORDER[p.employment_status], contactTier(p), s < 0 ? 9 : s, p.title_rank ?? 99];
+  };
+  const candidates = people
+    .filter((p) => group.departments.includes(p.department ?? "") && p.employment_status !== "former" && (p.confidence ?? 0) >= 50)
+    .sort((a, b) => {
+      const [x, y] = [rank(a), rank(b)];
+      return x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || x[3] - y[3];
+    })
+    .slice(0, 3);
+  const reachable = candidates.find((p) => p.contactable && p.employment_status === "current");
+  return (
+    <Section title="Who do you need?">
+      <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Target department">
+        {TARGETS.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={t.key === target}
+            onClick={() => setTarget(t.key)}
+            className={`rounded-full border px-3 py-1 text-xs ${t.key === target ? "border-accent bg-accent text-white" : "border-border text-fg-muted hover:bg-surface-hover"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {candidates.length === 0 ? (
+        <p className="text-sm text-fg-subtle">Not found: no {group.label} decision-maker in LeadFinder's sources yet.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {candidates.map((p) => (
+            <li key={p.id} className="flex flex-wrap items-start justify-between gap-3 py-2.5">
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[13px] font-medium text-fg">
+                  {p.person.full_name}
+                  {p === reachable && candidates[0] !== p && <span className="ml-2 text-[11px] font-normal text-fg-subtle">best reachable</span>}
+                </p>
+                <p className="text-xs text-fg-muted">{p.job_title}</p>
+                <p className="flex flex-wrap items-center gap-2 text-[11px] text-fg-subtle">
+                  <Badge tone={EMPLOYMENT[p.employment_status].tone}>{EMPLOYMENT[p.employment_status].label}</Badge>
+                  {p.last_verified_at && <span>Last verified {formatDate(p.last_verified_at)}</span>}
+                  <span>{sourceLabels(p).join(" · ")}</span>
+                </p>
+              </div>
+              <div className="min-w-0">
+                <BestContact person={p} switchboard={switchboard} generalEmail={generalEmail} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+const CONTRIBUTION_CHANNELS = [
+  { value: "CONTRIBUTED_BUSINESS_CONTACT", label: "Business contact I know" },
+  { value: "BUSINESS_CARD", label: "Business card" },
+  { value: "EMAIL_SIGNATURE", label: "Email signature" },
+  { value: "MEETING_CONTACT", label: "Meeting contact" },
+];
+
+/** A business contact the user explicitly contributes: attributed to them, with who may see it. */
+function AddContact({ companyId, onChanged }: { companyId: number; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({ channel: "CONTRIBUTED_BUSINESS_CONTACT", visibility: "organization" });
+  const set = (key: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const body = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim() !== ""));
+      await api(`/companies/${companyId}/contributions`, { method: "POST", body });
+      toast.success("Contact added");
+      setOpen(false);
+      setForm({ channel: "CONTRIBUTED_BUSINESS_CONTACT", visibility: "organization" });
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not add the contact");
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (!open) {
+    return (
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        Add business contact
+      </Button>
+    );
+  }
+  const fields: [string, string][] = [["person", "Name"], ["title", "Job title"], ["email", "Work email"], ["mobile", "Business mobile"], ["phone", "Office phone"], ["whatsapp", "WhatsApp"]];
+  return (
+    <div className="space-y-3 rounded border border-border p-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Source" htmlFor="contribution-channel">
+          <Select id="contribution-channel" value={form.channel} onChange={set("channel")}>
+            {CONTRIBUTION_CHANNELS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Who can see it" htmlFor="contribution-visibility">
+          <Select id="contribution-visibility" value={form.visibility} onChange={set("visibility")}>
+            <option value="organization">Everyone at TECOMSA</option>
+            <option value="managers">Me and managers</option>
+            <option value="private">Only me</option>
+          </Select>
+        </Field>
+        {fields.map(([key, label]) => (
+          <Field key={key} label={label} htmlFor={`contribution-${key}`}>
+            <Input id={`contribution-${key}`} value={form[key] ?? ""} onChange={set(key)} />
+          </Field>
+        ))}
+      </div>
+      {form.channel === "EMAIL_SIGNATURE" && (
+        <Field label="Paste the signature (only the signature block)" htmlFor="contribution-signature">
+          <Textarea id="contribution-signature" rows={5} value={form.signature ?? ""} onChange={set("signature")} />
+        </Field>
+      )}
+      <p className="text-xs text-fg-subtle">Business contacts only. It is recorded as contributed by you and can be removed later.</p>
+      <div className="flex gap-2">
+        <Button size="sm" loading={saving} onClick={() => void submit()}>
+          Add
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue: boolean; onChanged: () => void }) {
   const c = detail.company;
   const people = detail.people;
@@ -429,6 +602,9 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
           description={view.active ? "People appear here as they are found." : (view.note ?? research?.message ?? c.people_message ?? undefined)}
         />
         <GroupContacts detail={detail} />
+        <div className="mt-4">
+          <AddContact companyId={c.id} onChanged={onChanged} />
+        </div>
       </Section>
     );
   }
@@ -440,6 +616,8 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
   const contact = (p: CompanyPerson) => <BestContact person={p} switchboard={switchboard} generalEmail={generalEmail} />;
   return (
     <div className="space-y-5">
+      <TargetPerson people={people} switchboard={switchboard} generalEmail={generalEmail} />
+      <AddContact companyId={c.id} onChanged={onChanged} />
       <Section title="Key people" actions={state}>
         <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
           {departments.map((d) => {

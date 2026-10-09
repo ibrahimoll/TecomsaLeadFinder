@@ -129,7 +129,7 @@ export interface CompanyPerson {
   emails: ContactEmail[];
   phones: ContactPhone[];
   /** How to reach the person, strongest first; the label says how sure (Verified / Published / Predicted...). */
-  contacts: { kind: string; value: string; label: string }[];
+  contacts: { kind: string; value: string; label: string; since?: string | null; stale?: boolean }[];
   /** A usable business channel (a predicted address alone is not one). */
   contactable: boolean;
   employment_status: "current" | "former" | "unknown";
@@ -288,6 +288,8 @@ export interface LeadSearch {
   status: LeadSearchStatus;
   /** Research of the companies found, which continues after discovery. */
   enrichment_status: "running" | "completed" | null;
+  /** Matching companies already in LeadFinder (not returned: Find Leads finds new ones). */
+  already_known?: number | null;
   companies_found: number;
   started_at: string | null;
   completed_at: string | null;

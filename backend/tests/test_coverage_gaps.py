@@ -211,41 +211,33 @@ def test_common_crawl_hosts_fallback_retry_cache_and_diagnostics(client_for, db,
     company_id = new_company(agent, "Omega Tech", industry="Technology", website="https://omegatech.example")
     team = warc("https://www.omegatech.example/team",
                 "<html><body><h3>Rana Saad</h3><p>Procurement Manager</p></body></html>")
-    calls: dict[str, int] = {}
+    from tests.test_lebanon_sources import zipnum
 
-    def index(crawl):
-        def handler(request: httpx.Request) -> httpx.Response:
-            host = request.url.params["url"].split("/")[0]
-            calls[f"{crawl}:{host}"] = calls.get(f"{crawl}:{host}", 0) + 1
-            if crawl == "CC-MAIN-2026-39":
-                return httpx.Response(200, text="")  # the newest crawl: nothing for this company
-            if crawl == "CC-MAIN-2026-30" and calls[f"{crawl}:{host}"] == 1:
-                return httpx.Response(503)  # busy once: retried
-            if host != "www.omegatech.example":
-                return httpx.Response(404)
-            line = {"url": "https://www.omegatech.example/team", "timestamp": "20260801000000", "digest": "D1",
-                    "filename": "crawl-data/t.warc.gz", "offset": "0", "length": str(len(team))}
-            return httpx.Response(200, text=json.dumps(line))
-        return handler
+    row = {"url": "https://www.omegatech.example/team", "timestamp": "20260801000000", "digest": "D1",
+           "filename": "crawl-data/t.warc.gz", "offset": "0", "length": str(len(team)), "status": "200",
+           "mime": "text/html"}
+    zipnum(public_apis, {"CC-MAIN-2026-39": [], "CC-MAIN-2026-30": [row], "CC-MAIN-2026-17": []}, padding=50)
+    cluster = ("data.commoncrawl.org", "/cc-index/collections/CC-MAIN-2026-30/indexes/cluster.idx")
+    serve, busy = public_apis.routes[cluster], []
 
-    public_apis.routes.update({
-        ("index.commoncrawl.org", "/collinfo.json"): lambda r: httpx.Response(200, json=[
-            {"id": "CC-MAIN-2026-39"}, {"id": "CC-MAIN-2026-30"}, {"id": "CC-MAIN-2026-17"}]),
-        ("index.commoncrawl.org", "/CC-MAIN-2026-39-index"): index("CC-MAIN-2026-39"),
-        ("index.commoncrawl.org", "/CC-MAIN-2026-30-index"): index("CC-MAIN-2026-30"),
-        ("index.commoncrawl.org", "/CC-MAIN-2026-17-index"): index("CC-MAIN-2026-17"),
-        ("data.commoncrawl.org", "/crawl-data/t.warc.gz"): lambda r: httpx.Response(206, content=team)})
+    def once_busy(request):  # the newest-but-one crawl's index answers busy once: retried
+        if not busy:
+            busy.append(1)
+            return httpx.Response(503)
+        return serve(request)
+    public_apis.routes[cluster] = once_busy
+    public_apis.routes[("data.commoncrawl.org", "/crawl-data/t.warc.gz")] = lambda r: httpx.Response(206, content=team)
     external.run(db, company_id, force=True)
     people = roles(db, company_id)
-    assert "Rana Saad | Procurement Manager" in people  # found in an earlier crawl, on the www host
+    assert "Rana Saad | Procurement Manager" in people  # found in an earlier crawl (www host, same index key)
     assert people["Rana Saad | Procurement Manager"].department == "procurement"
-    assert calls["CC-MAIN-2026-30:omegatech.example"] == 2  # retried after the 503
+    assert busy == [1]
     lookups = {(l.target, l.status, l.failure_reason) for l in db.scalars(select(SourceLookup))}
     assert ("CC-MAIN-2026-39:omegatech.example", "ok", "NO_CAPTURE") in lookups
-    assert ("CC-MAIN-2026-30:www.omegatech.example", "ok", None) in lookups
-    before = dict(calls)
+    assert ("CC-MAIN-2026-30:omegatech.example", "ok", None) in lookups
+    before = len([r for r in public_apis.requests if "commoncrawl" in r])
     external.run(db, company_id, force=True)
-    assert calls == before  # index answers cached: nothing asked again
+    assert len([r for r in public_apis.requests if "commoncrawl" in r]) == before  # cached: nothing asked again
     assert any(l.cached for l in db.scalars(select(SourceLookup)))
 
 

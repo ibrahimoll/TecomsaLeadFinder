@@ -228,6 +228,59 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
 - The API builds an in-memory index of the cached extracts in the background at start. It takes about 15 seconds and roughly 250 MB for Lebanon.
 - Benchmark: `python -m scripts.search_benchmark run LABEL [--unknown]`. Run it on a disposable copy of the benchmark database, because a lookup creates companies.
 
+## 5d. People + contact acquisition (Step 6.1)
+
+- **TECOMSA internal contacts** (Odoo contacts / customers / leads, business cards, meeting contacts: CSV or XLSX).
+  Template: `docs/contact_import_template.csv` (any subset of its columns; Odoo's own export headers — *Name / Display
+  Name, Related Company / Company Name, Job Position, Email, Phone, Mobile, Website, Country, Salesperson, Last Updated
+  on* — are recognised). Required: a company column, a contact name and a job position.
+  1. Dry run (writes nothing; the report is exactly what an apply does):
+     `docker compose exec backend python -m app.services.contributions /tmp/contacts.csv ODOO_CRM [--owner EMAIL] [--visibility organization|managers|private]`
+  2. Review the report: companies exact / strong / possible / unmatched, people exact / strong / possible / new,
+     conflicts with colleague-confirmed titles, rejected rows, phones without a country code (`review` lists each).
+  3. Back up the database (section 4), then the same command with `--apply`. Re-running the same file changes nothing.
+  Systems: ODOO_CRM, CSV_IMPORT, BUSINESS_CARD, SALES_CONFIRMED (every e-mail confirmed), MEETING_CONTACT.
+  Rows attach to existing companies only. Visibility: `organization` (everyone), `managers` (the owner + managers /
+  admins), `private` (the owner only).
+  The same command takes business cards (`.vcf`, channel BUSINESS_CARD), professional e-mail signatures (`.txt`, one
+  signature per blank-line block, EMAIL_SIGNATURE) and meeting contacts (rows, MEETING_CONTACT: attendance links a
+  person to an e-mail, never a title; unknown people are not created). One contact can also be added on a company's
+  People tab (*Add business contact*). A contributed source is removed with `contributions.suppress(source_id)`:
+  only what it alone stated goes; public evidence stays; it is never imported again.
+- **Sales feedback**: People tab › *Feedback…* per person (or `POST /companies/{id}/contact-feedback`): email
+  delivered / replied / bounced, phone correct / wrong / company line, correct person / left / wrong person. Applied at
+  once; research never undoes it.
+  A mail system can report deliveries / bounces / replies by address: `POST /companies/contact-events`
+  `{"event": "delivered" | "hard_bounce" | "soft_bounce" | "replied", "email": ..., "event_key": <its message id>}` —
+  applied once per event_key. Nothing is ever sent to test an address.
+- **Public vs TECOMSA metrics**: `python -m scripts.contact_coverage measure LABEL [--sales] [--public]`: `--public` counts
+  what LeadFinder discovers on its own (no internal data, no colleague confirmations); without it, public + TECOMSA.
+  Both include department coverage and the feedback rates (predicted → delivered / replied / bounced).
+- **Source value**: `python -m scripts.source_inventory LABEL` (every source: people, contacts, contactable companies);
+  `python -m scripts.contact_coverage measure LABEL [--sales]` (benchmarks, with per-source contribution).
+- **Mailbox signatures** (Zoho, or any IMAP mailbox the owner connects on purpose): `app.services.mailbox`
+  connects read-only, keeps the sender's own signature block from business e-mails (not colleagues, newsletters,
+  no-reply senders or quoted replies), and sends it through the EMAIL_SIGNATURE pipeline. It runs as a dry run
+  unless you pass `--apply`. Enable IMAP in Zoho Mail and use an application-specific password (you can revoke it
+  afterwards):
+  `MAILBOX_PASSWORD=... docker compose exec -e MAILBOX_PASSWORD backend python -m app.services.mailbox LOGIN [--days 365] [--owner EMAIL] [--apply]`
+- **Mailbox verification** (`EMAIL_SMTP_VERIFICATION=true`). Run it only from a host with a static IP that is not
+  on a blocklist and whose reverse DNS matches `EMAIL_SMTP_HELO`. Set `EMAIL_SMTP_MAIL_FROM` to a real TECOMSA
+  mailbox (e.g. `verify@tecomsa.me`), because backscatter filters refuse the null sender. Measured on 2026-10-08
+  from the office line (82.146.184.242): the IP is on Spamhaus's dynamic-IP list, so Microsoft 365 and Zoho
+  refuse every check; Lebanese bank gateways (BLC, Credit Libanais) drop the connection; Bank of Beirut and Arope
+  are catch-all. Result: 0 verified.
+- **Removing a person on request** (privacy / right to erasure): managers and admins use
+  `POST /companies/{id}/people/{person_id}/remove {"reason": "..."}`. It deletes the person, their roles, emails,
+  phones and evidence. Research and imports never add them again at that company. Only a hash of the company and
+  the name key is kept, and the audit log stores the person id and reason, never the name. It cannot be undone.
+- **Retention**: the worker deletes, once a day, any publicly researched role that no source has seen for
+  `CONTACT_RETENTION_DAYS` (default 730; `0` = never), then every person left without a role. TECOMSA's own data
+  (Odoo, contributed), colleague corrections and confirmed contacts are kept.
+- **Common Crawl** is read from its static index files on data.commoncrawl.org (the index server is unreachable from
+  this network); lookups take 10–50 s each, so they run inside deep research only, bounded by
+  `COMMONCRAWL_BUDGET_SECONDS`.
+
 ## 6. Troubleshooting
 
 | Symptom | Check |
@@ -235,9 +288,7 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
 | A search fails with "Overture data could not be queried" | The backend needs outbound HTTPS to `stac.overturemaps.org`, `overturemaps-us-west-2.s3.us-west-2.amazonaws.com` and (first run only, for DuckDB's `httpfs`) `extensions.duckdb.org`. Once a release is cached, searches work offline from the cache. |
 | Searches are "Partially completed" with an OpenStreetMap error | The backend could not download the extract from `download.geofabrik.de`. Overture results are still saved; OSM is retried after 15 minutes. An older cached extract is used when there is one. |
 | The first search is slow | The first search of each Overture release downloads the country extract (about a minute). The cache lives in the `discovery` volume (`DISCOVERY_CACHE_DIR`). |
-| Research ends "Qualification failed" | The evidence is kept. With `AI_PROVIDER=claude`, set `AI_API_KEY` (or the SDK's `ANTHROPIC_API_KEY`), then use *Retry qualification*; the website is not crawled again. `AI_PROVIDER=rules` qualifies with the deterministic rubric only (no AI cost). |
 | Many websites show "Blocks visits" or "Empty page" | Some sites refuse automated visits (403 / bot challenges) or need JavaScript; LeadFinder does not bypass either. The backend needs outbound HTTP/HTTPS to company websites. |
-| Apollo shows "Not available … not included in your Free plan" | Verified live on 2026-10-02: Apollo's Free plan has no API access to People Search (`mixed_people/api_search`) or People Enrichment (`people/match`), "even with a master key"; all paid plans include them. LeadFinder stops calling a provider for `PROVIDER_PLAN_BLOCK_HOURS` (default 6) after such a refusal and keeps using the company website. Upgrade the Apollo plan, then restart the backend. |
 | The People tab keeps "Searching…" | `GET /companies/{id}` returns `people_research.state`; the UI polls only while it is `website_*` / `deep_*`. Every stage ends: deep research stops at `EXTERNAL_JOB_SECONDS` (120, `timed_out`); Common Crawl at `COMMONCRAWL_BUDGET_SECONDS` (45) and, once its index is unreachable, is skipped for every company for `COMMONCRAWL_DOWN_SECONDS` (600). The worker's watchdog (every minute) finishes a job past its limit + 60 s as `timed_out`, a dead worker's job as interrupted, and a company stage left queued / researching with no job. Worker logs: `company=… pipeline=… job=… stage=… status=a->b people=… execution=… queue_wait=…` (queue wait is not research time). |
 | A search stays "Searching" after a restart | Runs execute in the backend process; a restarted backend marks interrupted runs as failed / partially completed at startup. |
 | Backend exits with `JWT_SECRET must be set…` | In staging and production both secrets must be ≥32 random characters. |
@@ -249,7 +300,3 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
 | `leadfinder_test` does not exist | It is created only when the dev Postgres volume is first initialised. Run `docker compose exec db createdb -U leadfinder leadfinder_test`. |
 | Migration drift | `alembic check` from `backend/` reports model changes that have no migration. |
 | Upload says no Company Name or Contact Name column was detected | The export's headers are not recognised. The message lists the columns found; re-export from Odoo with the Name / Company columns, or rename the headers. |
-| A test import needs to be undone | In *Odoo imports*, use the delete icon and choose *Delete import and imported data*. |
-| Every company still shows *Not checked* | No Odoo import has completed yet. Check *Import history* for runs left in *Preview · not imported*. |
-| A company is protected unexpectedly | Its profile's *TECOMSA relationship* tab lists the exact Odoo records and the matching reason (same domain, phone or name). |
-| Upload fails for files over 10 MB | Rebuild the frontend image. `next.config.mjs` raises the proxy body limit to 25 MB; the backend limit is `IMPORT_MAX_BYTES`. |

@@ -21,6 +21,7 @@ class AuditAction:
     COMPANY_DELETED = "company.deleted"
     COMPANY_RESEARCH_REQUESTED = "company.research_requested"
     COMPANY_PERSON_CORRECTED = "company.person_corrected"
+    PERSON_REMOVED = "person.removed"
     LEAD_SEARCH_CREATED = "lead_search.created"
 
 

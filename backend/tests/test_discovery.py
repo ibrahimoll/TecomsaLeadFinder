@@ -101,10 +101,10 @@ def count(db, model) -> int:
     return db.scalar(select(func.count()).select_from(model))
 
 
-# ---- 1-3: search, database first, deficit only ---------------------------------------------------------------
+# ---- 1-3: search finds NEW companies; the ones LeadFinder has are counted, never returned ---------------------
 
 
-def test_database_first_satisfies_the_search_without_discovery(client_for, db, sources):
+def test_known_companies_are_counted_not_returned(client_for, db, sources):
     agent, _ = client_for(UserRole.SALES_AGENT)
     for name in ("Alpha Foods", "Beta Foods", "Gamma Foods"):
         agent.post("/companies", json={"name": name, "industry": "Food Manufacturing", "headquarters_country":
@@ -113,29 +113,29 @@ def test_database_first_satisfies_the_search_without_discovery(client_for, db, s
                                    "headquarters_country": "Lebanon", "headquarters_city": "Tripoli"})  # elsewhere
     agent.post("/companies", json={"name": "Beirut Bank", "industry": "Financial Services",
                                    "headquarters_country": "Lebanon", "headquarters_city": "Beirut"})  # other industry
-    (connector,) = sources(FakeConnector(config("gov"), lambda: [cand("Never Called")]))
+    (connector,) = sources(FakeConnector(config("gov"), lambda: [cand("Brand New Foods")]))
     done = search(agent, count=2)
-    assert (done["status"], done["companies_found"]) == ("completed", 2)
-    assert connector.calls == 0 and count(db, ResearchRun) == 0  # no external lookup at all
+    assert connector.calls == 1  # Find Leads always looks for companies LeadFinder does not have
     rows = results(agent, done["id"])
-    assert {r["company"]["name"] for r in rows} <= {"Alpha Foods", "Beta Foods", "Gamma Foods"}
-    assert all(not r["is_new"] for r in rows) and [r["rank"] for r in rows] == [1, 2]
+    assert [r["company"]["name"] for r in rows] == ["Brand New Foods"] and all(r["is_new"] for r in rows)
+    assert done["status"] == "partial" and "3 matching companies are already in LeadFinder" in done["message"]
 
 
-def test_discovery_only_fills_the_deficit(client_for, db, sources, web):
+def test_discovery_returns_only_new_companies(client_for, db, sources, web):
     agent, _ = client_for(UserRole.SALES_AGENT)
     agent.post("/companies", json={"name": "Known Foods", "industry": "Food Manufacturing",
                                    "headquarters_country": "Lebanon", "headquarters_city": "Beirut"})
-    sources(FakeConnector(config("gov"), lambda: [cand(f"New Foods {i}", n=i) for i in range(1, 6)]))
+    sources(FakeConnector(config("gov"), lambda: [cand("Known Foods", n=9)] +
+                          [cand(f"New Foods {i}", n=i) for i in range(1, 6)]))
     created = agent.post("/lead-searches", json={"country": "Lebanon", "city": "Beirut", "industry":
                                                  "Food Manufacturing", "requested_count": 3})
-    assert (created.json()["status"], created.json()["companies_found"]) == ("researching", 1)  # returned at once
+    assert (created.json()["status"], created.json()["companies_found"]) == ("researching", 0)  # returned at once
     jobs.run_next()
     done = agent.get(f"/lead-searches/{created.json()['id']}").json()
     assert (done["status"], done["companies_found"]) == ("completed", 3)
-    assert count(db, Company) == 3  # 1 known + exactly the 2 missing, not 5
+    assert count(db, Company) == 4  # the known one + exactly 3 new, not 5
     rows = results(agent, done["id"])
-    assert sorted(r["is_new"] for r in rows) == [False, True, True]
+    assert all(r["is_new"] for r in rows) and "Known Foods" not in {r["company"]["name"] for r in rows}
 
 
 # ---- 4-6: connectors, candidates, normalization -------------------------------------------------------------
@@ -215,9 +215,9 @@ def test_strong_domain_match_reuses_the_canonical_company(client_for, db, source
     sources(FakeConnector(config("gov"), lambda: [cand("ABC Food Industries", website="https://www.abcfoods.example/x",
                                                        phone=None)]))
     done = search(agent, count=1)
-    assert count(db, Company) == 1
-    assert [r["company"]["id"] for r in results(agent, done["id"])] == [cid]
-    assert db.scalar(select(CompanyIdentifier.company_id).where(CompanyIdentifier.scheme == "gov")) == cid
+    assert count(db, Company) == 1  # the same company (strong domain match): never a duplicate ...
+    assert results(agent, done["id"]) == []  # ... and not offered as a new lead
+    assert cid
 
 
 def test_strong_phone_match_reuses_the_canonical_company(client_for, db, sources, web):
@@ -227,7 +227,7 @@ def test_strong_phone_match_reuses_the_canonical_company(client_for, db, sources
     db.commit()
     sources(FakeConnector(config("gov"), lambda: [cand("Hadid Sweets Factory", phone="+961-1-456789")]))
     search(agent, count=1)
-    assert count(db, Company) == 1 and db.get(Company, cid).industry == "Food Manufacturing"  # completed blank
+    assert count(db, Company) == 1  # the same company (strong phone match): never a duplicate
     # A shared number under another name is not the same company: a possible duplicate, not a merge.
     sources(FakeConnector(config("osm"), lambda: [cand("Totally Different Mills", connector="osm",
                                                        phone="+961 1 456 789", n=3)]))
@@ -287,29 +287,27 @@ def test_branches_consolidate_into_one_company_with_locations(client_for, db, so
 # ---- 13-17: idempotency, growth, failures, statuses ------------------------------------------------------------
 
 
-def test_repeating_a_search_is_idempotent(client_for, db, sources, web):
+def test_repeating_a_search_finds_the_next_new_companies(client_for, db, sources, web):
     agent, _ = client_for(UserRole.SALES_AGENT)
     sources(FakeConnector(config("gov"), lambda: [cand(f"Food Co {i}", n=i) for i in range(1, 5)]))
     first = search(agent, count=4)
     before = {m: count(db, m) for m in (Company, Source, Evidence, CompanyLocation, Phone, CompanyIdentifier)}
-    second = search(agent, count=4)
-    assert (first["status"], second["status"]) == ("completed", "completed")
-    assert {m: count(db, m) for m in before} == before  # nothing duplicated
-    assert [r["company"]["id"] for r in results(agent, first["id"])] == \
-        [r["company"]["id"] for r in results(agent, second["id"])]
-    assert not any(r["is_new"] for r in results(agent, second["id"]))
+    second = search(agent, count=4)  # the source has nothing more: nothing duplicated, nothing re-offered
+    assert (first["status"], second["status"]) == ("completed", "partial")
+    assert {m: count(db, m) for m in before} == before
+    assert results(agent, second["id"]) == []
+    assert "4 matching companies are already in LeadFinder" in second["message"]
 
 
-def test_a_bigger_search_reuses_and_grows_the_database(client_for, db, sources, web):
+def test_each_search_grows_the_database_with_new_companies(client_for, db, sources, web):
     agent, _ = client_for(UserRole.SALES_AGENT)
     sources(FakeConnector(config("gov"), lambda: [cand(f"Food Co {i}", n=i) for i in range(1, 9)]))
     first = search(agent, count=3)
-    second = search(agent, count=6)
+    second = search(agent, count=3)  # Find Leads again: the next three, never the first three again
     assert count(db, Company) == 6
     old = {r["company"]["id"] for r in results(agent, first["id"])}
     rows = results(agent, second["id"])
-    assert old <= {r["company"]["id"] for r in rows}
-    assert sum(r["is_new"] for r in rows) == 3
+    assert len(rows) == 3 and not old & {r["company"]["id"] for r in rows} and all(r["is_new"] for r in rows)
 
 
 def test_a_failing_connector_does_not_stop_the_search(client_for, db, sources, web):
@@ -370,7 +368,7 @@ def test_partial_failed_and_completed_statuses(client_for, db, sources, web):
                           + [cand("Pin Only", phone=None, address=None, n=9, tier="name", categories=[])]))
     partial = search(agent, count=10)
     assert (partial["status"], partial["companies_found"]) == ("partial", 3)  # never padded with junk
-    assert "Only 3 trustworthy companies" in partial["message"]
+    assert "Only 3 new companies" in partial["message"]
     assert count(db, Company) == 3
     sources(FakeConnector(config("gov"), error=ConnectorError("down")))
     failed = search(agent, count=2, city="Tripoli")
@@ -392,9 +390,9 @@ def test_discovered_companies_appear_in_companies_and_stay_deleted(client_for, d
     junk = next(c["id"] for c in listed["items"] if c["name"] == "Junk Foods")
     assert manager.delete(f"/companies/{junk}").status_code == 204
     again = search(agent, count=2)
-    assert again["companies_found"] == 1 and count(db, Company) == 1  # deleted means deleted
+    assert again["companies_found"] == 0 and count(db, Company) == 1  # deleted means deleted (Listed: known)
     stats = manager.get(f"/lead-searches/{again['id']}").json()["diagnostics"]["connectors"]["gov"]
-    assert stats["suppressed"] == 1
+    assert (stats["suppressed"], stats["already_known"]) == (1, 1)
 
 
 def test_searches_are_private_to_their_owner(client_for, sources):

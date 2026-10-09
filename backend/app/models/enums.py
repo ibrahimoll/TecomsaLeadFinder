@@ -173,7 +173,9 @@ EMAIL_TYPES = ("work", "generic", "personal", "other")
 PHONE_TYPES = ("landline", "mobile", "whatsapp", "office", "extension", "unknown", "direct_business_phone",
                "business_mobile", "office_extension", "company_switchboard", "unknown_business")
 # where a contact point comes from: a public source, a prediction, a verification, a person, TECOMSA's own CRM
-PROVENANCES = ("public", "predicted", "verified", "human_confirmed", "internal_crm")
+PROVENANCES = ("public", "predicted", "verified", "human_confirmed", "internal_crm", "contributed")
+# who sees a TECOMSA / contributed contact or role: everyone, its owner + managers / admins, or its owner only
+VISIBILITIES = ("organization", "managers", "private")
 
 # What a company's own phone / email is published for (emails.purpose, phones.purpose).
 CONTACT_PURPOSES = ("general", "info", "sales", "support", "orders", "careers", "other")
@@ -208,6 +210,8 @@ SOURCE_TYPES = (
     "imported_file", "manual", "case_study", "web_archive", "other",
     # Step 6.1 acquisition
     "exhibition", "public_document", "vcard", "internal_seed",
+    # Step 6.3 contributions (what a user explicitly contributed, and how)
+    "business_card", "email_signature", "meeting_contact", "contributed_contact",
 )
 
 EVIDENCE_TYPES = ("company_fact", "person_fact", "employment", "contact_point", "location", "signal", "other")

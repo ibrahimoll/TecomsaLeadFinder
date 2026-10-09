@@ -7,7 +7,8 @@ from app.models.enums import CompanyStatus
 from app.schemas.common import Page
 from app.schemas.company import (CompanyCreate, CompanyDetail, CompanyLookupIn, CompanyLookupOut, CompanyLookupPick,
                                  CompanyOut, CompanyPersonCorrection, CompanyPersonOut, CompanySearchHit,
-                                 CompanyStatusUpdate, CompanyUpdate, ContactFeedbackIn)
+                                 CompanyStatusUpdate, CompanyUpdate, ContactEventIn, ContactFeedbackIn,
+                                 ContributionIn, PersonRemovalIn)
 from app.core.exceptions import BusinessRuleError, NotFoundError
 from app.services import audit_service, company_search, company_service
 from app.services.audit_service import AuditAction
@@ -117,8 +118,39 @@ def contact_feedback(company_id: int, payload: ContactFeedbackIn, user: CurrentU
     left...): applied to the contact graph at once and kept as an event."""
     from app.services import contact_feedback as feedback
 
-    row = feedback.apply(db, user, company_id, **payload.model_dump())
-    return {"id": row.id, "event": row.event, "effect": row.effect}
+    row, applied = feedback.record_feedback(db, user, company_id, **payload.model_dump())
+    return {"id": row.id, "event": row.event, "effect": row.effect, "applied": applied}
+
+
+@router.post("/{company_id}/contributions", status_code=status.HTTP_201_CREATED)
+def contribute(company_id: int, payload: ContributionIn, user: CurrentUser, db: DbSession) -> dict:
+    """A business contact the user explicitly contributes to this company (attributed to them, with its
+    visibility). Resolved like every contribution: the same e-mail is the same person, a person without a title is
+    only attached when already known, a colleague-confirmed title is never overwritten."""
+    from app.services import contributions
+
+    company_service.get_company(db, company_id)
+    entry = {k: v for k, v in payload.model_dump(exclude={"channel", "signature", "visibility"}).items() if v}
+    if payload.signature:
+        entry = {**(contributions.parse_signature(payload.signature) or {}), **entry}
+    try:
+        report = contributions.contribute(db, [entry], channel=payload.channel, contributor_id=user.id,
+                                          visibility=payload.visibility, apply=True, company_id=company_id,
+                                          label="added on the company page")
+    except ValueError as exc:
+        raise BusinessRuleError(str(exc)) from exc
+    if not report.get("unique_people"):
+        raise BusinessRuleError((report.get("review") or [{}])[0].get("reason") or "Nothing could be added")
+    return {k: v for k, v in report.items() if k != "review"}
+
+
+@router.post("/contact-events", status_code=status.HTTP_201_CREATED)
+def contact_event(payload: ContactEventIn, user: CurrentUser, db: DbSession) -> dict:
+    """A delivery / bounce / reply notification for an e-mail address (e.g. from the mail system): applied once per
+    event_key to every LeadFinder record of that address."""
+    from app.services import contact_feedback as feedback
+
+    return {"applied": feedback.record_email_event(db, user, payload.email, payload.event, event_key=payload.event_key)}
 
 
 @router.patch("/{company_id}/people/{role_id}", response_model=CompanyPersonOut)
@@ -127,3 +159,12 @@ def correct_person(company_id: int, role_id: int, payload: CompanyPersonCorrecti
     """Correct a researched role (title, department, seniority, current / former). Research never changes a
     corrected field again; the change is audited."""
     return company_service.correct_person(db, user, company_id, role_id, payload)
+
+
+@router.post("/{company_id}/people/{person_id}/remove")
+def remove_person(company_id: int, person_id: int, payload: PersonRemovalIn, user: ManagerOrAdmin, db: DbSession):
+    """Delete a person on request (privacy): their roles, emails, phones and evidence go, and research or imports
+    never add them at this company again. Irreversible; audited without the name."""
+    from app.services import privacy
+
+    return privacy.forget_person(db, user, company_id, person_id, payload.reason)

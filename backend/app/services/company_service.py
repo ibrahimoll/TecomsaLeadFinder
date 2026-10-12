@@ -502,3 +502,27 @@ def export_csv(db: Session, user: User, **filters) -> str:
         if not people:
             writer.writerow(base + [""] * 7)
     return "﻿" + out.getvalue()
+
+
+MAP_MAX = 3000  # ponytail: pins per map; cluster / load by viewport if a filtered list grows past it
+
+
+def map_points(db: Session, **filters) -> dict:
+    """The filtered list (list_companies' filters and order) as map pins: each located company at its headquarters,
+    else its first located location, with its mobile count and best fit (high / medium, most points; None if none).
+    Companies without coordinates are only counted (unlocated); truncated: more than MAP_MAX matched."""
+    companies, total = list_companies(db, PageParams(page=1, page_size=MAP_MAX), **filters)
+    where: dict[int, tuple[float, float]] = {}
+    for cid, lat, lon in db.execute(select(CompanyLocation.company_id, CompanyLocation.latitude, CompanyLocation.longitude)
+                                    .where(CompanyLocation.company_id.in_([c.id for c in companies] or [0]),
+                                           CompanyLocation.latitude.is_not(None), CompanyLocation.longitude.is_not(None))
+                                    .order_by(CompanyLocation.is_headquarters.desc(), CompanyLocation.id)):
+        where.setdefault(cid, (lat, lon))
+    items = []
+    for c in companies:
+        if c.id in where:
+            good = [f for f in c.fit if f["fit_level"] in ("high", "medium")]
+            items.append({"id": c.id, "name": c.name, "industry": c.industry, "sub_industry": c.sub_industry,
+                          "lat": where[c.id][0], "lon": where[c.id][1], "mobile_count": c.mobile_count,
+                          "best_fit": max(good, key=lambda f: f["points"], default=None)})
+    return {"items": items, "unlocated": len(companies) - len(items), "total": total, "truncated": total > len(companies)}

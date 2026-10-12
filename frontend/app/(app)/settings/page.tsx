@@ -1,11 +1,12 @@
 "use client";
 
 import clsx from "clsx";
-import { ArrowRight, FileSpreadsheet, Link2, PlugZap, ScrollText, ServerCog, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, FileSpreadsheet, KeyRound, Link2, PlugZap, ScrollText, ServerCog, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
-import { Avatar, Badge, CountUp, DataTable, PageHeader, Section, TimeAgo } from "@/components/ui";
-import { useApi } from "@/lib/api";
+import { Avatar, Badge, Button, CountUp, DataTable, Field, Input, PageHeader, Section, TimeAgo, toast } from "@/components/ui";
+import { api, ApiError, useApi } from "@/lib/api";
 import { isPrivileged, useCurrentUser } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
 import { AgentsCard } from "@/components/agents-card";
@@ -68,6 +69,58 @@ function ProfileCard() {
         ))}
       </dl>
     </section>
+  );
+}
+
+/** Change one's own password: the current one required; other signed-in browsers are signed out. */
+function ChangePassword() {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ current: "", next: "", again: "" });
+  const [saving, setSaving] = useState(false);
+  const mismatch = form.again !== "" && form.next !== form.again;
+  const short = form.next !== "" && form.next.length < 10;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (mismatch || short) return;
+    setSaving(true);
+    try {
+      await api("/auth/password", { method: "POST", body: { current_password: form.current, new_password: form.next } });
+      toast.success("Password changed. Other signed-in browsers were signed out.");
+      setForm({ current: "", next: "", again: "" });
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not change the password");
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (!open) {
+    return (
+      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
+        <KeyRound className="h-3.5 w-3.5" aria-hidden /> Change password
+      </Button>
+    );
+  }
+  return (
+    <form onSubmit={submit} className="max-w-md space-y-3 rounded-lg border border-border bg-surface p-4 shadow-card">
+      <Field label="Current password" htmlFor="pw-current">
+        <Input id="pw-current" type="password" autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} required />
+      </Field>
+      <Field label="New password (at least 10 characters)" htmlFor="pw-new" error={short ? "At least 10 characters" : undefined}>
+        <Input id="pw-new" type="password" autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} required />
+      </Field>
+      <Field label="New password again" htmlFor="pw-again" error={mismatch ? "The two new passwords differ" : undefined}>
+        <Input id="pw-again" type="password" autoComplete="new-password" value={form.again} onChange={(e) => setForm({ ...form, again: e.target.value })} required />
+      </Field>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={saving} disabled={mismatch || short || !form.current || !form.next}>
+          Change password
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -147,6 +200,7 @@ export default function SettingsPage() {
       <PageHeader title="Settings" description="Your account and, for administrators, the workspace." />
       <div className="max-w-4xl space-y-8">
         <ProfileCard />
+        <ChangePassword />
         <AgentsCard />
 
         {user.capabilities.run_imports && (

@@ -156,3 +156,12 @@ def test_log_a_call_saves_the_manager_with_mobile_and_extension(client_for, db, 
     assert csv_text.startswith("﻿Company,") and "Karim Aoun,IT Manager" in csv_text and "123456" in csv_text.replace(" ", "")
     other, _ = client_for(UserRole.SALES_AGENT)
     assert "Karim Aoun" not in other.get("/companies/export.csv").text  # another salesperson's company: not exported
+
+
+def test_a_page_contribution_cannot_claim_an_import_provenance(client_for, db, site):  # noqa: F811
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    company_id = omega(agent, site)
+    for channel in ("ODOO_CRM", "LICENSED_DIRECTORY", "LUSHA", "CSV_IMPORT"):
+        r = agent.post(f"/companies/{company_id}/contributions",
+                       json={"channel": channel, "person": "Karim Aoun", "title": "IT Manager", "mobile": "03 123 456"})
+        assert r.status_code == 422, (channel, r.text)

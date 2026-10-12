@@ -30,13 +30,29 @@ def health(db: DbSession) -> dict[str, str]:
 
 @router.get("/settings/status", response_model=SystemStatus)
 def system_status(_: AdminUser, db: DbSession):
-    """Read-only application status. Integrations come from the `integrations` table (never credentials)."""
+    """Read-only application status. Integrations: what this deployment is actually configured with (never a
+    credential), then any rows of the `integrations` table."""
+    from app.services import lusha
+    from app.services.agents import llm
+
+    s = get_settings()
+    state = lambda ok: "CONFIGURED" if ok else "NOT_CONFIGURED"  # noqa: E731
+    live = [
+        {"name": "Lusha", "status": state(lusha.configured()),
+         "detail": "Paid people search and number reveals (LUSHA_API_KEY)"},
+        {"name": "Local AI model", "status": state(s.agents_enabled and llm.available()),
+         "detail": f"Company descriptions by the Profiler ({s.ollama_model}, runs on this machine)"},
+        {"name": "Mailbox verification", "status": state(s.email_smtp_verification),
+         "detail": "Checks predicted e-mails at the company's mail server (needs a clean static IP)"},
+        {"name": "Map data (Overture / OpenStreetMap)", "status": "CONFIGURED",
+         "detail": "Free public company and place data for Find Leads"},
+    ]
     rows = db.scalars(select(Integration).order_by(Integration.display_name)).all()
     return {
         "version": __version__,
-        "environment": get_settings().environment,
-        "integrations": [{"name": i.display_name, "status": i.status.upper(), "detail": i.integration_type}
-                         for i in rows],
+        "environment": s.environment,
+        "integrations": live + [{"name": i.display_name, "status": i.status.upper(), "detail": i.integration_type}
+                                for i in rows],
     }
 
 

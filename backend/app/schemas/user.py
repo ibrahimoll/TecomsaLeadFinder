@@ -41,6 +41,13 @@ class UserCreate(InModel):
     is_active: bool = True
 
 
+class PasswordChange(InModel):
+    """A user changing their own password: the current one proves it is them."""
+
+    current_password: str = Field(min_length=1, max_length=PASSWORD_MAX)
+    new_password: str = Field(min_length=PASSWORD_MIN, max_length=PASSWORD_MAX)
+
+
 class UserUpdate(InModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     email: EmailStr | None = Field(default=None, max_length=320)

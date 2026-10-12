@@ -136,20 +136,39 @@ function Sidebar({
 
 const COLLAPSE_KEY = "lf.sidebar.collapsed";
 
+const ME_KEY = "lf.me";
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Me | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [slow, setSlow] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
-    // api() redirects to /login on 401.
+    // The tab's last answer to "who is signed in" opens the page at once (UI only: the backend checks every
+    // request); the real answer replaces it, and api() redirects to /login on 401.
+    try {
+      const cached = sessionStorage.getItem(ME_KEY);
+      if (cached) setUser(JSON.parse(cached) as Me);
+    } catch {
+      /* storage unavailable: wait for the server */
+    }
+    const timer = setTimeout(() => setSlow(true), 400); // no splash flash on a fast answer
     api<Me>("/auth/me")
-      .then(setUser)
+      .then((me) => {
+        setUser(me);
+        try {
+          sessionStorage.setItem(ME_KEY, JSON.stringify(me));
+        } catch {
+          /* ignore */
+        }
+      })
       .catch(() => {
         window.location.href = "/login";
-      });
+      })
+      .finally(() => clearTimeout(timer));
     try {
       setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
     } catch {
@@ -172,11 +191,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   async function logout() {
     setSigningOut(true);
+    try {
+      sessionStorage.removeItem(ME_KEY);
+    } catch {
+      /* ignore */
+    }
     await api("/auth/logout", { method: "POST" }).catch(() => undefined);
     window.location.href = "/login";
   }
 
   if (!user) {
+    if (!slow) return <div className="min-h-screen bg-bg" aria-busy="true" />;
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-bg" aria-busy="true" aria-label="Loading LeadFinder">
         <TecomsaLogo subtitle="LeadFinder" size="lg" className="animate-page-in" />

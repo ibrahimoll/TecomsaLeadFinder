@@ -6,12 +6,12 @@ const production = process.env.NODE_ENV === "production";
 
 // Content-Security-Policy. Next.js inlines its bootstrap scripts and styles, so 'unsafe-inline' is
 // needed for script/style without a per-request nonce; everything else is locked to this origin plus
-// the two external resources the UI uses (company logos, the OpenStreetMap embed).
+// the two external resources the UI uses (company logos, the OpenStreetMap embed and map tiles).
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${production ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://icons.duckduckgo.com",
+  "img-src 'self' data: blob: https://icons.duckduckgo.com https://tile.openstreetmap.org",
   "font-src 'self' data:",
   `connect-src 'self'${production ? "" : " ws: wss:"}`,
   "frame-src https://www.openstreetmap.org",

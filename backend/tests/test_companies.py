@@ -311,3 +311,38 @@ def test_deleting_a_company_keeps_people_sources_and_history(client_for, db):
     db.delete(db.get(Source, source.id))
     with pytest.raises(IntegrityError, match="fk_evidence_source_id_sources"):
         db.commit()
+
+
+def test_company_map_pins_follow_list_filters_and_visibility(client_for, db):
+    from app.models import CompanySignal
+
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    other, other_user = client_for(UserRole.SALES_AGENT)
+    manager, _ = client_for(UserRole.SALES_MANAGER)
+    site = Source(source_type="company_website", name="Zeta Mills website", url="https://zeta.example")
+    db.add(site)
+    db.flush()
+    mills, shop, blank = (create(agent, n)["id"] for n in ("Zeta Mills", "Alpha Shop", "No Coordinates"))
+    theirs = create(other, "Their Bakery")["id"]
+    db.add_all([CompanyLocation(country="Lebanon", company_id=mills, latitude=34.4, longitude=35.8, location_type="branch"),
+                CompanyLocation(country="Lebanon", company_id=mills, latitude=33.9, longitude=35.5, is_headquarters=True,
+                                location_type="office"),
+                CompanyLocation(country="Lebanon", company_id=shop, latitude=33.8, longitude=35.6, location_type="shop"),
+                CompanyLocation(country="Lebanon", company_id=blank, city="Beirut", location_type="office"),
+                CompanyLocation(country="Lebanon", company_id=theirs, latitude=34.0, longitude=35.6, location_type="office"),
+                CompanySignal(company_id=mills, signal_type="factory", source_id=site.id),
+                CompanySignal(company_id=mills, signal_type="branches", signal_value="3", source_id=site.id),
+                Phone(company_id=mills, phone="+961 03 123456", phone_type="unknown")])
+    db.commit()
+
+    pins = agent.get("/companies/map").json()
+    assert pins["total"] == 3 and pins["unlocated"] == 1 and not pins["truncated"]  # their company is not shown
+    by_name = {p["name"]: p for p in pins["items"]}
+    assert set(by_name) == {"Zeta Mills", "Alpha Shop"}
+    assert (by_name["Zeta Mills"]["lat"], by_name["Zeta Mills"]["lon"]) == (33.9, 35.5)  # headquarters first
+    assert by_name["Zeta Mills"]["mobile_count"] == 1 and by_name["Zeta Mills"]["best_fit"]["solution"] == "odoo"
+    assert by_name["Alpha Shop"]["best_fit"] is None
+    assert [p["name"] for p in agent.get("/companies/map", params={"has_mobile": True}).json()["items"]] == ["Zeta Mills"]
+    assert [p["name"] for p in agent.get("/companies/map", params={"fit": "odoo"}).json()["items"]] == ["Zeta Mills"]
+    assert agent.get("/companies/map", params={"owner_id": other_user.id}).json()["total"] == 3
+    assert manager.get("/companies/map").json()["total"] == 4

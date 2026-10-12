@@ -1,8 +1,10 @@
 """Test configuration.
 
 Tests run against a SEPARATE PostgreSQL database given by TEST_DATABASE_URL, whose
-name must end in `_test`. The schema is built with the real Alembic migrations (empty schema, then
-upgrade to head) and every table is truncated between tests.
+name must end in `_test`. Each test run gets its own copy (`<name>_<pid>_test`, created at the start and
+dropped at the end) so that several sessions running tests at once never truncate each other's tables;
+TEST_DB_SHARED=1 uses TEST_DATABASE_URL itself. The schema is built with the real Alembic migrations (empty
+schema, then upgrade to head) and every table is truncated between tests.
 """
 
 import os
@@ -17,6 +19,12 @@ if not TEST_DATABASE_URL:
     pytest.exit("TEST_DATABASE_URL is not set - refusing to run tests.", returncode=2)
 if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
     pytest.exit("TEST_DATABASE_URL must point to a database whose name ends in '_test'.", returncode=2)
+
+_SHARED_URL = make_url(TEST_DATABASE_URL)
+_OWN_DATABASE = os.environ.get("TEST_DB_SHARED") != "1"
+if _OWN_DATABASE:
+    TEST_DATABASE_URL = _SHARED_URL.set(database=f"{_SHARED_URL.database[:-5]}_{os.getpid()}_test").render_as_string(
+        hide_password=False)
 
 # Must be set before any `app` module is imported.
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
@@ -65,12 +73,28 @@ def reset_schema() -> None:
         conn.execute(text("CREATE SCHEMA public"))
 
 
+def _server_admin(sql: str) -> None:
+    """CREATE / DROP DATABASE on the test server (outside a transaction), through its `postgres` database."""
+    from sqlalchemy import create_engine
+
+    admin = create_engine(_SHARED_URL.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        conn.execute(text(sql))
+    admin.dispose()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database() -> Iterator[None]:
+    name = make_url(TEST_DATABASE_URL).database
+    if _OWN_DATABASE:
+        _server_admin(f'DROP DATABASE IF EXISTS "{name}"')  # a leftover of a crashed run with the same pid
+        _server_admin(f'CREATE DATABASE "{name}"')
     reset_schema()
     command.upgrade(alembic_config(), "head")  # the real migrations, from an empty database
     yield
     engine.dispose()
+    if _OWN_DATABASE:
+        _server_admin(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
 
 
 @pytest.fixture(autouse=True)

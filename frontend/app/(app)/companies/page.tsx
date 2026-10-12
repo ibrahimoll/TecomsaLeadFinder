@@ -1,11 +1,13 @@
 "use client";
 
-import { Building2, Download, FilterX, Trash2 } from "lucide-react";
+import { Building2, Download, FilterX, List, Map as MapIcon, Trash2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Suspense, useEffect, useState } from "react";
 
-import { Avatar, Badge, Button, Checkbox, ConfirmDialog, CountUp, DataTable, EmptyState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Toolbar, toast } from "@/components/ui";
+import { Avatar, Badge, Button, Checkbox, ConfirmDialog, CountUp, DataTable, EmptyState, ErrorState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Skeleton, Toolbar, toast } from "@/components/ui";
 import { ScoutScore } from "@/components/agent-insights";
 import { PublicLookup } from "@/components/company-search";
+import type { MapPin } from "@/components/companies-map";
 import { OwnerSelect, useUsers } from "@/components/owner-select";
 import { api, ApiError, useApi } from "@/lib/api";
 import { isPrivileged, useCurrentUser } from "@/lib/auth";
@@ -15,7 +17,9 @@ import type { Page } from "@/types";
 import type { Company, CompanyStatus } from "@/types/v2";
 
 const PAGE_SIZE = 50;
-const KEYS = ["q", "status", "country", "region", "city", "industry", "owner", "mobile", "fit", "sort", "page"] as const;
+const KEYS = ["q", "status", "country", "region", "city", "industry", "owner", "mobile", "fit", "sort", "page", "view"] as const;
+// Leaflet needs window: client only.
+const CompaniesMap = dynamic(() => import("@/components/companies-map"), { ssr: false, loading: () => <Skeleton className="h-[560px] w-full" /> });
 const FIT_TONE = { high: "success", medium: "info", low: "neutral", unknown: "neutral" } as const;
 /** One-click work lists: the filters they set (the toolbar shows and refines them). */
 const VIEWS: { key: string; label: string; hint: string; set: { fit: string; mobile: string } }[] = [
@@ -31,7 +35,8 @@ function CompaniesView() {
   const [filters, setFilters] = useUrlState(KEYS);
   const [search, setSearch] = useDebouncedSearch(filters.q, (q) => setFilters({ q }));
   const page = Number(filters.page) || 1;
-  const { data, error, loading, reload } = useApi<Page<Company>>("/companies", {
+  const mapView = filters.view === "map";
+  const query = {
     q: filters.q,
     status: filters.status,
     country: filters.country,
@@ -42,10 +47,10 @@ function CompaniesView() {
     has_mobile: filters.mobile || undefined,
     fit: filters.fit || undefined,
     sort: filters.sort === "name" ? "name" : "fit", // the best prospects first unless the user sorts by name
-    page,
-    page_size: PAGE_SIZE,
-  });
-  const filtered = KEYS.some((k) => k !== "page" && filters[k]);
+  };
+  const { data, error, loading, reload } = useApi<Page<Company>>(mapView ? null : "/companies", { ...query, page, page_size: PAGE_SIZE });
+  const map = useApi<{ items: MapPin[]; unlocated: number; total: number; truncated: boolean }>(mapView ? "/companies/map" : null, query);
+  const filtered = KEYS.some((k) => k !== "page" && k !== "view" && filters[k]);
   // The same filters as the list, as a CSV for Excel (one row per person, with their numbers).
   const exportUrl = `/api/companies/export.csv?${new URLSearchParams(
     Object.entries({ q: filters.q, status: filters.status, country: filters.country, region: filters.region, city: filters.city, industry: filters.industry, owner_id: filters.owner, has_mobile: filters.mobile, fit: filters.fit, sort: filters.sort === "name" ? "name" : "fit" }).filter((e): e is [string, string] => !!e[1]),
@@ -114,11 +119,11 @@ function CompaniesView() {
         description={
           <>
             {canDelete ? "Every lead generator's companies" : "Your companies: the ones you found first"}
-            {data && (
+            {(mapView ? map.data : data) && (
               <>
                 {" · "}
                 <span className="font-medium tabular text-fg">
-                  <CountUp value={data.total} reveal="companies:total" />
+                  <CountUp value={(mapView ? map.data : data)!.total} reveal="companies:total" />
                 </span>{" "}
                 {filtered ? "match" : "in total"}
               </>
@@ -136,6 +141,14 @@ function CompaniesView() {
               </Button>
             );
           })}
+          <div className="ml-auto flex gap-1" role="group" aria-label="Display">
+            <Button size="sm" variant={mapView ? "secondary" : "primary"} aria-pressed={!mapView} onClick={() => setFilters({ view: "" })}>
+              <List className="h-3.5 w-3.5" aria-hidden /> List
+            </Button>
+            <Button size="sm" variant={mapView ? "primary" : "secondary"} aria-pressed={mapView} onClick={() => setFilters({ view: "map" })}>
+              <MapIcon className="h-3.5 w-3.5" aria-hidden /> Map
+            </Button>
+          </div>
         </div>
         <Toolbar>
           <SearchInput value={search} onChange={setSearch} placeholder="Search by name or domain" className="w-64" label="Search companies" />
@@ -174,6 +187,31 @@ function CompaniesView() {
             </Button>
           )}
         </Toolbar>
+        {mapView ? (
+          map.error ? (
+            <ErrorState message={map.error.message} onRetry={map.reload} />
+          ) : (
+            <>
+              <p className="border-b border-border px-4 py-2 text-xs text-fg-muted">
+                {map.data ? (
+                  <>
+                    <span className="font-medium tabular text-fg">{map.data.items.length}</span> compan{map.data.items.length === 1 ? "y" : "ies"} on the map ·{" "}
+                    <span className="tabular">{map.data.unlocated}</span> without a location
+                    {map.data.truncated && ` · only the first ${map.data.items.length + map.data.unlocated} of ${map.data.total} are mapped; narrow the filters`}
+                  </>
+                ) : (
+                  "Loading the map…"
+                )}
+                {" · "}
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" /> High fit</span>{" "}
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-info" /> Medium fit</span>{" "}
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-fg-subtle" /> No fit yet</span>
+              </p>
+              <CompaniesMap pins={map.data?.items ?? []} />
+            </>
+          )
+        ) : (
+        <>
         <DataTable
           caption="Companies"
           rows={data?.items}
@@ -320,6 +358,8 @@ function CompaniesView() {
           <div className="border-t border-border">
             <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onPage={(p) => setFilters({ page: String(p) })} />
           </div>
+        )}
+        </>
         )}
       </Section>
       <SelectionBar count={selected.size} onClear={() => setSelected(new Set())}>

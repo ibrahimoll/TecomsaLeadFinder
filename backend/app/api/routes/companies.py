@@ -54,6 +54,18 @@ def export_companies(user: CurrentUser, db: DbSession, q: Text = None, status: C
                     headers={"Content-Disposition": 'attachment; filename="leadfinder-companies.csv"'})
 
 
+@router.get("/map")
+def companies_map(user: CurrentUser, db: DbSession, q: Text = None, status: CompanyStatus | None = None,
+                  country: Text = None, region: Text = None, city: Text = None, industry: Text = None,
+                  owner_id: int | None = None, has_mobile: bool = False,
+                  fit: Literal["odoo", "frinzo", "it"] | None = None, sort: Literal["name", "fit"] = "name") -> dict:
+    """The filtered list as map pins (same filters and visibility as the list; not paged, capped at MAP_MAX):
+    {items: [{id, name, industry, sub_industry, lat, lon, mobile_count, best_fit}], unlocated, total, truncated}."""
+    return company_service.map_points(db, q=q, status=status, country=country, region=region, city=city,
+                                      industry=industry, has_mobile=has_mobile, fit=fit, sort=sort,
+                                      owner_id=owner_id if is_privileged(user) else user.id)
+
+
 def _mine(db, user, hits: list[dict]) -> list[dict]:
     """Hits a salesperson may open: their own companies and public-source candidates (no company yet)."""
     if is_privileged(user):
@@ -182,6 +194,10 @@ def contact_feedback(company_id: int, payload: ContactFeedbackIn, user: CurrentU
     return {"id": row.id, "event": row.event, "effect": row.effect, "applied": applied}
 
 
+PAGE_CHANNELS = {"SALES_CONFIRMED", "CONTRIBUTED_BUSINESS_CONTACT", "BUSINESS_CARD", "EMAIL_SIGNATURE",
+                 "MEETING_CONTACT"}
+
+
 @router.post("/{company_id}/contributions", status_code=status.HTTP_201_CREATED)
 def contribute(company_id: int, payload: ContributionIn, user: CurrentUser, db: DbSession) -> dict:
     """A business contact the user explicitly contributes to this company (attributed to them, with its
@@ -190,8 +206,9 @@ def contribute(company_id: int, payload: ContributionIn, user: CurrentUser, db: 
     from app.services import contributions
 
     company_service.get_company(db, company_id)
-    if payload.channel == "LUSHA":
-        raise BusinessRuleError("Lusha contacts are added by revealing them (From Lusha)")
+    if payload.channel not in PAGE_CHANNELS:  # an import's / Lusha's provenance is never claimed by hand
+        raise BusinessRuleError("A contact added here is a call, a card, a signature, a meeting or someone you "
+                                "know; directory, Odoo and Lusha contacts come from their own imports")
     entry = {k: v for k, v in payload.model_dump(exclude={"channel", "signature", "visibility"}).items() if v}
     if payload.signature:
         entry = {**(contributions.parse_signature(payload.signature) or {}), **entry}

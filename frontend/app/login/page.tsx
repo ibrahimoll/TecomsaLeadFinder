@@ -62,9 +62,9 @@ function LoginForm() {
 }
 
 const POINTS = [
-  "Every company checked against TECOMSA's Odoo before anyone reaches out",
-  "Campaigns that define the market, industry and decision-makers to find",
-  "One shared record per company: contacts, relationship and activity",
+  "Lebanese companies found by industry and area, the best fit for Odoo, Frinzo and IT first",
+  "Decision-makers and their mobiles from directories, the web and your team's calls",
+  "Every number labelled with where it came from, and confirmed by the people who call it",
 ];
 
 export default function LoginPage() {
@@ -82,7 +82,7 @@ export default function LoginPage() {
         <div className="stagger relative max-w-md">
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/70">LeadFinder</p>
           <p className="mt-3 font-display text-[30px] font-semibold leading-[38px] tracking-[-0.02em]">
-            Find the right companies. Never chase the ones you already know.
+            Find the right companies, and the right person to call.
           </p>
           <ul className="mt-8 space-y-3">
             {POINTS.map((p) => (

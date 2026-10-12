@@ -71,12 +71,20 @@ export function LushaPeople({ companyId, companyName, onChanged }: { companyId: 
   // The company's whole Lusha list (one paid search, kept for the cache window): typing filters it for free.
   const everyone: Query = { q: "", has_phone: false, page: 0 };
   useEffect(() => {
-    cached(everyone)
-      .then((d) => {
-        setData(d);
-        if (d.searched_at) setQuery(everyone);
-      })
-      .catch(() => undefined);
+    // the first page, then every further page already loaded (from the saved results: free), as one list
+    (async () => {
+      const first = await cached(everyone);
+      let merged = first;
+      let last = 0;
+      while (merged.has_more) {
+        const next = await cached({ ...everyone, page: last + 1 });
+        if (!next.searched_at) break;
+        last += 1;
+        merged = { ...next, people: [...merged.people, ...next.people] };
+      }
+      setData(merged);
+      if (first.searched_at) setQuery({ ...everyone, page: last });
+    })().catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 

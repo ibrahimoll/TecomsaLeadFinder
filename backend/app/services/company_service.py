@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -397,7 +398,7 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
         "fit": opportunity.analyse(company, signals, people),  # rules, live: never stale
         "pitch_configured": pitch.configured(),
         "emails": _flag_other_domains(company, own(Email)),
-        "phones": own(Phone),
+        "phones": _flag_shared_numbers(db, own(Phone)),
         "opportunities": db.scalars(  # DISTINCT ON (solution): the latest analysis per solution
             select(OpportunityAnalysis).where(OpportunityAnalysis.company_id == company_id)
             .order_by(OpportunityAnalysis.solution, OpportunityAnalysis.generated_at.desc(),
@@ -405,6 +406,22 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
             .distinct(OpportunityAnalysis.solution)).all(),
         "sources": sources_summary(db, company_id),
     }
+
+
+SHARED_NUMBER = 3  # a company line on this many companies or more is an office's / administrator's
+
+
+def _flag_shared_numbers(db: Session, phones: list) -> list:
+    """Company numbers that other companies also list (a law office registering one company per plot, a call
+    centre): shared_with = how many other companies, listed last; never dropped."""
+    digits = func.regexp_replace(Phone.phone, r"\D", "", "g")
+    wanted = {re.sub(r"\D", "", p.phone) for p in phones}
+    counts = dict(db.execute(select(digits, func.count(func.distinct(Phone.company_id))).where(
+        Phone.person_id.is_(None), digits.in_(wanted or {""})).group_by(digits)).all())
+    for p in phones:
+        n = counts.get(re.sub(r"\D", "", p.phone), 1) - 1
+        p.shared_with = n if n + 1 >= SHARED_NUMBER else 0
+    return sorted(phones, key=lambda p: p.shared_with > 0)
 
 
 def _flag_other_domains(company: Company, emails: list) -> list:

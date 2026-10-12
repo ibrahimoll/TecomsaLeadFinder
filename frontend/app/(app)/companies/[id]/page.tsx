@@ -110,7 +110,7 @@ function Overview({ detail }: { detail: CompanyDetail }) {
   const products = detail.offerings.filter((o) => o.kind !== "service");
   const services = detail.offerings.filter((o) => o.kind === "service");
   const contacts = [
-    ...detail.phones.map((p) => ({ id: `p${p.id}`, value: p.phone, kind: p.phone_type === "whatsapp" ? "WhatsApp" : isLebaneseMobile(p.phone) ? "Mobile" : "Phone", purpose: p.purpose, confidence: p.confidence })),
+    ...detail.phones.map((p) => ({ id: `p${p.id}`, value: p.phone, kind: p.phone_type === "whatsapp" ? "WhatsApp" : isLebaneseMobile(p.phone) ? "Mobile" : "Phone", purpose: p.purpose, confidence: p.confidence, sharedWith: p.shared_with ?? 0 })),
     ...detail.emails.map((e) => ({ id: `e${e.id}`, value: e.email, kind: "Email", purpose: e.purpose, confidence: e.confidence, otherDomain: !!e.other_domain })),
   ].sort((a, b) => CONTACT_ORDER.indexOf(a.kind) - CONTACT_ORDER.indexOf(b.kind)); // a mobile first: it often reaches a manager
   const facts = [
@@ -246,7 +246,7 @@ function Overview({ detail }: { detail: CompanyDetail }) {
   );
 }
 
-type ContactRow = { id: string; value: string; kind: string; purpose: string | null; confidence: number | null; otherDomain?: boolean };
+type ContactRow = { id: string; value: string; kind: string; purpose: string | null; confidence: number | null; otherDomain?: boolean; sharedWith?: number };
 const SHORTLIST: [string, number][] = [["Mobile", 2], ["WhatsApp", 1], ["Phone", 1], ["Email", 1]];
 
 /** The company's numbers and addresses, one per real number (formatted), the best few first; the rest on demand. */
@@ -259,7 +259,7 @@ function ContactList({ contacts }: { contacts: ContactRow[] }) {
   });
   if (!unique.length) return <p className="px-4 py-4 text-[13px] text-fg-subtle">No company phone or e-mail yet.</p>;
   // an address on another business's domain never makes the shortlist (it stays under "Show all", flagged)
-  const short = SHORTLIST.flatMap(([kind, n]) => unique.filter((r) => r.kind === kind && !r.otherDomain).slice(0, n));
+  const short = SHORTLIST.flatMap(([kind, n]) => unique.filter((r) => r.kind === kind && !r.otherDomain && !r.sharedWith).slice(0, n));
   const shown = all || unique.length <= short.length + 1 ? unique : short;
   return (
     <>
@@ -280,8 +280,8 @@ function ContactList({ contacts }: { contacts: ContactRow[] }) {
                 <a href={href} className="block truncate text-[13px] font-medium tabular text-fg hover:text-accent hover:underline" title={r.value}>
                   {value}
                 </a>
-                <span className={`text-[11.5px] ${r.otherDomain ? "text-warning" : "text-fg-muted"}`}>
-                  {r.otherDomain ? "⚠ Other domain: may belong to another business, check before using" : r.kind === "Mobile" ? "Mobile · often reaches the owner or a manager" : r.purpose ? humanize(r.purpose) : r.kind}
+                <span className={`text-[11.5px] ${r.otherDomain || r.sharedWith ? "text-warning" : "text-fg-muted"}`}>
+                  {r.sharedWith ? `⚠ Shared by ${r.sharedWith + 1} companies: probably an office or administrator, not this business` : r.otherDomain ? "⚠ Other domain: may belong to another business, check before using" : r.kind === "Mobile" ? "Mobile · often reaches the owner or a manager" : r.purpose ? humanize(r.purpose) : r.kind}
                   {r.confidence != null && <> · {r.confidence >= 75 ? "high" : r.confidence >= 50 ? "medium" : "low"} confidence</>}
                 </span>
               </span>

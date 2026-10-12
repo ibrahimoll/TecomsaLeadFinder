@@ -128,6 +128,8 @@ export interface ContactPhone {
   confidence: number | null;
   source_id: number | null;
   last_verified_at: string | null;
+  /** Other companies listing the same number (an office / administrator line), 0 when not shared. */
+  shared_with?: number;
 }
 
 export interface CompanyPerson {

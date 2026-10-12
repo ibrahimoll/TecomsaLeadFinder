@@ -181,6 +181,7 @@ class PhoneOut(OutModel):
     confidence: int | None
     source_id: int | None
     last_verified_at: datetime | None
+    shared_with: int = 0  # other companies listing the same number (an office / administrator line)
 
 
 class PersonOut(OutModel):

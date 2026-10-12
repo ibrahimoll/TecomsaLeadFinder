@@ -110,6 +110,8 @@ export interface ContactEmail {
   confidence: number | null;
   source_id: number | null;
   last_verified_at: string | null;
+  /** The domain is not the company's: possibly another business's mailbox. */
+  other_domain?: boolean;
 }
 
 export interface ContactPhone {

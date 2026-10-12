@@ -110,7 +110,7 @@ function Overview({ detail }: { detail: CompanyDetail }) {
   const services = detail.offerings.filter((o) => o.kind === "service");
   const contacts = [
     ...detail.phones.map((p) => ({ id: `p${p.id}`, value: p.phone, kind: p.phone_type === "whatsapp" ? "WhatsApp" : isLebaneseMobile(p.phone) ? "Mobile" : "Phone", purpose: p.purpose, confidence: p.confidence })),
-    ...detail.emails.map((e) => ({ id: `e${e.id}`, value: e.email, kind: "Email", purpose: e.purpose, confidence: e.confidence })),
+    ...detail.emails.map((e) => ({ id: `e${e.id}`, value: e.email, kind: "Email", purpose: e.purpose, confidence: e.confidence, otherDomain: !!e.other_domain })),
   ].sort((a, b) => CONTACT_ORDER.indexOf(a.kind) - CONTACT_ORDER.indexOf(b.kind)); // a mobile first: it often reaches a manager
   const facts = [
     { label: "Legal name", value: c.legal_name ?? muted("—") },
@@ -245,7 +245,7 @@ function Overview({ detail }: { detail: CompanyDetail }) {
   );
 }
 
-type ContactRow = { id: string; value: string; kind: string; purpose: string | null; confidence: number | null };
+type ContactRow = { id: string; value: string; kind: string; purpose: string | null; confidence: number | null; otherDomain?: boolean };
 const SHORTLIST: [string, number][] = [["Mobile", 2], ["WhatsApp", 1], ["Phone", 1], ["Email", 1]];
 
 /** The company's numbers and addresses, one per real number (formatted), the best few first; the rest on demand. */
@@ -257,7 +257,8 @@ function ContactList({ contacts }: { contacts: ContactRow[] }) {
     return !seen.has(key) && !!seen.add(key);
   });
   if (!unique.length) return <p className="px-4 py-4 text-[13px] text-fg-subtle">No company phone or e-mail yet.</p>;
-  const short = SHORTLIST.flatMap(([kind, n]) => unique.filter((r) => r.kind === kind).slice(0, n));
+  // an address on another business's domain never makes the shortlist (it stays under "Show all", flagged)
+  const short = SHORTLIST.flatMap(([kind, n]) => unique.filter((r) => r.kind === kind && !r.otherDomain).slice(0, n));
   const shown = all || unique.length <= short.length + 1 ? unique : short;
   return (
     <>
@@ -278,8 +279,8 @@ function ContactList({ contacts }: { contacts: ContactRow[] }) {
                 <a href={href} className="block truncate text-[13px] font-medium tabular text-fg hover:text-accent hover:underline" title={r.value}>
                   {value}
                 </a>
-                <span className="text-[11.5px] text-fg-muted">
-                  {r.kind === "Mobile" ? "Mobile · often reaches the owner or a manager" : r.purpose ? humanize(r.purpose) : r.kind}
+                <span className={`text-[11.5px] ${r.otherDomain ? "text-warning" : "text-fg-muted"}`}>
+                  {r.otherDomain ? "⚠ Other domain: may belong to another business, check before using" : r.kind === "Mobile" ? "Mobile · often reaches the owner or a manager" : r.purpose ? humanize(r.purpose) : r.kind}
                   {r.confidence != null && <> · {r.confidence >= 75 ? "high" : r.confidence >= 50 ? "medium" : "low"} confidence</>}
                 </span>
               </span>
@@ -1159,6 +1160,14 @@ export default function CompanyPage() {
     }
   }
 
+  // header highlights: the company's and its people's mobiles / WhatsApp, and the fits worth a call
+  const mobiles = new Set(
+    [...data.phones.filter((p) => p.phone_type === "whatsapp" || isLebaneseMobile(p.phone)), ...data.people.flatMap((p) => p.phones.filter((x) => x.status !== "invalid" && (x.phone_type === "business_mobile" || x.phone_type === "whatsapp")))].map((p) =>
+      p.phone.replace(/[^\d]/g, "").slice(-7),
+    ),
+  ).size;
+  const bestFits = (data.fit ?? []).filter((f) => f.fit_level === "high" || f.fit_level === "medium").sort((x, y) => y.points - x.points).slice(0, 2);
+
   return (
     <>
       <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1.5 text-xs text-fg-muted">
@@ -1168,44 +1177,49 @@ export default function CompanyPage() {
         <ChevronRight className="h-3 w-3" aria-hidden />
         <span className="truncate text-fg">{displayName(c.name)}</span>
       </nav>
-      <header className="relative mb-5 animate-page-in overflow-hidden rounded-xl bg-accent text-white shadow-card">
-        <div className="flex flex-wrap items-start gap-4 p-5">
-          <span className="shrink-0 rounded-xl bg-white p-1 shadow-sm">
-            <Avatar name={displayName(c.name)} domain={c.domain} size="xl" />
-          </span>
+      <header className="relative mb-5 animate-page-in overflow-hidden rounded-xl border border-border bg-surface shadow-card">
+        <span className="absolute inset-x-0 top-0 h-1 bg-accent" aria-hidden />
+        <div className="flex flex-wrap items-start gap-4 p-5 pt-6">
+          <Avatar name={displayName(c.name)} domain={c.domain} size="xl" />
           <div className="min-w-0 flex-1 basis-[320px]">
-            <h1 className="font-display text-[24px] font-semibold leading-tight" title={c.name}>
+            <h1 className="font-display text-[24px] font-semibold leading-tight text-fg" title={c.name}>
               {displayName(c.name)}
             </h1>
-            {c.brief && <p className="mt-1 max-w-3xl text-[13.5px] leading-snug text-white/85">{c.brief}</p>}
-            <div className="stagger mt-3 flex flex-wrap gap-1.5 text-[12px]">
+            {c.brief && <p className="mt-1 max-w-3xl text-[13.5px] leading-snug text-fg-muted">{c.brief}</p>}
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] text-fg-muted">
               {[
-                c.industry && { icon: Building2, text: c.industry },
+                (c.industry && c.industry !== "Other" ? c.industry : c.sub_industry) && { icon: Building2, text: (c.industry && c.industry !== "Other" ? c.industry : c.sub_industry)! },
                 (c.headquarters_city || c.headquarters_country) && { icon: MapPin, text: place(c.headquarters_city, c.headquarters_country) },
                 c.employee_count_estimate && { icon: Users, text: `${c.employee_count_estimate.toLocaleString()} employees` },
                 c.founded_year && { icon: CalendarDays, text: `Since ${c.founded_year}` },
-                { icon: Users, text: `${data.people.length} people` },
               ]
                 .filter((x): x is { icon: typeof Building2; text: string } => !!x)
                 .map(({ icon: Icon, text }) => (
-                  <span key={text} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/15 px-2.5 py-1 font-medium">
-                    <Icon className="h-3 w-3 opacity-80" aria-hidden /> {text}
+                  <span key={text} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                    <Icon className="h-3.5 w-3.5 text-fg-subtle" aria-hidden /> {text}
                   </span>
                 ))}
               {safeHref(c.website) && (
-                <a
-                  href={safeHref(c.website)!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2.5 py-1 font-medium text-accent transition-transform hover:-translate-y-px"
-                >
-                  <Globe className="h-3 w-3" aria-hidden /> {c.domain ?? "Website"}
+                <a href={safeHref(c.website)!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-accent hover:underline">
+                  <Globe className="h-3.5 w-3.5" aria-hidden /> {c.domain ?? "Website"}
                 </a>
               )}
             </div>
+            {/* what a lead generator needs before calling: reachable numbers, people, the best fit */}
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <Badge tone={mobiles ? "success" : "neutral"}>📱 {mobiles ? `${mobiles} mobile${mobiles === 1 ? "" : "s"}` : "No mobile yet"}</Badge>
+              <Badge tone="neutral">
+                <Users className="h-3 w-3" aria-hidden /> {data.people.length} {data.people.length === 1 ? "person" : "people"}
+              </Badge>
+              {bestFits.map((f) => (
+                <Badge key={f.solution} tone={f.fit_level === "high" ? "success" : "info"}>
+                  {f.label.replace(" solutions", "").replace(" ERP", "")} · {f.fit_level === "high" ? "High" : "Medium"} fit
+                </Badge>
+              ))}
+            </div>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
-            <Select aria-label="Status" value={c.status} disabled={saving} onChange={(e) => changeStatus(e.target.value as CompanyStatus)} className="w-44 border-white/0 bg-white text-fg">
+            <Select aria-label="Status" value={c.status} disabled={saving} onChange={(e) => changeStatus(e.target.value as CompanyStatus)} className="w-40">
               {COMPANY_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {COMPANY_STATUS[s].label}
@@ -1213,7 +1227,7 @@ export default function CompanyPage() {
               ))}
             </Select>
             {isPrivileged(user) && (
-              <OwnerSelect users={users} value={c.owner_user_id ? String(c.owner_user_id) : ""} onChange={changeOwner} allLabel="Unassigned" className="w-44 border-white/0 bg-white text-fg" disabled={saving} />
+              <OwnerSelect users={users} value={c.owner_user_id ? String(c.owner_user_id) : ""} onChange={changeOwner} allLabel="Unassigned" className="w-40" disabled={saving} />
             )}
             {c.website && (
               <Button variant="secondary" onClick={refresh} disabled={saving || researching} title="Read the website and public sources again">
@@ -1228,7 +1242,7 @@ export default function CompanyPage() {
                 disabled={saving}
                 aria-label={`Delete ${c.name}`}
                 title="Delete company"
-                className="flex h-9 w-9 items-center justify-center rounded-md text-white/75 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+                className="flex h-9 w-9 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-danger/10 hover:text-danger disabled:opacity-50"
               >
                 <Trash2 className="h-4 w-4" aria-hidden />
               </button>

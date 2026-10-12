@@ -390,7 +390,7 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
         "people": people,
         "fit": opportunity.analyse(company, signals, people),  # rules, live: never stale
         "pitch_configured": pitch.configured(),
-        "emails": own(Email),
+        "emails": _flag_other_domains(company, own(Email)),
         "phones": own(Phone),
         "opportunities": db.scalars(  # DISTINCT ON (solution): the latest analysis per solution
             select(OpportunityAnalysis).where(OpportunityAnalysis.company_id == company_id)
@@ -399,6 +399,17 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
             .distinct(OpportunityAnalysis.solution)).all(),
         "sources": sources_summary(db, company_id),
     }
+
+
+def _flag_other_domains(company: Company, emails: list) -> list:
+    """Company e-mails whose domain is not the company's (map data sometimes carries a neighbour's mailbox):
+    flagged other_domain and listed last, never dropped (a second domain of the same group is possible)."""
+    from app.services.normalization import company_domain as own_domain, related_domain
+
+    domain = own_domain(company.domain) if company.domain else None  # a platform host is not the company's
+    for e in emails:
+        e.other_domain = not related_domain(company.name, domain, e.email.split("@")[-1])
+    return sorted(emails, key=lambda e: e.other_domain)
 
 
 _GROUP = {t: group for group, types in SIGNAL_GROUPS.items() for t in types}
@@ -490,8 +501,13 @@ def export_csv(db: Session, user: User, **filters) -> str:
         if company.primary_phone and company.primary_phone not in own_phones:
             own_phones.insert(0, company.primary_phone)
         mobile = [p for p in own_phones if LEBANON_MOBILE.match(national(p) or "")]
+        from app.services.normalization import company_domain as own_domain, related_domain
+
+        email = company.primary_email if company.primary_email and related_domain(
+            company.name, own_domain(company.domain) if company.domain else None,
+            company.primary_email.split("@")[-1]) else ""  # another business's mailbox is not exported
         base = [company.name, company.industry or "", company.headquarters_city or "", company.website or "",
-                " / ".join(mobile), " / ".join(p for p in own_phones if p not in mobile), company.primary_email or ""]
+                " / ".join(mobile), " / ".join(p for p in own_phones if p not in mobile), email]
         people = [p for p in company_people(db, company.id, user) if p["is_current"]]
         for p in people:
             phones = [x for x in p["phones"] if x.status != "invalid"]

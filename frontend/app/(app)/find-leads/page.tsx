@@ -1,9 +1,9 @@
 "use client";
 
 import clsx from "clsx";
-import { ExternalLink, Search, SearchX } from "lucide-react";
+import { Check, Compass, ExternalLink, Search, SearchX } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { CompanySearch } from "@/components/company-search";
 import { RadarScope } from "@/components/radar-scope";
@@ -212,6 +212,16 @@ function SearchResults({ searchId, onRunning }: { searchId: string; onRunning: (
   );
 }
 
+/** One numbered step of the discovery form. */
+function Step({ title, children }: { n?: number; title: string; children: ReactNode }) {
+  return (
+    <li className="min-w-0">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-fg-subtle">{title}</p>
+      {children}
+    </li>
+  );
+}
+
 function FindLeads() {
   const router = useRouter();
   const searchId = useSearchParams().get("search");
@@ -245,85 +255,123 @@ function FindLeads() {
     <>
       <PageHeader title="Find Leads" description="Find a specific company, or search for companies in a market." />
       <CompanySearch country={country} />
-      <form onSubmit={submit} className="grid overflow-hidden rounded-xl border border-border bg-surface shadow-card lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="space-y-5 p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Country" htmlFor="fl-country" required>
-              <Select id="fl-country" value={country} onChange={(e) => setCountry(e.target.value)} required className="w-full">
-                {countryNames().map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="City / Region" htmlFor="fl-region">
-              <Input id="fl-region" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="All regions" className="w-full" />
-            </Field>
-          </div>
-
-          <Field label="Industry" htmlFor="fl-industry">
-            <Input
-              id="fl-industry"
-              list="fl-industry-list"
-              value={industry}
-              onChange={(e) => setIndustry(e.target.value)}
-              placeholder="All industries"
-              className="w-full"
-            />
-            <datalist id="fl-industry-list">
-              {INDUSTRIES.map((i) => (
-                <option key={i} value={i} />
-              ))}
-            </datalist>
-          </Field>
-
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-fg">What are you selling?</p>
-            <FilterPills label="What are you selling?" options={OFFERINGS} value={offering} onChange={setOffering} />
-          </div>
-
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-fg">How many companies?</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <FilterPills label="How many companies?" options={COUNT_PRESETS.map((v) => ({ value: v, label: v }))} value={count} onChange={setCount} />
-              <span className="text-xs text-fg-subtle">or</span>
-              <Input
-                id="fl-count"
-                aria-label="Custom number of companies"
-                type="number"
-                min={1}
-                max={500}
-                value={count}
-                onChange={(e) => setCount(e.target.value)}
-                required
-                className="w-24 tabular"
-              />
+      <form
+        onSubmit={submit}
+        aria-labelledby="fl-title"
+        className="relative grid overflow-hidden rounded-xl border border-border bg-surface shadow-card lg:grid-cols-[minmax(0,1fr)_300px]"
+      >
+        <span className="absolute inset-x-0 top-0 h-1 bg-accent" aria-hidden />
+        <div className="min-w-0 p-4 pt-5 sm:p-5 sm:pt-6">
+          <div className="mb-5 flex items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent" aria-hidden>
+              <Compass className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 id="fl-title" className="text-[15px] font-semibold tracking-[-0.01em] text-fg">
+                Find new companies in a market
+              </h2>
+              <p className="mt-0.5 text-xs text-fg-muted">Choose a market and LeadFinder searches public sources for companies you don&apos;t have yet.</p>
             </div>
           </div>
 
-          <div className="border-t border-border pt-4">
+          <ol className="space-y-6">
+            <Step n={1} title="Where">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Country" htmlFor="fl-country" required>
+                  <Select id="fl-country" value={country} onChange={(e) => setCountry(e.target.value)} required className="w-full">
+                    {countryNames().map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="City / Region" htmlFor="fl-region">
+                  <Input id="fl-region" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="All regions" className="w-full" />
+                </Field>
+              </div>
+            </Step>
+
+            <Step n={2} title="What">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Industry" htmlFor="fl-industry">
+                  <Input
+                    id="fl-industry"
+                    list="fl-industry-list"
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                    placeholder="All industries"
+                    className="w-full"
+                  />
+                  <datalist id="fl-industry-list">
+                    {INDUSTRIES.map((i) => (
+                      <option key={i} value={i} />
+                    ))}
+                  </datalist>
+                </Field>
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-fg">What are you selling?</p>
+                  <FilterPills label="What are you selling?" options={OFFERINGS} value={offering} onChange={setOffering} />
+                </div>
+              </div>
+            </Step>
+
+            <Step n={3} title="How many">
+              <div className="flex flex-wrap items-center gap-2">
+                <FilterPills label="How many companies?" options={COUNT_PRESETS.map((v) => ({ value: v, label: v }))} value={count} onChange={setCount} />
+                <span className="text-xs text-fg-subtle">or</span>
+                <Input
+                  id="fl-count"
+                  aria-label="Custom number of companies"
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={count}
+                  onChange={(e) => setCount(e.target.value)}
+                  required
+                  className="w-24 tabular"
+                />
+              </div>
+            </Step>
+          </ol>
+
+          <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-4">
             <Button type="submit" loading={busy} disabled={running}>
               <Search className="h-3.5 w-3.5" aria-hidden /> {running ? "Search running…" : "Find Leads"}
             </Button>
+            <span className="text-xs text-fg-subtle">Results appear below as they are found.</span>
           </div>
         </div>
 
         {/* Read-back of the search being set up: the radar sweeps once per change and spins while a search runs. */}
-        <aside className="flex flex-col items-center justify-center gap-4 bg-accent px-6 py-8 text-center text-white">
-          <RadarScope scanning={busy || running} pulseKey={setup} blips={Math.round(Number(count) / 25)} className="max-w-[170px]" />
-          <p key={setup} className="animate-page-in text-[13.5px] leading-relaxed text-white/85">
-            {running ? "Searching for " : "Find "}
-            <span className="font-display text-[22px] font-semibold tabular text-white">{Number(count) || 0}</span> {offeringLabel}prospects
-            {industry && (
-              <>
-                {" "}in <span className="font-semibold text-white">{industry}</span>
-              </>
-            )}
-            <br />
-            {region ? `${region}, ` : ""}
-            {country}
+        <aside aria-label="Search summary" className="flex flex-col gap-4 border-t border-border bg-surface-muted p-4 sm:p-5 lg:border-l lg:border-t-0 lg:pt-6">
+          <div className="relative grid place-items-center overflow-hidden rounded-xl bg-accent px-6 py-7 shadow-card">
+            {/* a soft glow behind the scope, so it reads as a screen rather than a flat red block */}
+            <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgb(255_255_255/0.16),transparent_65%)]" aria-hidden />
+            <RadarScope scanning={busy || running} pulseKey={setup} blips={Math.round(Number(count) / 25)} className="max-w-[150px]" />
+          </div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-fg-subtle">{running ? "Searching now" : "You'll get"}</p>
+          <p key={setup} className="animate-page-in text-[13.5px] leading-relaxed text-fg-muted">
+            Up to <span className="font-display text-[22px] font-semibold tabular text-fg">{Number(count) || 0}</span> new {offeringLabel}prospects in{" "}
+            <span className="font-medium text-fg">
+              {region ? `${region}, ` : ""}
+              {country}
+            </span>
           </p>
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
+            <dt className="text-fg-subtle">Industry</dt>
+            <dd className="truncate font-medium text-fg">{industry || "Any"}</dd>
+            <dt className="text-fg-subtle">Selling</dt>
+            <dd className="font-medium text-fg">{OFFERINGS.find((o) => o.value === offering)?.label}</dd>
+          </dl>
+          <ul className="space-y-1.5 border-t border-border pt-3 text-xs text-fg-muted">
+            {["Companies already in LeadFinder are skipped.", "New companies are added to Companies.", "Most relevant matches are listed first."].map((hint) => (
+              <li key={hint} className="flex gap-2">
+                <Check className="mt-px h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
+                {hint}
+              </li>
+            ))}
+          </ul>
         </aside>
       </form>
       {searchId && <SearchResults key={searchId} searchId={searchId} onRunning={setRunning} />}

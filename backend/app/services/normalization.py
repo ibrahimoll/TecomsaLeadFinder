@@ -4,6 +4,7 @@ These are intentionally simple and deterministic. Phase 1 will build duplicate
 detection on top of `normalized_name`, `domain` and `main_phone_normalized`.
 """
 
+import os
 import re
 import unicodedata
 from urllib.parse import urlsplit
@@ -82,8 +83,49 @@ _NON_COMPANY_DOMAINS = frozenset(
         "gmail.com", "hotmail.com", "yahoo.com", "outlook.com", "wikipedia.org", "tripadvisor.com",
         "foursquare.com", "yelp.com", "coverbox.app", "kyte.site", "placeweb.site", "thrubits.com",
         "omegasoftware.ca",  # restaurant menu / ordering platforms
+        # a company's page on someone else's site: listings, menus / QR, delivery, reviews, link and school portals
+        "beirut.ml", "campsite.bio", "lnk.bio", "gf.me", "m.me", "wa.link", "shorturl.at", "me-menu.com",
+        "me-qr.com", "qrmn.co", "emenu.digital", "scangow.site", "applova.io", "lebanese-menu.com",
+        "ringnbring.com", "otlob.cyou", "zomato.com", "tripadvisor.co.uk", "airbnb.com", "living-lebanon.com",
+        "lemall.com.lb", "abc.com.lb", "nogarlicnoonions.com", "index-education.net", "datarays.co",
+        "matterport.com",
     }
 )
+
+_GENERIC_LABELS = {"www", "com", "net", "org", "edu", "gov", "co", "info", "biz", "lb", "me", "io", "app", "site",
+                   "online", "store", "shop", "group", "mail", "home", "new"}
+_NAME_STOP = {"sarl", "sal", "the", "and", "group", "company", "holding", "lebanon", "liban", "beirut", "partner",
+              "partners", "single", "two", "one", "school", "restaurant", "hotel", "college", "international"}
+
+
+def _core(domain: str) -> str:
+    """The distinctive part of a domain: 'new.ut.edu.lb' -> 'ut', 'emsherif-cafe.com' -> 'emsherifcafe'."""
+    labels = [label.replace("-", "") for label in domain.lower().split(".") if label not in _GENERIC_LABELS]
+    return max(labels, key=len, default="")
+
+
+def related_domain(company_name: str | None, company_domain_: str | None, other: str | None) -> bool:
+    """Whether `other` (an e-mail's domain) plausibly is the company's: the same core as the company's own domain
+    ('imanschools.com' = 'imanschools.edu.lb'), one inside the other, or a long shared start ('emsherifseacafe' ~
+    'emsherifcafe'); without a domain of its own, a word of the company's name in it. A free mailbox (gmail...)
+    cannot be checked: related. ponytail: string heuristics; a second domain of the same group can be flagged."""
+    if not other:
+        return True
+    other = other.lower()
+    if other in _NON_COMPANY_DOMAINS:
+        return True
+    b = _core(other)
+    if b in {"gmail", "hotmail", "yahoo", "outlook", "live", "icloud", "msn", "aol", "proton", "protonmail"}:
+        return True  # a personal mailbox (yahoo.fr, hotmail.fr...): nothing to check
+    if company_domain_:
+        a = _core(company_domain_)
+        if not a or not b:
+            return True
+        return a == b or (min(len(a), len(b)) >= 4 and (a in b or b in a)) or len(os.path.commonprefix([a, b])) >= 6
+    words = {w for w in re.findall(r"[a-z0-9]+", unicodedata.normalize("NFKD", company_name or "").lower())
+             if len(w) >= 4 and w not in _NAME_STOP}
+    compact = re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", company_name or "").lower())
+    return not words or any(w in b for w in words) or (len(b) >= 4 and b in compact)
 
 
 def company_domain(value: str | None) -> str | None:

@@ -159,48 +159,63 @@ export function CompanySearch({ country }: { country: string }) {
   }
 
   return (
-    <div className="mb-4 rounded-xl border border-border bg-surface p-4 shadow-card">
-      <form onSubmit={submit} className="flex flex-wrap items-center gap-2" role="search">
-        <label htmlFor="company-search" className="text-xs font-medium text-fg">
-          Search for a company
-        </label>
-        <div className="relative min-w-[240px] flex-1">
-          <Input
-            id="company-search"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setOpen(true);
-              setResult(null);
-            }}
-            onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 150)}
-            onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-            placeholder="Anything you know: a name, website, or e.g. “hotel called Aleph in Byblos”"
-            autoComplete="off"
-            aria-autocomplete="list"
-            aria-controls="company-search-suggestions"
-            className="w-full"
-          />
-          {open && suggestions.length > 0 && (
-            <ul id="company-search-suggestions" className="elevated absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-surface py-1">
-              {suggestions.map((h) => (
-                <li key={h.company_id}>
-                  <Link href={`/companies/${h.company_id}`} className="flex items-baseline justify-between gap-3 px-3 py-1.5 hover:bg-surface-muted">
-                    <span className="truncate text-[13px] font-medium text-fg">{h.name}</span>
-                    <span className="shrink-0 truncate text-xs text-fg-subtle">{where(h)}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+    <section aria-labelledby="company-search-title" className="relative mb-5 rounded-xl border border-border bg-surface shadow-card">
+      {/* No overflow-hidden here: it would clip the suggestions list. The bar rounds itself. */}
+      <span className="absolute -inset-x-px -top-px h-1 rounded-t-xl bg-accent" aria-hidden />
+      <div className="p-4 pt-5 sm:p-5 sm:pt-6">
+        <div className="mb-3 flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent" aria-hidden>
+            <Building2 className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <h2 id="company-search-title" className="text-[15px] font-semibold tracking-[-0.01em] text-fg">
+              Know the company?
+            </h2>
+            <p className="mt-0.5 text-xs text-fg-muted">Open it directly. LeadFinder is checked first, then public sources.</p>
+          </div>
         </div>
-        <Button type="submit" loading={busy}>
-          <Search className="h-3.5 w-3.5" aria-hidden /> {busy ? "Searching…" : "Search"}
-        </Button>
-      </form>
-      {busy && <p className="mt-2 text-xs text-fg-subtle" aria-live="polite">{slow ? "Searching public sources…" : "Searching LeadFinder…"}</p>}
-      {result && !busy && <LookupResult result={result} pick={(id, i) => void pick(id, i)} />}
-    </div>
+        <form onSubmit={submit} className="flex flex-wrap items-center gap-2" role="search">
+          <label htmlFor="company-search" className="sr-only">
+            Search for a company
+          </label>
+          <div className="relative min-w-0 flex-1 basis-[240px]">
+            <Input
+              id="company-search"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setOpen(true);
+                setResult(null);
+              }}
+              onFocus={() => setOpen(true)}
+              onBlur={() => setTimeout(() => setOpen(false), 150)}
+              onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
+              placeholder="Anything you know: a name, website, or e.g. “hotel called Aleph in Byblos”"
+              autoComplete="off"
+              aria-autocomplete="list"
+              aria-controls="company-search-suggestions"
+              className="w-full"
+            />
+            {open && suggestions.length > 0 && (
+              <ul id="company-search-suggestions" className="elevated absolute z-20 mt-1 w-full overflow-hidden rounded-lg bg-surface py-1">
+                {suggestions.map((h) => (
+                  <li key={h.company_id}>
+                    <Link href={`/companies/${h.company_id}`} className="flex items-baseline justify-between gap-3 px-3 py-1.5 hover:bg-surface-muted">
+                      <span className="truncate text-[13px] font-medium text-fg">{h.name}</span>
+                      <span className="shrink-0 truncate text-xs text-fg-subtle">{where(h)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <Button type="submit" loading={busy}>
+            <Search className="h-3.5 w-3.5" aria-hidden /> {busy ? "Searching…" : "Search"}
+          </Button>
+        </form>
+        {busy && <p className="mt-2 text-xs text-fg-subtle" aria-live="polite">{slow ? "Searching public sources…" : "Searching LeadFinder…"}</p>}
+        {result && !busy && <LookupResult result={result} pick={(id, i) => void pick(id, i)} />}
+      </div>
+    </section>
   );
 }

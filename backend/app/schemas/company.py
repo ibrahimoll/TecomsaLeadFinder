@@ -163,6 +163,7 @@ class EmailOut(OutModel):
     confidence: int | None
     source_id: int | None
     last_verified_at: datetime | None
+    other_domain: bool = False  # the address's domain is not the company's (another business's mailbox?)
 
 
 class PhoneOut(OutModel):

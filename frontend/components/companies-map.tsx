@@ -40,14 +40,18 @@ export default function CompaniesMap({ pins }: { pins: MapPin[] }) {
     map.current = m;
     layer.current = L.layerGroup().addTo(m);
     return () => {
+      // a zoom / pan animation still running would redraw the canvas after remove() (clearRect of undefined)
+      m.stop();
+      m.off();
       m.remove();
       map.current = layer.current = null;
     };
   }, []);
 
   useEffect(() => {
-    const m = map.current!;
-    const group = layer.current!;
+    const m = map.current;
+    const group = layer.current;
+    if (!m || !group) return;
     group.clearLayers();
     const css = getComputedStyle(document.documentElement);
     const colour = (token: string) => `rgb(${css.getPropertyValue(`--${token}`).trim()})`;
@@ -58,8 +62,8 @@ export default function CompaniesMap({ pins }: { pins: MapPin[] }) {
         .bindPopup(() => popup(p, (href) => router.push(href)))
         .addTo(group);
     }
-    if (pins.length) m.fitBounds(L.latLngBounds(pins.map((p) => [p.lat, p.lon])), { padding: [24, 24], maxZoom: 14 });
-    else m.setView(LEBANON, 8);
+    if (pins.length) m.fitBounds(L.latLngBounds(pins.map((p) => [p.lat, p.lon])), { padding: [24, 24], maxZoom: 14, animate: false });
+    else m.setView(LEBANON, 8, { animate: false });
   }, [pins, router]);
 
   return <div ref={box} className="h-[560px] w-full" role="region" aria-label="Companies map" />;

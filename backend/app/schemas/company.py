@@ -103,6 +103,10 @@ class CompanyOut(OutModel):
     status: CompanyStatus
     status_reason: str | None
     owner_user_id: int | None = None  # the lead generator who owns it (permissions.can_see)
+    # the list's decoration (company_service.decorate): current people, mobiles / WhatsApp, rules-based fit
+    people_count: int | None = None
+    mobile_count: int | None = None
+    fit: list[dict[str, Any]] | None = None
     identity_confidence: str | None
     # Company research (Step 4), separate from discovery and from the sales status.
     enrichment_status: str = "not_started"
@@ -229,6 +233,7 @@ class CompanyPersonOut(OutModel):
     sources: list[RoleSourceOut] = []  # where this role is stated
     contacts: list[ContactOut] = []  # how to reach the person, strongest first (labelled: published / predicted...)
     contactable: bool = False  # a usable business channel (a predicted address alone is not one)
+    confirmed_at: datetime | None = None  # a colleague confirmed the person or a number (contact feedback)
     corrected_fields: list[str] | None = None  # corrected by hand: research does not change these
     first_seen_at: datetime | None = None
     last_seen_at: datetime | None = None
@@ -306,6 +311,32 @@ class OpportunityOut(OutModel):
     confidence: int | None
     generated_at: datetime
     expires_at: datetime | None
+
+
+class FitReasonOut(OutModel):
+    why: str
+    evidence: str
+    points: int
+
+
+class FitPersonOut(OutModel):
+    id: int
+    name: str
+    title: str | None
+
+
+class OpportunityFitOut(OutModel):
+    """Rules-based fit for one solution (services/opportunity.py): every point with its evidence."""
+
+    solution: Solution
+    label: str
+    fit_level: FitLevel
+    points: int
+    reasons: list[FitReasonOut]
+    pitch: list[str]
+    call: list[str]
+    people: list[FitPersonOut]
+    note: str | None = None
 
 
 class SourceSummaryOut(OutModel):
@@ -439,6 +470,7 @@ class CompanyDetail(OutModel):
     emails: list[EmailOut]  # the company's own (not a person's)
     phones: list[PhoneOut]
     opportunities: list[OpportunityOut]  # latest analysis per solution
+    fit: list[OpportunityFitOut] = []  # rules-based fit per solution, computed live
     sources: list[SourceSummaryOut]
     signals: list[SignalOut] = []
     relationships: list[RelationshipOut] = []  # parent / subsidiary... (entities are never merged)

@@ -48,6 +48,10 @@ export interface Company {
   status_reason: string | null;
   /** The lead generator who owns it (found it first); salespeople see only their own. */
   owner_user_id: number | null;
+  /** The list's decoration: current people, mobiles / WhatsApp, rules-based fit per solution. */
+  people_count?: number | null;
+  mobile_count?: number | null;
+  fit?: { solution: "odoo" | "frinzo" | "it"; label: string; fit_level: "unknown" | "low" | "medium" | "high"; points: number }[] | null;
   identity_confidence: "low" | "medium" | "high" | null;
   /** Company research (website enrichment), separate from discovery and from the sales status. */
   enrichment_status: EnrichmentStatus;
@@ -141,6 +145,8 @@ export interface CompanyPerson {
   contacts: { kind: string; value: string; label: string; since?: string | null; stale?: boolean; confirmed?: boolean }[];
   /** A usable business channel (a predicted address alone is not one). */
   contactable: boolean;
+  /** A colleague confirmed the person or one of their numbers (call result); null = nobody has yet. */
+  confirmed_at?: string | null;
   employment_status: "current" | "former" | "unknown";
   title_rank: number | null;
   /** The department's first decision-maker. */
@@ -164,6 +170,18 @@ export interface Opportunity {
   confidence: number | null;
   generated_at: string;
   expires_at: string | null;
+}
+
+export interface OpportunityFit {
+  solution: "odoo" | "frinzo" | "it";
+  label: string;
+  fit_level: "unknown" | "low" | "medium" | "high";
+  points: number;
+  reasons: { why: string; evidence: string; points: number }[];
+  pitch: string[];
+  call: string[];
+  people: { id: number; name: string; title: string | null }[];
+  note: string | null;
 }
 
 export interface SourceSummary {
@@ -268,6 +286,8 @@ export interface CompanyDetail {
   emails: ContactEmail[];
   phones: ContactPhone[];
   opportunities: Opportunity[];
+  /** Rules-based fit per solution, computed live: every point with its evidence. */
+  fit: OpportunityFit[];
   sources: SourceSummary[];
   signals: CompanySignal[];
   /** Parent / subsidiary... (separate entities, never merged). */

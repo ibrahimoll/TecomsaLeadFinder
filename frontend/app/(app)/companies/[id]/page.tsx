@@ -30,12 +30,12 @@ import { AgentInsights } from "@/components/agent-insights";
 import { LushaPeople } from "@/components/lusha-people";
 import { api, ApiError, useApi } from "@/lib/api";
 import { isPrivileged, useCurrentUser } from "@/lib/auth";
-import { COMPANY_STATUS, COMPANY_STATUSES, humanize, place } from "@/lib/companies";
-import { formatDate, formatDateTime, isLebaneseMobile } from "@/lib/format";
+import { COMPANY_STATUS, COMPANY_STATUSES, displayName, humanize, place } from "@/lib/companies";
+import { formatDate, formatDateTime, formatPhone, isLebaneseMobile } from "@/lib/format";
 import { safeHref } from "@/lib/url";
 import { OwnerSelect, useUsers } from "@/components/owner-select";
 import { isActive, pollDelay, researchView, POLL_LIMIT_MS } from "@/lib/people-research";
-import type { CompanyDetail, CompanyPerson, CompanySignal, CompanyStatus, SignalGroup } from "@/types/v2";
+import type { CompanyDetail, CompanyPerson, CompanySignal, CompanyStatus, OpportunityFit, SignalGroup } from "@/types/v2";
 
 type TabKey = "overview" | "people" | "opportunity" | "sources";
 
@@ -120,7 +120,7 @@ function Overview({ detail }: { detail: CompanyDetail }) {
     { label: "Founded", value: c.founded_year ?? muted("—") },
     { label: "Headquarters", value: place(c.headquarters_city, c.headquarters_region, c.headquarters_country) },
     ...(relationships.length ? [{ label: "Group", value: relationships.map((r) => `${humanize(r.relation_type)}: ${r.related_name}`).join(" · ") }] : []),
-    { label: "Last verified", value: c.last_verified_at ? formatDate(c.last_verified_at) : muted("Never") },
+    { label: "Data updated", value: c.last_verified_at ? formatDate(c.last_verified_at) : muted("Never") }, // when a source last stated it, not a human check
     { label: "Added", value: formatDate(c.created_at) },
   ];
   return (
@@ -204,42 +204,7 @@ function Overview({ detail }: { detail: CompanyDetail }) {
 
       <aside className="min-w-0 space-y-5 xl:sticky xl:top-4">
         <Section title="Contact" flush>
-          {contacts.length ? (
-            <ul className="stagger divide-y divide-border">
-              {contacts.map((r) => {
-                const email = r.kind === "Email";
-                const Icon = email ? Mail : r.kind === "WhatsApp" ? MessageCircle : r.kind === "Mobile" ? Smartphone : Phone;
-                const digits = r.value.replace(/[^\d+]/g, "");
-                const href = email ? `mailto:${r.value}` : r.kind === "WhatsApp" ? `https://wa.me/${digits.replace("+", "")}` : `tel:${digits}`;
-                return (
-                  <li key={r.id} className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-hover/60">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
-                      <Icon className="h-4 w-4" aria-hidden />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <a href={href} className="block truncate text-[13px] font-medium tabular text-fg hover:text-accent hover:underline">
-                        {r.value}
-                      </a>
-                      <span className="text-[11.5px] text-fg-muted">
-                        {r.kind === "Mobile" ? "Mobile · often reaches the owner or a manager" : r.purpose ? humanize(r.purpose) : r.kind}
-                        {r.confidence != null && <> · {r.confidence >= 75 ? "high" : r.confidence >= 50 ? "medium" : "low"} confidence</>}
-                      </span>
-                    </span>
-                    {r.kind === "Mobile" && (
-                      <a href={`https://wa.me/${digits.replace("+", "")}`} target="_blank" rel="noreferrer" className="text-fg-muted hover:text-accent" aria-label={`WhatsApp ${r.value}`} title="WhatsApp">
-                        <MessageCircle className="h-4 w-4" aria-hidden />
-                      </a>
-                    )}
-                    <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                      <CopyButton value={r.value} label={email ? "email" : "number"} />
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="px-4 py-4 text-[13px] text-fg-subtle">No company phone or e-mail yet.</p>
-          )}
+          <ContactList contacts={contacts} />
         </Section>
         {(safeHref(c.website) || socials.length > 0) && (
           <Section title="Online">
@@ -280,6 +245,65 @@ function Overview({ detail }: { detail: CompanyDetail }) {
   );
 }
 
+type ContactRow = { id: string; value: string; kind: string; purpose: string | null; confidence: number | null };
+const SHORTLIST: [string, number][] = [["Mobile", 2], ["WhatsApp", 1], ["Phone", 1], ["Email", 1]];
+
+/** The company's numbers and addresses, one per real number (formatted), the best few first; the rest on demand. */
+function ContactList({ contacts }: { contacts: ContactRow[] }) {
+  const [all, setAll] = useState(false);
+  const seen = new Set<string>();
+  const unique = contacts.filter((r) => {
+    const key = r.kind === "Email" ? r.value.toLowerCase() : formatPhone(r.value).replace(/[^\d]/g, "");
+    return !seen.has(key) && !!seen.add(key);
+  });
+  if (!unique.length) return <p className="px-4 py-4 text-[13px] text-fg-subtle">No company phone or e-mail yet.</p>;
+  const short = SHORTLIST.flatMap(([kind, n]) => unique.filter((r) => r.kind === kind).slice(0, n));
+  const shown = all || unique.length <= short.length + 1 ? unique : short;
+  return (
+    <>
+      <ul className="stagger divide-y divide-border">
+        {shown.map((r) => {
+          const email = r.kind === "Email";
+          const Icon = email ? Mail : r.kind === "WhatsApp" ? MessageCircle : r.kind === "Mobile" ? Smartphone : Phone;
+          const value = email ? r.value : formatPhone(r.value);
+          const digits = value.replace(/[^\d+]/g, "");
+          const wa = `https://wa.me/${digits.replace("+", "")}`;
+          const href = email ? `mailto:${r.value}` : r.kind === "WhatsApp" ? wa : `tel:${digits}`;
+          return (
+            <li key={r.id} className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-hover/60">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <a href={href} className="block truncate text-[13px] font-medium tabular text-fg hover:text-accent hover:underline" title={r.value}>
+                  {value}
+                </a>
+                <span className="text-[11.5px] text-fg-muted">
+                  {r.kind === "Mobile" ? "Mobile · often reaches the owner or a manager" : r.purpose ? humanize(r.purpose) : r.kind}
+                  {r.confidence != null && <> · {r.confidence >= 75 ? "high" : r.confidence >= 50 ? "medium" : "low"} confidence</>}
+                </span>
+              </span>
+              {r.kind === "Mobile" && digits.startsWith("+961") && (
+                <a href={wa} target="_blank" rel="noreferrer" className="text-fg-muted hover:text-accent" aria-label={`WhatsApp ${value}`} title="WhatsApp">
+                  <MessageCircle className="h-4 w-4" aria-hidden />
+                </a>
+              )}
+              <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                <CopyButton value={value} label={email ? "email" : "number"} />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {unique.length > shown.length || all ? (
+        <button type="button" onClick={() => setAll(!all)} className="w-full border-t border-border px-4 py-2 text-left text-xs font-medium text-accent hover:bg-surface-hover/60">
+          {all ? "Show fewer" : `Show all ${unique.length}`}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
 /** The company's locations with an OpenStreetMap of the chosen one (the HQ first) and directions in Google Maps. */
 function LocationsList({ locations }: { locations: CompanyDetail["locations"] }) {
   const mapped = locations.filter((l) => l.latitude != null && l.longitude != null);
@@ -293,7 +317,7 @@ function LocationsList({ locations }: { locations: CompanyDetail["locations"] })
           title={`Map: ${shown.name ?? shown.address ?? "location"}`}
           className="block h-56 w-full border-0 border-b border-border"
           loading="lazy"
-          referrerPolicy="no-referrer"
+          referrerPolicy="strict-origin-when-cross-origin" // OpenStreetMap refuses tiles without a Referer
           src={`https://www.openstreetmap.org/export/embed.html?bbox=${shown.longitude! - d},${shown.latitude! - d},${shown.longitude! + d},${shown.latitude! + d}&layer=mapnik&marker=${shown.latitude},${shown.longitude}`}
         />
       )}
@@ -598,88 +622,6 @@ function Feedback({ companyId, person, onChanged }: { companyId: number; person:
   );
 }
 
-// "Who do you need?": the departments a lead generator targets, each the LeadFinder departments it covers.
-const TARGETS: { key: string; label: string; departments: string[] }[] = [
-  { key: "it", label: "IT", departments: ["it", "e_commerce"] },
-  { key: "finance", label: "Finance", departments: ["finance"] },
-  { key: "hr", label: "HR", departments: ["hr"] },
-  { key: "sales", label: "Sales", departments: ["sales"] },
-  { key: "marketing", label: "Marketing", departments: ["marketing"] },
-  { key: "operations", label: "Operations", departments: ["operations", "manufacturing"] },
-  { key: "procurement", label: "Procurement", departments: ["procurement", "supply_chain"] },
-  { key: "management", label: "Management", departments: ["executive"] },
-];
-const SENIORITY_ORDER = ["owner", "c_level", "vp", "director", "head", "manager"];
-// Result priority: confirmed > published (email or the person's own number) > TECOMSA CRM > delivered >
-// high-confidence predicted > predicted > nothing of the person's own (the company line fallback).
-const CONTACT_TIER: Record<string, number> = {
-  confirmed_email: 0, verified_email: 0, corroborated_email: 1, published_email: 2, business_mobile: 2,
-  direct_business_phone: 2, whatsapp: 2, office_extension: 2, internal_email: 3, business_phone: 4, delivered_email: 4,
-  high_confidence_email: 5, catch_all_email: 6, predicted_email: 6,
-};
-const contactTier = (p: CompanyPerson) => Math.min(7, ...(p.contacts ?? []).map((c) => CONTACT_TIER[c.kind] ?? 7));
-const STATUS_ORDER = { current: 0, unknown: 1, former: 2 } as const;
-
-/** The right people for a department, most senior current first; the best-reachable one is pointed out. */
-function TargetPerson({ people, switchboard, generalEmail }: { people: CompanyPerson[]; switchboard: string | null; generalEmail: string | null }) {
-  const [target, setTarget] = useState("it");
-  const group = TARGETS.find((t) => t.key === target) ?? TARGETS[0];
-  const rank = (p: CompanyPerson) => {
-    const s = SENIORITY_ORDER.indexOf(p.seniority ?? "");
-    return [STATUS_ORDER[p.employment_status], contactTier(p), s < 0 ? 9 : s, p.title_rank ?? 99];
-  };
-  const candidates = people
-    .filter((p) => group.departments.includes(p.department ?? "") && p.employment_status !== "former" && (p.confidence ?? 0) >= 50)
-    .sort((a, b) => {
-      const [x, y] = [rank(a), rank(b)];
-      return x[0] - y[0] || x[1] - y[1] || x[2] - y[2] || x[3] - y[3];
-    })
-    .slice(0, 3);
-  const reachable = candidates.find((p) => p.contactable && p.employment_status === "current");
-  return (
-    <Section title="Who do you need?">
-      <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="Target department">
-        {TARGETS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            aria-selected={t.key === target}
-            onClick={() => setTarget(t.key)}
-            className={`rounded-full border px-3 py-1 text-xs ${t.key === target ? "border-accent bg-accent text-white" : "border-border text-fg-muted hover:bg-surface-hover"}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {candidates.length === 0 ? (
-        <p className="text-sm text-fg-subtle">Not found: no {group.label} decision-maker in LeadFinder's sources yet.</p>
-      ) : (
-        <ul className="divide-y divide-border">
-          {candidates.map((p) => (
-            <li key={p.id} className="flex flex-wrap items-start justify-between gap-3 py-2.5">
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-[13px] font-medium text-fg">
-                  {p.person.full_name}
-                  {p === reachable && candidates[0] !== p && <span className="ml-2 text-[11px] font-normal text-fg-subtle">best reachable</span>}
-                </p>
-                <p className="text-xs text-fg-muted">{p.job_title}</p>
-                <p className="flex flex-wrap items-center gap-2 text-[11px] text-fg-subtle">
-                  <Badge tone={EMPLOYMENT[p.employment_status].tone}>{EMPLOYMENT[p.employment_status].label}</Badge>
-                  {p.last_verified_at && <span>Last verified {formatDate(p.last_verified_at)}</span>}
-                  <span>{sourceLabels(p).join(" · ")}</span>
-                </p>
-              </div>
-              <div className="min-w-0">
-                <BestContact person={p} switchboard={switchboard} generalEmail={generalEmail} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Section>
-  );
-}
-
 const CONTRIBUTION_CHANNELS = [
   { value: "SALES_CONFIRMED", label: "Phone call (I confirmed it)" },
   { value: "CONTRIBUTED_BUSINESS_CONTACT", label: "Business contact I know" },
@@ -808,7 +750,8 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
     );
   }
   const keyPeople = new Map(people.filter((p) => p.is_key).map((p) => [p.department ?? "other", p]));
-  const departments = KEY_DEPARTMENTS.filter((d) => d.always || keyPeople.has(d.key));
+  const departments = KEY_DEPARTMENTS.filter((d) => keyPeople.has(d.key));
+  const missing = KEY_DEPARTMENTS.filter((d) => d.always && !keyPeople.has(d.key)).map((d) => d.label);
   // The company's own line / mailbox: a fallback to reach a named person, never presented as theirs.
   const switchboard = detail.phones[0]?.phone ?? c.primary_phone ?? null;
   const generalEmail = detail.emails[0]?.email ?? null;
@@ -820,7 +763,6 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
   );
   return (
     <div className="space-y-5">
-      <TargetPerson people={people} switchboard={switchboard} generalEmail={generalEmail} />
       <AddContact companyId={c.id} onChanged={onChanged} />
       <LushaPeople companyId={c.id} companyName={c.name} onChanged={onChanged} />
       <Section title="Key people" actions={state}>
@@ -850,13 +792,18 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
                       <span className="text-[11px] text-fg-subtle">{sourceLabels(p).join(" · ")}</span>
                     </span>
                   </div>
-                ) : (
-                  <p className={`text-xs text-fg-subtle ${view.active ? "animate-pulse" : ""}`}>{view.active ? "Researching…" : researched ? "None found in public sources" : "—"}</p>
-                )}
+                ) : null}
               </div>
             );
           })}
         </div>
+        {missing.length > 0 && (
+          <p className={`mt-3 text-xs text-fg-subtle ${view.active ? "animate-pulse" : ""}`}>
+            {view.active ? "Researching… " : researched ? "Not found yet: " : "Not researched yet: "}
+            {missing.join(" · ")}
+            {researched && !view.active && " (use Log a call or Lusha to fill them)"}
+          </p>
+        )}
       </Section>
       <Section title="All people" description={`${people.length} found`} flush>
         <DataTable
@@ -905,7 +852,7 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
               ),
             },
             { key: "contact", header: "Contact", cell: (p) => <div className="min-w-[200px] max-w-[300px] whitespace-normal">{contact(p)}</div> },
-            { key: "verified", header: "Last verified", cell: (p) => (p.last_verified_at ? formatDate(p.last_verified_at) : muted("—")) },
+            { key: "confirmed", header: "Confirmed", cell: (p) => (p.confirmed_at ? <span className="text-success">✓ {formatDate(p.confirmed_at)}</span> : muted("Not confirmed")) },
             { key: "feedback", header: "", cell: (p) => <Feedback companyId={c.id} person={p} onChanged={onChanged} /> },
           ]}
         />
@@ -919,20 +866,73 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
   );
 }
 
+const FIT: Record<OpportunityFit["fit_level"], { label: string; tone: Tone }> = {
+  high: { label: "High fit", tone: "success" },
+  medium: { label: "Medium fit", tone: "info" },
+  low: { label: "Low fit", tone: "neutral" },
+  unknown: { label: "Not enough data", tone: "neutral" },
+};
+
+/** Odoo / Frinzo / IT fit from what LeadFinder knows (rules, every point with its evidence), best fit first. */
 function Opportunity({ detail }: { detail: CompanyDetail }) {
-  if (!detail.opportunities.length) {
+  const order = ["high", "medium", "low", "unknown"];
+  const fits = [...(detail.fit ?? [])].sort((a, b) => order.indexOf(a.fit_level) - order.indexOf(b.fit_level) || b.points - a.points);
+  if (!fits.length) {
     return (
       <Section>
-        <EmptyState icon={<Lightbulb />} title="No opportunity analysis yet" description="Odoo, Frinzo and IT fit are analysed in a later release." />
+        <EmptyState icon={<Lightbulb />} title="No opportunity analysis yet" description="Odoo, Frinzo and IT fit appear once the company is researched." />
       </Section>
     );
   }
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {detail.opportunities.map((o) => (
-        <Section key={o.id} title={humanize(o.solution)} actions={o.fit_level && <Badge tone={o.fit_level === "high" ? "success" : "neutral"}>Fit: {humanize(o.fit_level)}</Badge>}>
-          <p className="text-[13px] text-fg">{o.summary ?? muted("No summary")}</p>
-          <p className="mt-3 text-xs text-fg-subtle">Generated {formatDateTime(o.generated_at)}</p>
+    <div className="grid gap-4 lg:grid-cols-3">
+      {fits.map((f) => (
+        <Section key={f.solution} title={f.label} actions={<Badge tone={FIT[f.fit_level].tone}>{FIT[f.fit_level].label}{f.points ? ` · ${f.points} pts` : ""}</Badge>}>
+          <div className="space-y-4 text-[13px]">
+            {f.note && <p className="rounded border border-border bg-surface-hover/60 px-3 py-2 text-xs text-fg">{f.note}</p>}
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-fg-muted">Why</p>
+              {f.reasons.length ? (
+                <ul className="space-y-1.5">
+                  {f.reasons.map((r) => (
+                    <li key={r.why} className="flex gap-2">
+                      <span className="tabular w-7 shrink-0 text-xs font-medium text-accent">+{r.points}</span>
+                      <span>
+                        {r.why}
+                        <span className="block text-xs text-fg-subtle">{r.evidence}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-fg-subtle">{f.fit_level === "unknown" ? "LeadFinder knows too little yet: research the website, or check the people and sector." : "Nothing in what LeadFinder found points to this."}</p>
+              )}
+            </div>
+            {f.pitch.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-fg-muted">Pitch</p>
+                <ul className="list-disc space-y-0.5 pl-4">
+                  {f.pitch.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-fg-muted">Call</p>
+              {f.people.length ? (
+                <ul className="space-y-0.5">
+                  {f.people.map((p) => (
+                    <li key={p.id}>
+                      <span className="font-medium">{p.name}</span> <span className="text-xs text-fg-muted">{p.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-fg-subtle">Ask for: {f.call.join(" → ")}</p>
+              )}
+            </div>
+          </div>
         </Section>
       ))}
     </div>
@@ -1083,15 +1083,17 @@ export default function CompanyPage() {
           Companies
         </Link>
         <ChevronRight className="h-3 w-3" aria-hidden />
-        <span className="truncate text-fg">{c.name}</span>
+        <span className="truncate text-fg">{displayName(c.name)}</span>
       </nav>
       <header className="relative mb-5 animate-page-in overflow-hidden rounded-xl bg-accent text-white shadow-card">
         <div className="flex flex-wrap items-start gap-4 p-5">
           <span className="shrink-0 rounded-xl bg-white p-1 shadow-sm">
-            <Avatar name={c.name} domain={c.domain} size="xl" />
+            <Avatar name={displayName(c.name)} domain={c.domain} size="xl" />
           </span>
           <div className="min-w-0 flex-1 basis-[320px]">
-            <h1 className="font-display text-[24px] font-semibold leading-tight">{c.name}</h1>
+            <h1 className="font-display text-[24px] font-semibold leading-tight" title={c.name}>
+              {displayName(c.name)}
+            </h1>
             {c.brief && <p className="mt-1 max-w-3xl text-[13.5px] leading-snug text-white/85">{c.brief}</p>}
             <div className="stagger mt-3 flex flex-wrap gap-1.5 text-[12px]">
               {[

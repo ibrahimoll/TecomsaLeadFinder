@@ -66,7 +66,13 @@ def list_companies(
     city: str | None = None,
     industry: str | None = None,
     owner_id: int | None = None,
+    has_mobile: bool = False,
+    fit: str | None = None,
+    sort: str = "name",
 ) -> tuple[list[Company], int]:
+    """has_mobile: a Lebanese mobile / WhatsApp for the company or one of its people. fit: a solution (odoo /
+    frinzo / it) the company fits at least medium. sort: name (leading punctuation ignored) or fit (best first).
+    Each company carries people_count, mobile_count and fit (decorate)."""
     stmt = select(Company)
     if owner_id is not None:
         stmt = stmt.where(Company.owner_user_id == owner_id)
@@ -85,8 +91,58 @@ def list_companies(
             stmt = stmt.where(or_(func.lower(hq_column) == wanted, exists().where(
                 CompanyLocation.company_id == Company.id, func.lower(location_column) == wanted)))
     if industry and industry.strip():
-        stmt = stmt.where(func.lower(Company.industry) == industry.strip().lower())
-    return paginate(db, stmt.order_by(Company.name, Company.id), params)
+        wanted = industry.strip().lower()  # the sector or the directory's own activity ("Cosmetics industry")
+        stmt = stmt.where(or_(func.lower(Company.industry) == wanted, Company.sub_industry.ilike(f"%{wanted}%")))
+    if has_mobile:
+        stmt = stmt.where(or_(_is_mobile(Company.primary_phone), exists().where(
+            Phone.company_id == Company.id, Phone.status != "invalid", _mobile_phone())))
+    stmt = stmt.order_by(func.lower(func.regexp_replace(Company.name, r"^[^[:alnum:]]+", "")), Company.id)
+    if not fit and sort != "fit":
+        items, total = paginate(db, stmt, params)
+        return decorate(db, items), total
+    # ponytail: the fit is computed live, so filtering / sorting by it scores every matching company in Python;
+    # store it per company if the list grows past tens of thousands
+    items = decorate(db, list(db.scalars(stmt)))
+    if fit:
+        items = [c for c in items if any(f["solution"] == fit and f["fit_level"] in ("high", "medium") for f in c.fit)]
+    if sort == "fit" or fit:
+        def points(c):
+            return max((f["points"] for f in c.fit if not fit or f["solution"] == fit), default=0)
+        items.sort(key=points, reverse=True)
+    return items[params.offset:params.offset + params.page_size], len(items)
+
+
+_MOBILE = r"^(961)?0?(3[0-9]{6}|7[0-9]{7}|81[0-9]{6})$"  # contact_intelligence.LEBANON_MOBILE, on digits
+
+
+def _is_mobile(column):
+    return func.regexp_replace(func.coalesce(column, ""), r"\D", "", "g").op("~")(_MOBILE)
+
+
+def _mobile_phone():
+    return or_(Phone.phone_type.in_(("business_mobile", "whatsapp")), _is_mobile(Phone.phone))
+
+
+def decorate(db: Session, companies: list[Company]) -> list[Company]:
+    """people_count (current people), mobile_count (mobiles / WhatsApp of the company and its people) and fit (the
+    rules-based Odoo / Frinzo / IT fit, without people) on each company, for the list."""
+    from app.services import opportunity
+
+    ids = [c.id for c in companies] or [0]
+    people = dict(db.execute(select(CompanyPerson.company_id, func.count()).where(
+        CompanyPerson.company_id.in_(ids), CompanyPerson.employment_status != "former")
+        .group_by(CompanyPerson.company_id)).all())
+    mobiles = dict(db.execute(select(Phone.company_id, func.count(func.distinct(Phone.phone))).where(
+        Phone.company_id.in_(ids), Phone.status != "invalid", _mobile_phone()).group_by(Phone.company_id)).all())
+    signals: dict[int, list] = defaultdict(list)
+    for cid, kind, value in db.execute(select(CompanySignal.company_id, CompanySignal.signal_type,
+                                              CompanySignal.signal_value).where(CompanySignal.company_id.in_(ids))):
+        signals[cid].append({"signal_type": kind, "signal_value": value})
+    for c in companies:
+        c.people_count, c.mobile_count = people.get(c.id, 0), mobiles.get(c.id, 0)
+        c.fit = [{k: f[k] for k in ("solution", "label", "fit_level", "points")}
+                 for f in opportunity.analyse(c, signals[c.id], [])]
+    return companies
 
 
 def get_company(db: Session, company_id: int) -> Company:
@@ -174,13 +230,14 @@ def delete_company(db: Session, user: User, company_id: int) -> None:
 _STATUS_ORDER = {"current": 0, "unknown": 1, "former": 2}
 
 
-def _key_roles(roles: list[CompanyPerson]) -> set[int]:
-    """Per department, the decision-maker shown first: current over unknown (never former), then the title's
-    rank (CIO before IT Manager), then confidence, then the newest evidence. The others stay listed."""
+def _key_roles(roles: list[CompanyPerson], reachable: set[int] = frozenset()) -> set[int]:
+    """Per department, the decision-maker shown first: current over unknown (never former), then one a lead
+    generator can actually reach (reachable: person ids with a usable number / address), then the title's rank
+    (CIO before IT Manager), then confidence, then the newest evidence. The others stay listed."""
     best: dict[str, int] = {}
-    for role in sorted(roles, key=lambda r: (_STATUS_ORDER.get(r.employment_status, 1), r.title_rank or 99,
-                                             -(r.confidence or 0), -(r.last_seen_at.timestamp() if r.last_seen_at
-                                                                     else 0))):
+    for role in sorted(roles, key=lambda r: (_STATUS_ORDER.get(r.employment_status, 1), r.person_id not in reachable,
+                                             r.title_rank or 99, -(r.confidence or 0),
+                                             -(r.last_seen_at.timestamp() if r.last_seen_at else 0))):
         if role.employment_status != "former" and (role.department or "other") != "other":
             best.setdefault(role.department, role.id)
     return set(best.values())
@@ -204,7 +261,6 @@ def company_people(db: Session, company_id: int, user: User | None = None) -> li
                   CompanyPerson.title_rank.nulls_last(), Person.full_name, CompanyPerson.id)
     ).all()
     rows = [(role, person) for role, person in rows if visible(role)]
-    key_roles = _key_roles([role for role, _ in rows])
     role_sources: dict[int, list] = defaultdict(list)
     for role_id, source, structured in db.execute(
             select(Evidence.company_person_id, Source, Evidence.structured_value)
@@ -236,13 +292,30 @@ def company_people(db: Session, company_id: int, user: User | None = None) -> li
             if n >= 2:
                 corroborated.add((kind, contact_id))
 
+    from app.models import ContactFeedback
+
+    # what a colleague confirmed (the right person / a number that worked): the only real "verified"
+    confirmed = dict(db.execute(
+        select(ContactFeedback.person_id, func.max(ContactFeedback.created_at))
+        .where(ContactFeedback.company_id == company_id, ContactFeedback.person_id.in_(person_ids or [0]),
+               ContactFeedback.event.in_(("correct_person", "number_confirmed", "extension_confirmed")))
+        .group_by(ContactFeedback.person_id)).all())
+    ranked = {person.id: channels(contact["emails"][person.id], contact["phones"][person.id],
+                                  frozenset(corroborated)) for _, person in rows}
+    key_roles = _key_roles([role for role, _ in rows],
+                           {pid for pid, r in ranked.items() if any(c["kind"] in USABLE for c in r)})
     out = []
     for role, person in rows:
-        ranked = channels(contact["emails"][person.id], contact["phones"][person.id], frozenset(corroborated))
+        sources = role_sources[role.id]
+        # a role only a paid directory / provider states, never confirmed: at most medium (its date is unknown)
+        unconfirmed_directory = person.id not in confirmed and sources and all(
+            s["source_type"] in ("licensed_directory", "licensed_provider") for s in sources)
         out.append({**_columns(role), "person": person, "emails": contact["emails"][person.id],
                     "phones": contact["phones"][person.id], "is_key": role.id in key_roles,
-                    "sources": role_sources[role.id], "contacts": ranked,
-                    "contactable": any(c["kind"] in USABLE for c in ranked)})
+                    "sources": sources, "contacts": ranked[person.id],
+                    "contactable": any(c["kind"] in USABLE for c in ranked[person.id]),
+                    "confirmed_at": confirmed.get(person.id),
+                    **({"confidence": min(role.confidence or 0, 70)} if unconfirmed_directory else {})})
     return out
 
 
@@ -300,8 +373,10 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
                 "person_id": person.id, "full_name": person.full_name, "job_title": role.job_title,
                 "department": role.department, "employment_status": role.employment_status,
                 "employer_id": employer_id, "employer_name": employer.name, "relation_type": relation})
+    from app.services import opportunity
     from app.services.people.orchestrator import research_state
 
+    people = company_people(db, company_id)
     return {
         "company": company,
         "people_research": research_state(db, company),
@@ -312,7 +387,8 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
         "offerings": offerings,
         "conflicts": conflicts(db, company_id),
         "overview": overview(company, signals, offerings, locations),
-        "people": company_people(db, company_id),
+        "people": people,
+        "fit": opportunity.analyse(company, signals, people),  # rules, live: never stale
         "emails": own(Email),
         "phones": own(Phone),
         "opportunities": db.scalars(  # DISTINCT ON (solution): the latest analysis per solution

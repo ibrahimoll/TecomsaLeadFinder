@@ -667,6 +667,9 @@ export function Avatar({ name, size = "md", domain }: { name: string; size?: "sm
           loading="lazy"
           className="h-[70%] w-[70%] animate-[fade-in_200ms_ease-out] object-contain"
           onError={() => setLogoFailed(true)}
+          // DuckDuckGo answers an unknown domain with its 48x48 grey-arrow placeholder (an image, though a 404):
+          // ponytail: a real 48x48 favicon shows initials too
+          onLoad={(e) => e.currentTarget.naturalWidth === 48 && e.currentTarget.naturalHeight === 48 && setLogoFailed(true)}
         />
       ) : (
         initials

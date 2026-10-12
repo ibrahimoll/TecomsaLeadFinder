@@ -38,3 +38,6 @@ Thumbs.db
 
 # Uploaded import files (source files only; PostgreSQL is the datastore)
 backend/storage/
+
+# Browser review artefacts (screenshots / snapshots of real data)
+.playwright-mcp/

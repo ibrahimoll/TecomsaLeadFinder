@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from sqlalchemy import select
@@ -27,21 +27,26 @@ Text = Annotated[str | None, Query(max_length=200)]
 @router.get("", response_model=Page[CompanyOut])
 def list_companies(user: CurrentUser, db: DbSession, params: Pagination, q: Text = None,
                    status: CompanyStatus | None = None, country: Text = None, region: Text = None,
-                   city: Text = None, industry: Text = None, owner_id: int | None = None):
-    """A salesperson's own companies; managers / admins: everyone's, or one user's (owner_id)."""
+                   city: Text = None, industry: Text = None, owner_id: int | None = None, has_mobile: bool = False,
+                   fit: Literal["odoo", "frinzo", "it"] | None = None, sort: Literal["name", "fit"] = "name"):
+    """A salesperson's own companies; managers / admins: everyone's, or one user's (owner_id). has_mobile / fit
+    (at least medium for that solution) filter, sort=fit puts the best fits first."""
     items, total = company_service.list_companies(db, params, q=q, status=status, country=country, region=region,
-                                                  city=city, industry=industry,
-                                                  owner_id=owner_id if is_privileged(user) else user.id)
+                                                  city=city, industry=industry, has_mobile=has_mobile, fit=fit,
+                                                  sort=sort, owner_id=owner_id if is_privileged(user) else user.id)
     return page_response(items, total, params)
 
 
 @router.get("/export.csv")
 def export_companies(user: CurrentUser, db: DbSession, q: Text = None, status: CompanyStatus | None = None,
                      country: Text = None, region: Text = None, city: Text = None, industry: Text = None,
-                     owner_id: int | None = None) -> Response:
+                     owner_id: int | None = None, has_mobile: bool = False,
+                     fit: Literal["odoo", "frinzo", "it"] | None = None,
+                     sort: Literal["name", "fit"] = "name") -> Response:
     """The filtered list as a CSV for Excel (the same companies and contact visibility as the app; audited)."""
     data = company_service.export_csv(db, user, q=q, status=status, country=country, region=region, city=city,
-                                      industry=industry, owner_id=owner_id if is_privileged(user) else user.id)
+                                      industry=industry, has_mobile=has_mobile, fit=fit, sort=sort,
+                                      owner_id=owner_id if is_privileged(user) else user.id)
     audit_service.record(db, action="companies.exported", user_id=user.id, entity_type="company", entity_id=None,
                          metadata={"q": q, "industry": industry, "city": city, "rows": data.count("\n") - 1})
     db.commit()

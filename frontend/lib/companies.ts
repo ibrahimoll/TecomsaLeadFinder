@@ -76,6 +76,15 @@ export const CONFIDENCE: Record<"low" | "medium" | "high", { label: string; tone
 };
 
 /** "Beirut, Mount Lebanon, Lebanon" from whatever parts are known. */
+/** A directory's name as a person would write it: no wrapping quotes, brackets, dots or "+" ('( F.F.I Sarl)',
+ * '.Al Hajj Pharmacy.', '"Me Info Sec" - Middle East…'). Display only: the stored name stays as the source gave it. */
+export function displayName(name: string): string {
+  let n = name.replace(/["“”]/g, "").trim();
+  while (n.startsWith("(") && n.includes(")")) n = (n.slice(1, n.indexOf(")")) + n.slice(n.indexOf(")") + 1)).trim();
+  n = n.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N})]+$/gu, "").replace(/\s{2,}/g, " ");
+  return n || name;
+}
+
 export function place(...parts: (string | null | undefined)[]): string {
   return [...new Set(parts.filter(Boolean))].join(", ") || "—";
 }

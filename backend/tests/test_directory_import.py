@@ -177,3 +177,25 @@ def test_second_mobile_and_person_columns_are_read():
     sami = next(e for e in entries if e.get("person") == "Sami Fakhoury")
     digits = {"".join(filter(str.isdigit, n)) for n, _ in sami["phones"]}
     assert any(d.endswith("3111222") for d in digits) and any(d.endswith("70333444") for d in digits)
+
+
+def test_directory_people_are_not_shown_as_verified_and_the_reachable_one_leads(db, make_user):
+    from app.models import ContactFeedback
+    from app.services import company_service
+
+    owner = make_user(UserRole.SALES_MANAGER)
+    raw = xlsx(["Company Name", "Executives", "Mobile"],
+               ["Fictional Metals Sarl", "Mr. Harma Jaghlasian (Owner(s)) || Mr. Harout Jaghlasian (Authorized Signatory)",
+                "+961 71 - 951391 (Mr. Harout Jaghlasian)"])
+    contributions.import_directory(db, file_name="5index.xlsx", raw=raw, directory="5INDEX", user_id=owner.id,
+                                   apply=True)
+    cid = db.scalar(select(Company.id).where(Company.name == "Fictional Metals Sarl"))
+    people = {p["person"].full_name: p for p in company_service.company_people(db, cid, owner)}
+    harma, harout = people["Harma Jaghlasian"], people["Harout Jaghlasian"]
+    assert harout["is_key"] and not harma["is_key"]  # the one with a mobile leads, though an owner ranks higher
+    assert harout["confirmed_at"] is None and harout["confidence"] <= 70  # a directory says so: not verified
+    db.add(ContactFeedback(event="number_confirmed", company_id=cid, person_id=harout["person"].id,
+                           phone_id=harout["phones"][0].id, user_id=owner.id))
+    db.commit()
+    harout = next(p for p in company_service.company_people(db, cid, owner) if p["person"].full_name == "Harout Jaghlasian")
+    assert harout["confirmed_at"] is not None and harout["confidence"] > 70  # a colleague confirmed it

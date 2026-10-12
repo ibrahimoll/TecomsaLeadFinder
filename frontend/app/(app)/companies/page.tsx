@@ -3,19 +3,29 @@
 import { Building2, Download, FilterX, Trash2 } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 
-import { Avatar, Button, ConfirmDialog, CountUp, DataTable, EmptyState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Toolbar, toast } from "@/components/ui";
+import { Avatar, Badge, Button, Checkbox, ConfirmDialog, CountUp, DataTable, EmptyState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Toolbar, toast } from "@/components/ui";
 import { ScoutScore } from "@/components/agent-insights";
 import { PublicLookup } from "@/components/company-search";
 import { OwnerSelect, useUsers } from "@/components/owner-select";
 import { api, ApiError, useApi } from "@/lib/api";
 import { isPrivileged, useCurrentUser } from "@/lib/auth";
-import { COMPANY_STATUS, COMPANY_STATUSES, place } from "@/lib/companies";
+import { COMPANY_STATUS, COMPANY_STATUSES, displayName, place } from "@/lib/companies";
 import { useDebouncedSearch, useUrlState } from "@/lib/use-url-state";
 import type { Page } from "@/types";
 import type { Company, CompanyStatus } from "@/types/v2";
 
 const PAGE_SIZE = 50;
-const KEYS = ["q", "status", "country", "region", "city", "industry", "owner", "page"] as const;
+const KEYS = ["q", "status", "country", "region", "city", "industry", "owner", "mobile", "fit", "sort", "page"] as const;
+const FIT_TONE = { high: "success", medium: "info", low: "neutral", unknown: "neutral" } as const;
+/** One-click work lists: the filters they set (the toolbar shows and refines them). */
+const VIEWS: { key: string; label: string; hint: string; set: { fit: string; mobile: string } }[] = [
+  { key: "all", label: "All companies", hint: "Everything, best fit first", set: { fit: "", mobile: "" } },
+  { key: "call", label: "📱 Ready to call", hint: "A mobile or WhatsApp is known", set: { fit: "", mobile: "true" } },
+  { key: "odoo", label: "Odoo prospects", hint: "Good fit for Odoo, with a mobile", set: { fit: "odoo", mobile: "true" } },
+  { key: "frinzo", label: "Frinzo prospects", hint: "Good fit for Frinzo, with a mobile", set: { fit: "frinzo", mobile: "true" } },
+  { key: "it", label: "IT prospects", hint: "Good fit for IT, with a mobile", set: { fit: "it", mobile: "true" } },
+];
+const SOLUTION_SHORT = { odoo: "Odoo", frinzo: "Frinzo", it: "IT" } as const;
 
 function CompaniesView() {
   const [filters, setFilters] = useUrlState(KEYS);
@@ -29,13 +39,16 @@ function CompaniesView() {
     city: filters.city,
     industry: filters.industry,
     owner_id: filters.owner,
+    has_mobile: filters.mobile || undefined,
+    fit: filters.fit || undefined,
+    sort: filters.sort === "name" ? "name" : "fit", // the best prospects first unless the user sorts by name
     page,
     page_size: PAGE_SIZE,
   });
   const filtered = KEYS.some((k) => k !== "page" && filters[k]);
   // The same filters as the list, as a CSV for Excel (one row per person, with their numbers).
   const exportUrl = `/api/companies/export.csv?${new URLSearchParams(
-    Object.entries({ q: filters.q, status: filters.status, country: filters.country, region: filters.region, city: filters.city, industry: filters.industry, owner_id: filters.owner }).filter((e): e is [string, string] => !!e[1]),
+    Object.entries({ q: filters.q, status: filters.status, country: filters.country, region: filters.region, city: filters.city, industry: filters.industry, owner_id: filters.owner, has_mobile: filters.mobile, fit: filters.fit, sort: filters.sort === "name" ? "name" : "fit" }).filter((e): e is [string, string] => !!e[1]),
   )}`;
   const user = useCurrentUser();
   const users = useUsers(isPrivileged(user));
@@ -114,6 +127,16 @@ function CompaniesView() {
         }
       />
       <Section flush>
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-4 py-2.5" role="group" aria-label="Views">
+          {VIEWS.map((v) => {
+            const on = Object.entries(v.set).every(([k, val]) => filters[k as (typeof KEYS)[number]] === val) && (v.key !== "all" || !filters.fit && !filters.mobile);
+            return (
+              <Button key={v.key} size="sm" variant={on ? "primary" : "secondary"} aria-pressed={on} onClick={() => setFilters({ ...v.set, page: "" })} title={v.hint}>
+                {v.label}
+              </Button>
+            );
+          })}
+        </div>
         <Toolbar>
           <SearchInput value={search} onChange={setSearch} placeholder="Search by name or domain" className="w-64" label="Search companies" />
           <FilterInput label="Country" value={filters.country} onCommit={(country) => setFilters({ country })} />
@@ -129,12 +152,23 @@ function CompaniesView() {
             ))}
           </Select>
           {canDelete && <OwnerSelect users={users} value={filters.owner} onChange={(owner) => setFilters({ owner })} allLabel="All lead generators" className="w-48" />}
+          <Select aria-label="Fit" value={filters.fit} onChange={(e) => setFilters({ fit: e.target.value, page: "" })} className="w-44">
+            <option value="">Any fit</option>
+            <option value="odoo">Good fit for Odoo</option>
+            <option value="frinzo">Good fit for Frinzo</option>
+            <option value="it">Good fit for IT</option>
+          </Select>
+          <Checkbox label="📱 Has mobile" checked={filters.mobile === "true"} onChange={(e) => setFilters({ mobile: e.target.checked ? "true" : "", page: "" })} />
+          <Select aria-label="Sort" value={filters.sort} onChange={(e) => setFilters({ sort: e.target.value, page: "" })} className="w-40">
+            <option value="">Sort: best fit</option>
+            <option value="name">Sort: name</option>
+          </Select>
           {filtered && (
             <Button
               variant="ghost"
               size="sm"
               className="animate-pop-in"
-              onClick={() => setFilters({ q: "", status: "", country: "", region: "", city: "", industry: "", owner: "", page: "" })}
+              onClick={() => setFilters({ q: "", status: "", country: "", region: "", city: "", industry: "", owner: "", mobile: "", fit: "", sort: "", page: "" })}
             >
               <FilterX className="h-3.5 w-3.5" aria-hidden /> Clear filters
             </Button>
@@ -171,9 +205,11 @@ function CompaniesView() {
               header: "Company",
               cell: (c) => (
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <Avatar name={c.name} size="md" domain={c.domain} />
+                  <Avatar name={displayName(c.name)} size="md" domain={c.domain} />
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{c.name}</p>
+                    <p className="truncate font-medium" title={c.name}>
+                      {displayName(c.name)}
+                    </p>
                     {c.brief ? (
                       <p className="max-w-[380px] truncate text-xs text-fg-muted" title={c.brief}>
                         {c.brief}
@@ -188,17 +224,68 @@ function CompaniesView() {
             ...(data?.items.some((c) => c.scout_score != null)
               ? [{ key: "scout", header: "Scout", cell: (c: Company) => (c.scout_score != null ? <ScoutScore score={c.scout_score} reasons={c.scout_reasons} size="sm" /> : null) }]
               : []),
-            { key: "industry", header: "Industry", cell: (c) => c.industry ?? <span className="text-fg-subtle">—</span> },
-            { key: "location", header: "Location", cell: (c) => place(c.headquarters_city, c.headquarters_region, c.headquarters_country) },
+            {
+              key: "industry",
+              header: "Industry",
+              // the directory's own activity ("Cosmetics industry/trading") says more than a generic "Other"
+              cell: (c) => {
+                const main = c.industry && c.industry !== "Other" ? c.industry : null;
+                return main || c.sub_industry ? (
+                  <span className="block max-w-[220px] truncate" title={[c.industry, c.sub_industry].filter(Boolean).join(" · ")}>
+                    {main ?? c.sub_industry}
+                    {main && c.sub_industry && <span className="block truncate text-xs text-fg-subtle">{c.sub_industry}</span>}
+                  </span>
+                ) : (
+                  <span className="text-fg-subtle">—</span>
+                );
+              },
+            },
+            {
+              key: "people",
+              header: "People",
+              align: "right" as const,
+              cell: (c) => (c.people_count ? <span className="tabular">{c.people_count}</span> : <span className="text-fg-subtle">—</span>),
+            },
+            {
+              key: "mobile",
+              header: "Mobile",
+              cell: (c) => (c.mobile_count ? <Badge tone="success">📱 {c.mobile_count}</Badge> : <span className="text-fg-subtle">—</span>),
+            },
+            {
+              key: "fit",
+              header: "Best fit",
+              cell: (c) => {
+                const best = [...(c.fit ?? [])].filter((f) => f.fit_level === "high" || f.fit_level === "medium").sort((a, b) => b.points - a.points);
+                return best.length ? (
+                  <span className="flex items-center gap-1 whitespace-nowrap" title={best.map((f) => `${f.label}: ${f.fit_level} (${f.points} pts)`).join("\n")}>
+                    <Badge tone={FIT_TONE[best[0].fit_level]}>
+                      {SOLUTION_SHORT[best[0].solution]} · {best[0].fit_level === "high" ? "High" : "Med"}
+                    </Badge>
+                    {best.length > 1 && <span className="text-[11px] text-fg-subtle">+{best.length - 1}</span>}
+                  </span>
+                ) : (
+                  <span className="text-fg-subtle">—</span>
+                );
+              },
+            },
+            {
+              key: "location",
+              header: "Location",
+              cell: (c) =>
+                c.headquarters_city || c.headquarters_region ? (
+                  <span className="block max-w-[180px] truncate">{place(c.headquarters_city, c.headquarters_region, c.headquarters_country)}</span>
+                ) : (
+                  <span className="text-fg-subtle">{c.headquarters_country ?? "—"}</span>
+                ),
+            },
             ...(canDelete
               ? [{ key: "owner", header: "Lead generator", cell: (c: Company) => (c.owner_user_id && ownerName.get(c.owner_user_id)) || <span className="text-fg-subtle">—</span> }]
               : []),
-            { key: "size", header: "Employees", align: "right", cell: (c) => (c.employee_count_estimate ? c.employee_count_estimate.toLocaleString() : "—") },
             {
               key: "status",
               header: "Status",
               cell: (c) => (
-                <Select aria-label={`Status of ${c.name}`} value={c.status} onChange={(e) => changeStatus(c, e.target.value as CompanyStatus)} className="h-8 w-44 text-[12.5px]">
+                <Select aria-label={`Status of ${c.name}`} value={c.status} onChange={(e) => changeStatus(c, e.target.value as CompanyStatus)} className="h-8 w-36 text-[12.5px]">
                   {COMPANY_STATUSES.map((s) => (
                     <option key={s} value={s}>
                       {COMPANY_STATUS[s].label}

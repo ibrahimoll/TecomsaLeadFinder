@@ -272,15 +272,19 @@ def channels(emails, phones, corroborated: frozenset = frozenset()) -> list[dict
         if provenance == "contributed":
             return LABEL["contributed"]
         if provenance == "licensed":
-            return "Licensed directory"
+            return "Directory · not confirmed"  # what a directory states: nobody called it yet
         if provenance == "lusha":
-            return "Lusha"
+            return "Lusha · not confirmed"
         return LABEL["human_confirmed" if provenance == "human_confirmed" else kind]
 
     def entry(kind: str, value: str, row) -> dict:
         when = row.last_verified_at or row.last_seen_at or row.first_seen_at
-        return {"kind": kind, "value": value, "label": label(kind, row.provenance),
-                "since": when.date().isoformat() if when else None,
+        # a number a colleague confirmed on a call (feedback: number_confirmed), or a human-confirmed contact
+        confirmed = row.provenance == "human_confirmed" or (isinstance(row, Phone) and row.status == "verified") or (
+            isinstance(row, Email) and row.status == "confirmed")
+        shown = LABEL["human_confirmed"] if confirmed else label(kind, row.provenance)
+        return {"kind": kind, "value": value, "label": shown,
+                "since": when.date().isoformat() if when else None, "confirmed": confirmed,
                 "stale": bool(when and (now - when).days > STALE_DAYS)}
 
     for e in emails:
@@ -307,7 +311,7 @@ def channels(emails, phones, corroborated: frozenset = frozenset()) -> list[dict
         if ("phone", p.id) in corroborated:
             row["label"] = f"{row['label']} · corroborated"
         out.append(row)
-    return sorted(out, key=lambda c: RANK.index(c["kind"]))
+    return sorted(out, key=lambda c: (not c["confirmed"], RANK.index(c["kind"])))  # a confirmed contact first
 
 
 # ---- queueing -------------------------------------------------------------------------------------------------------

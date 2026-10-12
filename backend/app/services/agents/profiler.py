@@ -27,8 +27,8 @@ PAGE_ORDER = {"homepage": 0, "about": 1, "products": 2, "services": 2}
 MAX_CHARS = 5000
 
 SYSTEM = (
-    "You write company profiles for the sales team of TECOMSA, which sells Odoo ERP, the Frinzo app and IT "
-    "services. Use ONLY the website text you are given. Write in English even if the website is in French or "
+    "You write company profiles for the sales team of TECOMSA, which sells Odoo ERP, Frinzo (communication "
+    "automation and marketing campaigns on WhatsApp, Instagram, SMS and Facebook) and IT services. Use ONLY the website text you are given. Write in English even if the website is in French or "
     "Arabic. brief: one sentence, at most 25 words, saying what the company does and for whom. description: 2 to "
     "4 factual sentences: main activity, products or services, customers or markets, locations if stated. "
     "offerings: up to 6 short product or service names. industry: the best match from the allowed list. If the "

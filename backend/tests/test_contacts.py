@@ -213,3 +213,12 @@ def test_team_pages_from_the_sitemap_and_never_a_soft_404(client_for, db, site):
     from app.models import CompanyWebPage
     assert db.scalar(select(func.count()).select_from(CompanyWebPage).where(
         CompanyWebPage.company_id == other, CompanyWebPage.page_type == "team")) == 0
+
+
+def test_directory_numbers_say_not_confirmed_until_a_call_confirms_them():
+    directory = Phone(phone="+961 3 111 111", phone_type="business_mobile", provenance="licensed", status="discovered")
+    website = Phone(phone="+961 1 222 222", phone_type="direct_business_phone", provenance="public", status="discovered")
+    assert [c["label"] for c in contacts.channels([], [directory, website])][0] == "Directory · not confirmed"
+    website.status = "verified"  # a colleague called it: "Phone correct"
+    best = contacts.channels([], [directory, website])[0]
+    assert (best["value"], best["label"], best["confirmed"]) == ("+961 1 222 222", "Confirmed by a colleague", True)

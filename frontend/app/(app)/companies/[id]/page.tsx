@@ -270,42 +270,77 @@ function Overview({ detail }: { detail: CompanyDetail }) {
         )}
         <Section title="Locations" description={detail.locations.length ? `${detail.locations.length} on record` : undefined} flush>
           {detail.locations.length ? (
-            <ul className="stagger divide-y divide-border">
-              {detail.locations.map((l) => {
-                const where = [l.address, place(l.city, l.region, l.country)].filter((v) => v && v !== "—").join(", ");
-                return (
-                  <li key={l.id} className="flex gap-3 px-4 py-3">
-                    <MapPin className={`mt-0.5 h-4 w-4 shrink-0 ${l.is_headquarters ? "text-accent" : "text-fg-subtle"}`} aria-hidden />
-                    <span className="min-w-0 flex-1 text-[13px]">
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-medium">{l.name ?? place(l.city, l.region, l.country)}</span>
-                        {l.is_headquarters && <Badge tone="accent">HQ</Badge>}
-                        {!l.is_headquarters && l.location_type && <span className="text-[11.5px] text-fg-muted">{humanize(l.location_type)}</span>}
-                      </span>
-                      {l.address && <span className="block text-xs text-fg-muted">{l.address}</span>}
-                      <span className="mt-1 flex flex-wrap gap-x-3 text-xs">
-                        {l.phone && (
-                          <a href={`tel:${l.phone.replace(/[^\d+]/g, "")}`} className="tabular text-fg hover:text-accent">
-                            {l.phone}
-                          </a>
-                        )}
-                        {where && (
-                          <a href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(where)}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-                            Map
-                          </a>
-                        )}
-                      </span>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+            <LocationsList locations={detail.locations} />
           ) : (
             <p className="px-4 py-4 text-[13px] text-fg-subtle">No locations recorded.</p>
           )}
         </Section>
       </aside>
     </div>
+  );
+}
+
+/** The company's locations with an OpenStreetMap of the chosen one (the HQ first) and directions in Google Maps. */
+function LocationsList({ locations }: { locations: CompanyDetail["locations"] }) {
+  const mapped = locations.filter((l) => l.latitude != null && l.longitude != null);
+  const [focus, setFocus] = useState(() => (mapped.find((l) => l.is_headquarters) ?? mapped[0])?.id ?? null);
+  const shown = mapped.find((l) => l.id === focus);
+  const d = 0.004; // about 400 m around the pin
+  return (
+    <>
+      {shown && (
+        <iframe
+          title={`Map: ${shown.name ?? shown.address ?? "location"}`}
+          className="block h-56 w-full border-0 border-b border-border"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          src={`https://www.openstreetmap.org/export/embed.html?bbox=${shown.longitude! - d},${shown.latitude! - d},${shown.longitude! + d},${shown.latitude! + d}&layer=mapnik&marker=${shown.latitude},${shown.longitude}`}
+        />
+      )}
+      <ul className="stagger divide-y divide-border">
+        {locations.map((l) => {
+          const where = [l.address, place(l.city, l.region, l.country)].filter((v) => v && v !== "—").join(", ");
+          return (
+            <li key={l.id} className="flex gap-3 px-4 py-3">
+              <MapPin className={`mt-0.5 h-4 w-4 shrink-0 ${l.is_headquarters ? "text-accent" : "text-fg-subtle"}`} aria-hidden />
+              <span className="min-w-0 flex-1 text-[13px]">
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-medium">{l.name ?? place(l.city, l.region, l.country)}</span>
+                  {l.is_headquarters && <Badge tone="accent">HQ</Badge>}
+                  {!l.is_headquarters && l.location_type && <span className="text-[11.5px] text-fg-muted">{humanize(l.location_type)}</span>}
+                </span>
+                {l.address && <span className="block text-xs text-fg-muted">{l.address}</span>}
+                <span className="mt-1 flex flex-wrap gap-x-3 text-xs">
+                  {l.phone && (
+                    <a href={`tel:${l.phone.replace(/[^\d+]/g, "")}`} className="tabular text-fg hover:text-accent">
+                      {l.phone}
+                    </a>
+                  )}
+                  {l.latitude != null && l.longitude != null ? (
+                    <>
+                      {l.id !== focus && (
+                        <button type="button" onClick={() => setFocus(l.id)} className="text-accent hover:underline">
+                          Show on map
+                        </button>
+                      )}
+                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${l.latitude},${l.longitude}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                        Directions
+                      </a>
+                    </>
+                  ) : (
+                    where && (
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                        Find on map
+                      </a>
+                    )
+                  )}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -348,8 +383,18 @@ const SOURCE_LABEL: Record<string, string> = {
 
 /** Where a person's role is stated: "Company website", "Conference"... (each once). */
 function sourceLabels(p: CompanyPerson): string[] {
-  return [...new Set(p.sources.map((s) => SOURCE_LABEL[s.source_type ?? ""] ?? "Public source"))];
+  return [
+    ...new Set(
+      p.sources.map((s) =>
+        // a licensed directory / provider by its own name: "5INDEX directory", "Lusha"
+        s.source_type === "licensed_directory" ? `${(s.name ?? "Directory").replace(/\s*\(licensed directory\)$/i, "")} directory` : s.source_type === "licensed_provider" ? (s.name ?? "Lusha") : (SOURCE_LABEL[s.source_type ?? ""] ?? "Public source"),
+      ),
+    ),
+  ];
 }
+
+/** Names a company registration lists (board, shareholders, signatories): often not the people running it day to day. */
+const REGISTRATION_TITLES = new Set(["Board Member", "Shareholder", "Authorized Signatory"]);
 const EMPLOYMENT: Record<CompanyPerson["employment_status"], { label: string; tone: Tone }> = {
   current: { label: "Current", tone: "success" },
   unknown: { label: "Not confirmed", tone: "neutral" },
@@ -415,7 +460,7 @@ function BestContact({ person, switchboard, generalEmail }: { person: CompanyPer
         <span className="flex flex-wrap items-center gap-1.5" title={others.map((o) => `${o.value} · ${o.label}`).join("\n")}>
           {best.kind.endsWith("email") ? <Mail className="h-3.5 w-3.5 text-fg-subtle" aria-hidden /> : <Phone className="h-3.5 w-3.5 text-fg-subtle" aria-hidden />}
           <span className="tabular text-fg">{best.value}</span>
-          <Badge tone={CONTACT_TONE[best.kind] ?? "neutral"}>{best.label}</Badge>
+          <Badge tone={best.confirmed ? "success" : (CONTACT_TONE[best.kind] ?? "neutral")}>{best.confirmed ? `✓ ${best.label}` : best.label}</Badge>
           {best.since && <span className="text-fg-subtle">{best.stale ? `${formatDate(best.since)} · may be outdated` : formatDate(best.since)}</span>}
           {others.length > 0 && <span className="text-fg-subtle">+{others.length}</span>}
         </span>
@@ -428,6 +473,45 @@ function BestContact({ person, switchboard, generalEmail }: { person: CompanyPer
       )}
       {!best && !switchboard && !generalEmail && <span className="text-fg-subtle">No verified contact yet</span>}
     </div>
+  );
+}
+
+/** After a call, one click on the number shown: it worked (confirmed for everyone), it's wrong (hidden), or the person
+ * left. The same events as Feedback (POST /companies/{id}/contact-feedback). */
+function CallResult({ companyId, person, onChanged }: { companyId: number; person: CompanyPerson; onChanged: () => void }) {
+  const best = person.contacts?.[0];
+  const phone = best && !best.kind.endsWith("email") ? person.phones.find((p) => p.phone === best.value) : undefined;
+  const [busy, setBusy] = useState(false);
+  if (!phone || best?.confirmed) return null;
+  const send = async (event: string, done: string) => {
+    setBusy(true);
+    try {
+      await api(`/companies/${companyId}/contact-feedback`, {
+        method: "POST",
+        body: event === "person_left_company" ? { event, company_person_id: person.id } : { event, phone_id: phone.id },
+      });
+      toast.success(`${person.person.full_name}: ${done}`);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not save the call result");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const chip = "rounded border border-border px-1.5 py-0.5 text-[11px] text-fg-muted hover:border-accent/50 hover:text-fg disabled:opacity-50";
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-1" role="group" aria-label={`Call result for ${person.person.full_name}`}>
+      <span className="text-[11px] text-fg-subtle">Called?</span>
+      <button type="button" className={chip} disabled={busy} onClick={() => void send("number_confirmed", "number confirmed for everyone")}>
+        ✓ Works
+      </button>
+      <button type="button" className={chip} disabled={busy} onClick={() => void send("wrong_number", "wrong number hidden")}>
+        ✗ Wrong number
+      </button>
+      <button type="button" className={chip} disabled={busy} onClick={() => void send("person_left_company", "marked as left")}>
+        Left the company
+      </button>
+    </span>
   );
 }
 
@@ -728,7 +812,12 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
   // The company's own line / mailbox: a fallback to reach a named person, never presented as theirs.
   const switchboard = detail.phones[0]?.phone ?? c.primary_phone ?? null;
   const generalEmail = detail.emails[0]?.email ?? null;
-  const contact = (p: CompanyPerson) => <BestContact person={p} switchboard={switchboard} generalEmail={generalEmail} />;
+  const contact = (p: CompanyPerson) => (
+    <>
+      <BestContact person={p} switchboard={switchboard} generalEmail={generalEmail} />
+      <CallResult companyId={c.id} person={p} onChanged={onChanged} />
+    </>
+  );
   return (
     <div className="space-y-5">
       <TargetPerson people={people} switchboard={switchboard} generalEmail={generalEmail} />
@@ -793,6 +882,12 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
               cell: (p) => (
                 <span className="block min-w-[220px] max-w-[320px] whitespace-normal" title={p.sources.map((s) => s.url ?? s.name).join("\n")}>
                   {p.job_title}
+                  {REGISTRATION_TITLES.has(p.normalized_title ?? "") && (
+                    <span title="From the company's registration: may not work there day to day">
+                      {" "}
+                      <Badge>Registration record</Badge>
+                    </span>
+                  )}
                   <span className="block text-xs text-fg-subtle">
                     {[DEPARTMENT_LABEL[p.department ?? ""] ?? humanize(p.department), humanize(p.seniority), sourceLabels(p).join(", ")].filter((v) => v && v !== "—").join(" · ")}
                   </span>

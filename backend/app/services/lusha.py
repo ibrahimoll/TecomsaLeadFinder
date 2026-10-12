@@ -43,6 +43,12 @@ logger = logging.getLogger("leadfinder.lusha")
 _LOCK = 7_301_951  # pg advisory lock: one budget check + ledger insert at a time
 FIELDS = {"email": "emails", "phone": "phones"}
 DEFAULT_CREDITS = {"email": 1, "phone": 5}  # Lusha's documented per-data-point cost, when a result does not say
+SEARCH_BLOCK = 25  # contactSearch: 1 credit per block of up to 25 people found (GET /v3/account/usage pricing)
+
+
+def search_estimate() -> int:
+    """The most one page of a people search costs: 1 credit per started block of 25 results."""
+    return -(-get_settings().lusha_search_size // SEARCH_BLOCK)
 STALE_MINUTES = 10  # a pending row older than this was interrupted: it no longer blocks a retry
 _ERRORS = {401: (502, "Lusha refused the API key (check LUSHA_API_KEY)"),
            402: (402, "The Lusha account is out of credits"),
@@ -222,7 +228,7 @@ def _view(db: Session, company_id: int, row: LushaRequest | None) -> dict:
     params = (row.params or {}) if row else {}
     total, page = params.get("total"), params.get("page", 0)
     out = {"configured": configured(), "searched_at": row.created_at if row else None, "fresh": _fresh(row),
-           "search_credits_estimate": s.lusha_search_size, "page": page, "total": total,
+           "search_credits_estimate": search_estimate(), "page": page, "total": total,
            "has_more": bool(total and total > (page + 1) * s.lusha_search_size), "people": []}
     if row is None:
         return out
@@ -273,7 +279,7 @@ def search(db: Session, user: User, company, query: str = "", has_phone: bool = 
     filters = {"contacts": {"include": include}} if include else {}
     filters["companies"] = {"include": {"domains": [company.domain]} if company.domain else {"names": [company.name]}}
     params = {"query": " ".join(query.split()), "has_phone": has_phone, "page": page, "filters": filters}
-    row = _reserve(db, user, company.id, "search", s.lusha_search_size, search_key=key, params=params)
+    row = _reserve(db, user, company.id, "search", search_estimate(), search_key=key, params=params)
     try:
         data = _call("POST", "/v3/contacts/prospecting", {"pagination": {"page": page, "size": s.lusha_search_size},
                                                           "filters": filters})

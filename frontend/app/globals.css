@@ -37,8 +37,8 @@
     --success-soft: 234 247 240;
     --warning: 168 95 8;
     --warning-soft: 253 245 230;
-    --danger: 190 18 80;
-    --danger-soft: 253 236 243;
+    --danger: 185 28 28; /* a deeper red of the brand family (was a pinkish crimson) */
+    --danger-soft: 254 238 238;
     --info: 37 99 235;
     --info-soft: 236 242 255;
     --focus: 220 30 38;

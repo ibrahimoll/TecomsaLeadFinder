@@ -27,6 +27,7 @@ import {
   type Tone,
 } from "@/components/ui";
 import { AgentInsights } from "@/components/agent-insights";
+import { CompanyDeleteNote } from "@/components/company-delete-note";
 import { LushaPeople } from "@/components/lusha-people";
 import { api, ApiError, useApi } from "@/lib/api";
 import { isPrivileged, useCurrentUser } from "@/lib/auth";
@@ -1271,15 +1272,21 @@ export default function CompanyPage() {
       </div>
       <ConfirmDialog
         open={confirmDelete}
-        title={`Delete ${c.name}?`}
+        title={`Delete ${displayName(c.name)}?`}
         confirmLabel="Delete company"
         tone="danger"
         busy={saving}
         onConfirm={remove}
         onClose={() => setConfirmDelete(false)}
+        alternative={{
+          label: "Archive instead",
+          onClick: () => {
+            void changeStatus("archived");
+            setConfirmDelete(false);
+          },
+        }}
       >
-        Removes the company, its locations, roles and search results; Find Leads will not add it again. People and
-        source records are kept. To only hide it, set its status to Archived.
+        <CompanyDeleteNote />
       </ConfirmDialog>
     </>
   );

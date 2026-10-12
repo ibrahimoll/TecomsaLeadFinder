@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 
 import { Avatar, Badge, Button, Checkbox, ConfirmDialog, CountUp, DataTable, EmptyState, ErrorState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Skeleton, Toolbar, toast } from "@/components/ui";
 import { ScoutScore } from "@/components/agent-insights";
+import { CompanyDeleteNote } from "@/components/company-delete-note";
 import { PublicLookup } from "@/components/company-search";
 import type { MapPin } from "@/components/companies-map";
 import { OwnerSelect, useUsers } from "@/components/owner-select";
@@ -90,6 +91,19 @@ function CompaniesView() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function archiveSelected() {
+    const ids = [...selected];
+    setBusy(true);
+    const results = await Promise.allSettled(ids.map((id) => api(`/companies/${id}/status`, { method: "PATCH", body: { status: "archived" } })));
+    const done = results.filter((r) => r.status === "fulfilled").length;
+    if (done) toast.success(`${done} compan${done === 1 ? "y" : "ies"} archived`);
+    if (done < ids.length) toast.error(`${ids.length - done} could not be archived`);
+    setSelected(new Set());
+    setConfirmBulk(false);
+    setBusy(false);
+    await reload();
   }
 
   // ponytail: one DELETE per company (no bulk endpoint); fine for a page of 50, add a bulk route if selections grow.
@@ -378,21 +392,27 @@ function CompaniesView() {
         busy={busy}
         onConfirm={removeSelected}
         onClose={() => setConfirmBulk(false)}
+        alternative={{ label: `Archive ${selected.size}`, onClick: () => void archiveSelected() }}
       >
-        Removes these companies, their locations and search results; Find Leads will not add them again. People and
-        source records are kept. To only hide them, set their status to Archived.
+        <CompanyDeleteNote count={selected.size} />
       </ConfirmDialog>
       <ConfirmDialog
         open={deleting !== null}
-        title={`Delete ${deleting?.name ?? "company"}?`}
+        title={`Delete ${deleting ? displayName(deleting.name) : "company"}?`}
         confirmLabel="Delete company"
         tone="danger"
         busy={busy}
         onConfirm={remove}
         onClose={() => setDeleting(null)}
+        alternative={{
+          label: "Archive instead",
+          onClick: () => {
+            if (deleting) void changeStatus(deleting, "archived");
+            setDeleting(null);
+          },
+        }}
       >
-        Removes the company, its locations and search results; Find Leads will not add it again. People and
-        source records are kept. To only hide it, set its status to Archived.
+        <CompanyDeleteNote />
       </ConfirmDialog>
     </>
   );

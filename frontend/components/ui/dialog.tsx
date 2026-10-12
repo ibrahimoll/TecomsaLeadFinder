@@ -18,6 +18,7 @@ export function ConfirmDialog({
   confirmDisabled,
   onConfirm,
   onClose,
+  alternative,
 }: {
   open: boolean;
   title: string;
@@ -28,6 +29,8 @@ export function ConfirmDialog({
   confirmDisabled?: boolean;
   onConfirm: () => void;
   onClose: () => void;
+  /** A gentler way to get what the user wants ("Archive instead"), offered next to the destructive action. */
+  alternative?: { label: string; onClick: () => void };
 }) {
   const ref = useRef<HTMLDialogElement>(null);
 
@@ -55,15 +58,20 @@ export function ConfirmDialog({
         {children && <div className="mt-2 text-[13px] text-fg-muted">{children}</div>}
       </div>
       <div className="flex justify-end gap-2 border-t border-border bg-surface-muted/50 px-5 py-3">
-        <Button variant="secondary" onClick={onClose} disabled={busy}>
+        <Button variant="secondary" onClick={onClose} disabled={busy} autoFocus={tone === "danger"}>
           Cancel
         </Button>
+        {alternative && (
+          <Button variant="secondary" onClick={alternative.onClick} disabled={busy}>
+            {alternative.label}
+          </Button>
+        )}
         <Button
           variant={tone === "danger" ? "danger-solid" : "primary"}
           onClick={onConfirm}
           loading={busy}
           disabled={confirmDisabled}
-          autoFocus
+          autoFocus={tone !== "danger"} // a destructive dialog opens on Cancel, never on Delete
         >
           {confirmLabel}
         </Button>

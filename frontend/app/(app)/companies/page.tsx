@@ -293,17 +293,6 @@ function CompaniesView() {
               },
             },
             {
-              key: "people",
-              header: "People",
-              align: "right" as const,
-              cell: (c) => (c.people_count ? <span className="tabular">{c.people_count}</span> : <span className="text-fg-subtle">—</span>),
-            },
-            {
-              key: "mobile",
-              header: "Mobile",
-              cell: (c) => (c.mobile_count ? <Badge tone="success">📱 {c.mobile_count}</Badge> : <span className="text-fg-subtle">—</span>),
-            },
-            {
               key: "fit",
               header: "Best fit",
               cell: (c) => {

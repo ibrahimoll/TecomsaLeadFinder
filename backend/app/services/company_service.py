@@ -138,8 +138,11 @@ def decorate(db: Session, companies: list[Company]) -> list[Company]:
     for cid, kind, value in db.execute(select(CompanySignal.company_id, CompanySignal.signal_type,
                                               CompanySignal.signal_value).where(CompanySignal.company_id.in_(ids))):
         signals[cid].append({"signal_type": kind, "signal_value": value})
+    from app.services.normalization import company_domain as own_domain
+
     for c in companies:
         c.people_count, c.mobile_count = people.get(c.id, 0), mobiles.get(c.id, 0)
+        c.own_domain = own_domain(c.domain) if c.domain else None  # a platform host (beirut.ml) is not theirs
         c.fit = [{k: f[k] for k in ("solution", "label", "fit_level", "points")}
                  for f in opportunity.analyse(c, signals[c.id], [])]
     return companies
@@ -377,6 +380,9 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
     from app.services.people.orchestrator import research_state
 
     people = company_people(db, company_id)
+    from app.services.normalization import company_domain as own_domain
+
+    company.own_domain = own_domain(company.domain) if company.domain else None  # not a column: never saved
     return {
         "company": company,
         "people_research": research_state(db, company),

@@ -243,7 +243,7 @@ function CompaniesView() {
               header: "Company",
               cell: (c) => (
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <Avatar name={displayName(c.name)} size="md" domain={c.domain} />
+                  <Avatar name={displayName(c.name)} size="md" domain={c.own_domain === undefined ? c.domain : c.own_domain} />
                   <div className="min-w-0">
                     <p className="truncate font-medium" title={c.name}>
                       {displayName(c.name)}
@@ -253,7 +253,7 @@ function CompaniesView() {
                         {c.brief}
                       </p>
                     ) : (
-                      c.domain && <p className="truncate text-xs text-fg-muted">{c.domain}</p>
+                      (c.own_domain === undefined ? c.domain : c.own_domain) && <p className="truncate text-xs text-fg-muted">{c.own_domain === undefined ? c.domain : c.own_domain}</p>
                     )}
                   </div>
                 </div>
@@ -311,19 +311,22 @@ function CompaniesView() {
               header: "Location",
               cell: (c) =>
                 c.headquarters_city || c.headquarters_region ? (
-                  <span className="block max-w-[180px] truncate">{place(c.headquarters_city, c.headquarters_region, c.headquarters_country)}</span>
+                  <span className="block max-w-[150px] truncate" title={place(c.headquarters_city, c.headquarters_region, c.headquarters_country)}>
+                    {place(c.headquarters_city, c.headquarters_region)}
+                  </span>
                 ) : (
                   <span className="text-fg-subtle">{c.headquarters_country ?? "—"}</span>
                 ),
             },
-            ...(canDelete
+            // only when the page mixes lead generators (otherwise it is the same name on every row)
+            ...(canDelete && new Set((data?.items ?? []).map((c) => c.owner_user_id)).size > 1
               ? [{ key: "owner", header: "Lead generator", cell: (c: Company) => (c.owner_user_id && ownerName.get(c.owner_user_id)) || <span className="text-fg-subtle">—</span> }]
               : []),
             {
               key: "status",
               header: "Status",
               cell: (c) => (
-                <Select aria-label={`Status of ${c.name}`} value={c.status} onChange={(e) => changeStatus(c, e.target.value as CompanyStatus)} className="h-8 w-36 text-[12.5px]">
+                <Select aria-label={`Status of ${c.name}`} value={c.status} onChange={(e) => changeStatus(c, e.target.value as CompanyStatus)} className="h-8 w-[118px] text-[12px]">
                   {COMPANY_STATUSES.map((s) => (
                     <option key={s} value={s}>
                       {COMPANY_STATUS[s].label}

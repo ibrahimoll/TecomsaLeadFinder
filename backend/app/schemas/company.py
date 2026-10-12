@@ -104,6 +104,7 @@ class CompanyOut(OutModel):
     status_reason: str | None
     owner_user_id: int | None = None  # the lead generator who owns it (permissions.can_see)
     # the list's decoration (company_service.decorate): current people, mobiles / WhatsApp, rules-based fit
+    own_domain: str | None = None  # the domain unless it is a listing / menu / link platform's (display)
     people_count: int | None = None
     mobile_count: int | None = None
     fit: list[dict[str, Any]] | None = None

@@ -49,6 +49,8 @@ export interface Company {
   /** The lead generator who owns it (found it first); salespeople see only their own. */
   owner_user_id: number | null;
   /** The list's decoration: current people, mobiles / WhatsApp, rules-based fit per solution. */
+  /** The domain, unless it is a listing / menu / link platform's (beirut.ml): null then. */
+  own_domain?: string | null;
   people_count?: number | null;
   mobile_count?: number | null;
   fit?: { solution: "odoo" | "frinzo" | "it"; label: string; fit_level: "unknown" | "low" | "medium" | "high"; points: number }[] | null;

@@ -216,7 +216,7 @@ function Overview({ detail }: { detail: CompanyDetail }) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[12.5px] font-medium transition-colors hover:border-accent/50 hover:text-accent"
                 >
-                  <Globe className="h-3.5 w-3.5" aria-hidden /> {c.domain ?? "Website"}
+                  <Globe className="h-3.5 w-3.5" aria-hidden /> {(c.own_domain === undefined ? c.domain : c.own_domain) ?? "Website"}
                 </a>
               )}
               {socials.map(([label, url]) => (
@@ -1180,7 +1180,7 @@ export default function CompanyPage() {
       <header className="relative mb-5 animate-page-in overflow-hidden rounded-xl border border-border bg-surface shadow-card">
         <span className="absolute inset-x-0 top-0 h-1 bg-accent" aria-hidden />
         <div className="flex flex-wrap items-start gap-4 p-5 pt-6">
-          <Avatar name={displayName(c.name)} domain={c.domain} size="xl" />
+          <Avatar name={displayName(c.name)} domain={c.own_domain === undefined ? c.domain : c.own_domain} size="xl" />
           <div className="min-w-0 flex-1 basis-[320px]">
             <h1 className="font-display text-[24px] font-semibold leading-tight text-fg" title={c.name}>
               {displayName(c.name)}
@@ -1201,7 +1201,7 @@ export default function CompanyPage() {
                 ))}
               {safeHref(c.website) && (
                 <a href={safeHref(c.website)!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-accent hover:underline">
-                  <Globe className="h-3.5 w-3.5" aria-hidden /> {c.domain ?? "Website"}
+                  <Globe className="h-3.5 w-3.5" aria-hidden /> {(c.own_domain === undefined ? c.domain : c.own_domain) ?? "Website"}
                 </a>
               )}
             </div>

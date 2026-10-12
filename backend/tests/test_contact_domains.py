@@ -41,3 +41,6 @@ def test_company_page_flags_and_export_skips_another_business_mailbox(client_for
     assert [(e["email"], e["other_domain"]) for e in emails] == [
         ("hello@palmsbeachhouse.com", False), ("info@sushitsunami.com", True)]  # flagged, listed last
     assert "sushitsunami" not in company_service.export_csv(db, user)
+    listed = manager.get("/companies", params={"q": "Palms"}).json()["items"][0]
+    assert listed["domain"] == "beirut.ml" and listed["own_domain"] is None  # stored as given, shown as no domain
+    assert manager.get(f"/companies/{c.id}").json()["company"]["own_domain"] is None

@@ -17,6 +17,15 @@ from app.services.normalization import company_domain, related_domain
     ("University of Tripoli", "new.ut.edu.lb", "ut.edu.lb", True),
     ("Lilla Italy", "lillaitalypizzaria.com", "yahoo.fr", True),       # a personal mailbox: nothing to check
     ("Zeta Mills", None, "zetamills.com", True),
+    ("N.D. Du Mont Carmel", None, "ndmc.edu.lb", True),                # initials
+    ("Rawdah High School Official", None, "rhs.edu.lb", True),
+    ("ELSE Beirut", "standalone-group.com", "elsebeirut.com", True),  # its own name, though the site is the group's
+    ("British Language Centre - BLC", "blclebanon.com", "blcbank.com", False),
+    ("CNO El-Mina", None, "cno.school", True),
+    ("International Learning Community", None, "ilclebanon.com", True),
+    ("Lycée Français International Marcel Pagnol", None, "lfimp.education", True),
+    ("The Key ApartHotel", None, "thekeybeirut.com", True),
+    ("Kahwet Azmi", None, "keifrestaurant.com", False),
 ])
 def test_related_domain(name, domain, other, related):
     assert related_domain(name, domain, other) is related

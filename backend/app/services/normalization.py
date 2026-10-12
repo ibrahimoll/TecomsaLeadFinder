@@ -93,9 +93,12 @@ _NON_COMPANY_DOMAINS = frozenset(
 )
 
 _GENERIC_LABELS = {"www", "com", "net", "org", "edu", "gov", "co", "info", "biz", "lb", "me", "io", "app", "site",
-                   "online", "store", "shop", "group", "mail", "home", "new"}
+                   "online", "store", "shop", "group", "mail", "home", "new", "school", "education", "ac"}
 _NAME_STOP = {"sarl", "sal", "the", "and", "group", "company", "holding", "lebanon", "liban", "beirut", "partner",
               "partners", "single", "two", "one", "school", "restaurant", "hotel", "college", "international"}
+_ACRONYM_SKIP = {"de", "du", "des", "la", "le", "les", "al", "el", "of", "the", "and", "et", "sal", "sarl"}
+_PLACE_SUFFIX = {"lebanon", "leb", "lb", "beirut", "liban"}
+_CITIES = {"tyr", "tyre", "sour", "saida", "jbeil", "byblos", "batroun", "jounieh", "tripoli", "zahle", "broumana"}
 
 
 def _core(domain: str) -> str:
@@ -117,14 +120,21 @@ def related_domain(company_name: str | None, company_domain_: str | None, other:
     b = _core(other)
     if b in {"gmail", "hotmail", "yahoo", "outlook", "live", "icloud", "msn", "aol", "proton", "protonmail"}:
         return True  # a personal mailbox (yahoo.fr, hotmail.fr...): nothing to check
+    plain = unicodedata.normalize("NFKD", company_name or "").encode("ascii", "ignore").decode().lower()
+    tokens = re.findall(r"[a-z0-9]+", plain)
+    compact = "".join(tokens)
+    acronyms = {a for a in ("".join(w[0] for w in tokens), "".join(w[0] for w in tokens if w not in _ACRONYM_SKIP))
+                if len(a) >= 3}
+    bare = next((b.removesuffix(s) for s in _PLACE_SUFFIX | _CITIES if b.endswith(s) and len(b) - len(s) >= 4), b)
+    if b and (b == compact or b in tokens or bare in compact or (len(b) >= 3 and any(
+            a.startswith(b) or b.removeprefix(a) in _PLACE_SUFFIX for a in acronyms))):
+        return True  # its own name ('elsebeirut', 'cno') or initials ('ndmc' = N.D. du Mont Carmel, 'ilclebanon')
     if company_domain_:
         a = _core(company_domain_)
         if not a or not b:
             return True
         return a == b or (min(len(a), len(b)) >= 4 and (a in b or b in a)) or len(os.path.commonprefix([a, b])) >= 6
-    words = {w for w in re.findall(r"[a-z0-9]+", unicodedata.normalize("NFKD", company_name or "").lower())
-             if len(w) >= 4 and w not in _NAME_STOP}
-    compact = re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", company_name or "").lower())
+    words = {w for w in tokens if len(w) >= 4 and w not in _NAME_STOP}
     return not words or any(w in b for w in words) or (len(b) >= 4 and b in compact)
 
 

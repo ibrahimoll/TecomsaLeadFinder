@@ -35,7 +35,7 @@ import { formatDate, formatDateTime, formatPhone, isLebaneseMobile } from "@/lib
 import { safeHref } from "@/lib/url";
 import { OwnerSelect, useUsers } from "@/components/owner-select";
 import { isActive, pollDelay, researchView, POLL_LIMIT_MS } from "@/lib/people-research";
-import type { CompanyDetail, CompanyPerson, CompanySignal, CompanyStatus, OpportunityFit, SignalGroup } from "@/types/v2";
+import type { CompanyDetail, CompanyPerson, CompanySignal, CompanyStatus, OpportunityFit, SalesPitch, SignalGroup } from "@/types/v2";
 
 type TabKey = "overview" | "people" | "opportunity" | "sources";
 
@@ -873,6 +873,88 @@ const FIT: Record<OpportunityFit["fit_level"], { label: string; tone: Tone }> = 
   unknown: { label: "Not enough data", tone: "neutral" },
 };
 
+/** A saved pitch from the company detail (opportunity_analysis rows carry it in summary / reasoning). */
+function savedPitch(detail: CompanyDetail, solution: string): SalesPitch | null {
+  const o = detail.opportunities.find((x) => x.solution === solution);
+  const r = (o?.reasoning ?? {}) as { opener?: string; whatsapp?: string; objections?: SalesPitch["objections"] };
+  if (!o || !r.opener) return null;
+  return { solution: o.solution, why: o.summary, points: (o.recommended_modules_or_services as string[] | null) ?? [], opener: r.opener, whatsapp: r.whatsapp ?? null, objections: r.objections ?? [], generated_at: o.generated_at, fresh: true };
+}
+
+/** Claude's pitch for one product: written on a click (a few cents), saved and shown again for free. */
+function PitchBlock({ companyId, solution, configured, initial }: { companyId: number; solution: string; configured: boolean; initial: SalesPitch | null }) {
+  const [p, setP] = useState<SalesPitch | null>(initial);
+  const [busy, setBusy] = useState(false);
+  const write = async (refresh: boolean) => {
+    setBusy(true);
+    try {
+      setP(await api<SalesPitch>(`/companies/${companyId}/pitch`, { method: "POST", body: { solution, refresh } }));
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not write the pitch");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!p) {
+    return configured ? (
+      <Button size="sm" variant="secondary" loading={busy} onClick={() => void write(false)}>
+        <Lightbulb className="h-3.5 w-3.5" aria-hidden /> Write pitch
+      </Button>
+    ) : (
+      <p className="text-xs text-fg-subtle">Pitch writing needs Claude (ANTHROPIC_API_KEY).</p>
+    );
+  }
+  return (
+    <div className="space-y-3 rounded-lg border border-accent/20 bg-accent-soft/30 p-3">
+      <p className="text-xs font-medium text-fg-muted">Pitch</p>
+      {p.why && <p>{p.why}</p>}
+      {p.points.length > 0 && (
+        <ul className="list-disc space-y-0.5 pl-4">
+          {p.points.map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ul>
+      )}
+      {p.opener && (
+        <div>
+          <p className="mb-0.5 flex items-center justify-between text-xs font-medium text-fg-muted">
+            On the call <CopyButton value={p.opener} label="opener" />
+          </p>
+          <p className="italic">“{p.opener}”</p>
+        </div>
+      )}
+      {p.whatsapp && (
+        <div>
+          <p className="mb-0.5 flex items-center justify-between text-xs font-medium text-fg-muted">
+            WhatsApp message <CopyButton value={p.whatsapp} label="message" />
+          </p>
+          <p className="whitespace-pre-line rounded bg-surface px-2 py-1.5">{p.whatsapp}</p>
+        </div>
+      )}
+      {p.objections.length > 0 && (
+        <div>
+          <p className="mb-0.5 text-xs font-medium text-fg-muted">If they say…</p>
+          <ul className="space-y-1">
+            {p.objections.map((o) => (
+              <li key={o.objection}>
+                <span className="font-medium">“{o.objection}”</span> <span className="text-fg-muted">→ {o.answer}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p className="flex flex-wrap items-center gap-2 text-[11px] text-fg-subtle">
+        Written by Claude {formatDate(p.generated_at)} from LeadFinder&apos;s facts: check before you use it.
+        {configured && (
+          <button type="button" className="text-accent hover:underline disabled:opacity-50" disabled={busy} onClick={() => void write(true)}>
+            {busy ? "Writing…" : "Write a new one"}
+          </button>
+        )}
+      </p>
+    </div>
+  );
+}
+
 /** Odoo / Frinzo / IT fit from what LeadFinder knows (rules, every point with its evidence), best fit first. */
 function Opportunity({ detail }: { detail: CompanyDetail }) {
   const order = ["high", "medium", "low", "unknown"];
@@ -932,6 +1014,7 @@ function Opportunity({ detail }: { detail: CompanyDetail }) {
                 <p className="text-xs text-fg-subtle">Ask for: {f.call.join(" → ")}</p>
               )}
             </div>
+            <PitchBlock companyId={detail.company.id} solution={f.solution} configured={!!detail.pitch_configured} initial={savedPitch(detail, f.solution)} />
           </div>
         </Section>
       ))}

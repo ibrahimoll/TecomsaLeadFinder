@@ -303,6 +303,19 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
   this network); lookups take 10–50 s each, so they run inside deep research only, bounded by
   `COMMONCRAWL_BUDGET_SECONDS`.
 
+## 5f. Sales pitches (Claude)
+
+- **What**: the Opportunity tab's *Write pitch* (per product: Odoo / Frinzo / IT) asks Claude (`PITCH_MODEL`,
+  default `claude-opus-5-5`, effort `PITCH_EFFORT` = medium) for why the company needs it, 3-5 points, a call opener,
+  a first WhatsApp message and likely objections. Claude gets LeadFinder's facts only (fit reasons and evidence,
+  description, industry, signals, people's names and titles) - never a phone number or e-mail.
+- **Cost**: one call per company and product, about a few cents; the pitch is saved (`opportunity_analysis`) and
+  reused for `PITCH_CACHE_DAYS` (30). *Write a new one* makes a new call. Every call is audited
+  (`company.pitch_written`, with token counts).
+- **Setup**: `ANTHROPIC_API_KEY=...` in `.env` (Claude Console > API keys), then restart the backend. The image needs
+  the `anthropic` package (`requirements.txt`): rebuild with `docker compose build backend worker` after pulling.
+- Refusals fall back server-side (`fallbacks: "default"`); a refused or unreadable answer stores nothing.
+
 ## 5e. Lusha (paid people + contact reveal)
 
 - **Key**: every Lusha plan, Free included, comes with an API key (Lusha help centre). In the Lusha dashboard open

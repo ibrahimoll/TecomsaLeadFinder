@@ -1,6 +1,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
+from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import CompanyAccess, CurrentUser, DbSession, ManagerOrAdmin, Pagination
@@ -247,3 +248,18 @@ def remove_person(company_id: int, person_id: int, payload: PersonRemovalIn, use
     from app.services import privacy
 
     return privacy.forget_person(db, user, company_id, person_id, payload.reason)
+
+
+class PitchIn(BaseModel):
+    solution: Literal["odoo", "frinzo", "it"]
+    refresh: bool = False  # write a new one even when the saved pitch is still fresh (paid)
+
+
+@router.post("/{company_id}/pitch")
+def write_pitch(company_id: int, payload: PitchIn, user: CurrentUser, db: DbSession) -> dict:
+    """Claude's sales pitch for one solution (paid, a few cents; the saved one is reused while fresh)."""
+    from app.services import pitch
+
+    company = company_service.get_company(db, company_id)
+    return pitch.write(db, user, company, payload.solution, company_service.company_people(db, company_id, user),
+                       refresh=payload.refresh)

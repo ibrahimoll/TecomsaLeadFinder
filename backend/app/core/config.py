@@ -120,6 +120,12 @@ class Settings(BaseSettings):
     # One Lusha seat for the whole team: numbers only (an email reveal is refused), at most this many paid reveals per
     # user per day (0 = no cap), never for a person LeadFinder already has a number for.
     lusha_phone_only: bool = True
+    # Sales pitch (services/pitch.py): Claude writes it on a click in the Opportunity tab, from what LeadFinder
+    # stored (never contact details). ANTHROPIC_API_KEY empty = the button says "not configured".
+    anthropic_api_key: SecretStr | None = None
+    pitch_model: str = "claude-opus-5-5"
+    pitch_effort: str = "medium"  # low / medium / high: a pitch is short, medium is plenty
+    pitch_cache_days: int = 30  # a written pitch is reused this long (no new call)
     lusha_user_daily_reveals: int = 20
 
     @property

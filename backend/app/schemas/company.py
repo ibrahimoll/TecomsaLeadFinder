@@ -471,6 +471,7 @@ class CompanyDetail(OutModel):
     phones: list[PhoneOut]
     opportunities: list[OpportunityOut]  # latest analysis per solution
     fit: list[OpportunityFitOut] = []  # rules-based fit per solution, computed live
+    pitch_configured: bool = False  # Claude can write pitches (ANTHROPIC_API_KEY)
     sources: list[SourceSummaryOut]
     signals: list[SignalOut] = []
     relationships: list[RelationshipOut] = []  # parent / subsidiary... (entities are never merged)

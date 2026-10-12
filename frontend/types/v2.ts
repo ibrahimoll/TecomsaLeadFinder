@@ -172,6 +172,17 @@ export interface Opportunity {
   expires_at: string | null;
 }
 
+export interface SalesPitch {
+  solution: "odoo" | "frinzo" | "it";
+  why: string | null;
+  points: string[];
+  opener: string | null;
+  whatsapp: string | null;
+  objections: { objection: string; answer: string }[];
+  generated_at: string;
+  fresh: boolean;
+}
+
 export interface OpportunityFit {
   solution: "odoo" | "frinzo" | "it";
   label: string;
@@ -288,6 +299,8 @@ export interface CompanyDetail {
   opportunities: Opportunity[];
   /** Rules-based fit per solution, computed live: every point with its evidence. */
   fit: OpportunityFit[];
+  /** Claude can write sales pitches (ANTHROPIC_API_KEY). */
+  pitch_configured?: boolean;
   sources: SourceSummary[];
   signals: CompanySignal[];
   /** Parent / subsidiary... (separate entities, never merged). */

@@ -373,7 +373,7 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
                 "person_id": person.id, "full_name": person.full_name, "job_title": role.job_title,
                 "department": role.department, "employment_status": role.employment_status,
                 "employer_id": employer_id, "employer_name": employer.name, "relation_type": relation})
-    from app.services import opportunity
+    from app.services import opportunity, pitch
     from app.services.people.orchestrator import research_state
 
     people = company_people(db, company_id)
@@ -389,6 +389,7 @@ def company_detail(db: Session, company_id: int) -> dict[str, Any]:
         "overview": overview(company, signals, offerings, locations),
         "people": people,
         "fit": opportunity.analyse(company, signals, people),  # rules, live: never stale
+        "pitch_configured": pitch.configured(),
         "emails": own(Email),
         "phones": own(Phone),
         "opportunities": db.scalars(  # DISTINCT ON (solution): the latest analysis per solution

@@ -1,0 +1,1232 @@
+{
+ "summary": {
+  "label": "after",
+  "n": 46,
+  "found": 0,
+  "created": 24,
+  "ambiguous": 15,
+  "not_found": 4,
+  "timed_out": 3,
+  "median_ms": 96.5
+ },
+ "rows": [
+  {
+   "query": "Bank Audi",
+   "kind": "bank",
+   "status": "created",
+   "ms": 1313,
+   "company": "BANK AUDI sal",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:ASSOCIATION",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 2,
+     "ms": 856
+    }
+   ]
+  },
+  {
+   "query": "Byblos Bank",
+   "kind": "bank",
+   "status": "ambiguous",
+   "ms": 50,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "Byblos Institute Dora",
+     "transliteration"
+    ],
+    [
+     "بنك بيبلوس ش.م.ل",
+     "GLEIF - Legal Entity Identifiers (Lebanon)"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 2,
+     "ms": 9
+    }
+   ]
+  },
+  {
+   "query": "IBL Bank",
+   "kind": "bank",
+   "status": "ambiguous",
+   "ms": 42,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "IBL BANK S.A.L.",
+     "Association of Banks in Lebanon - Almanac of Banks"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 4
+    }
+   ]
+  },
+  {
+   "query": "Creditbank",
+   "kind": "bank",
+   "status": "ambiguous",
+   "ms": 47,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "CREDITBANK S.A.L.",
+     "Association of Banks in Lebanon - Almanac of Banks"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 2,
+     "ms": 9
+    }
+   ]
+  },
+  {
+   "query": "LIA Insurance",
+   "kind": "insurer",
+   "status": "timed_out",
+   "ms": 20059,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "SOURCE_TIMEOUT",
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 2
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "web_discovery",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "wikidata",
+     "status": "timed_out"
+    }
+   ]
+  },
+  {
+   "query": "بنك عودة",
+   "kind": "bank/ar",
+   "status": "ambiguous",
+   "ms": 54,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "بنك عودة",
+     "Overture Maps Places"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 2
+    }
+   ]
+  },
+  {
+   "query": "Medgulf",
+   "kind": "insurer",
+   "status": "created",
+   "ms": 125,
+   "company": "The Mediterranean & Gulf Insurance & Reinsurance Co. S.A.L (MEDGULF)",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:GOVERNMENT",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 2,
+     "ms": 8
+    }
+   ]
+  },
+  {
+   "query": "Bankers Assurance",
+   "kind": "insurer",
+   "status": "created",
+   "ms": 164,
+   "company": "Bankers Assurance SAL",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:GOVERNMENT",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 3
+    }
+   ]
+  },
+  {
+   "query": "AXA Middle East",
+   "kind": "insurer",
+   "status": "created",
+   "ms": 123,
+   "company": "AXA MIDDLE EAST S.A.L",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:GOVERNMENT",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 2
+    }
+   ]
+  },
+  {
+   "query": "Spinneys Lebanon",
+   "kind": "retail",
+   "status": "created",
+   "ms": 96,
+   "company": "Spinneys - Lebanon",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "Aishti",
+   "kind": "retail",
+   "status": "ambiguous",
+   "ms": 39,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "Aishti",
+     "Overture Maps Places"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 3
+    }
+   ]
+  },
+  {
+   "query": "Le Charcutier Aoun",
+   "kind": "retail",
+   "status": "created",
+   "ms": 196,
+   "company": "Charcutier Aoun",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 13
+    }
+   ]
+  },
+  {
+   "query": "ABC Verdun",
+   "kind": "retail",
+   "status": "created",
+   "ms": 92,
+   "company": "ABC Verdun",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 3
+    }
+   ]
+  },
+  {
+   "query": "Chateau Ksara",
+   "kind": "manufacturer",
+   "status": "ambiguous",
+   "ms": 81,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "Chateau Ksara S.A.L",
+     "Association of Lebanese Industrialists - members"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 2,
+     "ms": 44
+    }
+   ]
+  },
+  {
+   "query": "Almaza Brewery",
+   "kind": "manufacturer",
+   "status": "created",
+   "ms": 56,
+   "company": "Almaza Brewery",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "Gandour",
+   "kind": "manufacturer",
+   "status": "created",
+   "ms": 82,
+   "company": "Gandour",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 2
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "Libanlait",
+   "kind": "manufacturer",
+   "status": "created",
+   "ms": 5466,
+   "company": "Liban Lait",
+   "match": "source_name",
+   "resolved_from": "WEB_DISCOVERY",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "web_discovery",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "Patchi",
+   "kind": "manufacturer",
+   "status": "created",
+   "ms": 87,
+   "company": "Patchi",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:GOVERNMENT",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 10
+    }
+   ]
+  },
+  {
+   "query": "Indevco",
+   "kind": "manufacturer",
+   "status": "created",
+   "ms": 87,
+   "company": "Indevco",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 5
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "International College",
+   "kind": "school",
+   "status": "not_found",
+   "ms": 13,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "NO_LOCAL_MATCH",
+   "candidates": [],
+   "sources": []
+  },
+  {
+   "query": "Collège Notre-Dame de Jamhour",
+   "kind": "school/fr",
+   "status": "ambiguous",
+   "ms": 43,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "College Notre-Dame de Jamhour",
+     "Overture Maps Places"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 3
+    }
+   ]
+  },
+  {
+   "query": "American Community School",
+   "kind": "school",
+   "status": "ambiguous",
+   "ms": 59,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "American Community School Beirut",
+     "Overture Maps Places"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "Université Saint-Joseph",
+   "kind": "university/fr",
+   "status": "ambiguous",
+   "ms": 31,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": null,
+   "candidates": [
+    [
+     "Saint Joseph",
+     "transliteration"
+    ],
+    [
+     "Collège Saint-Joseph",
+     "name_core"
+    ],
+    [
+     "Ecole Saint Joseph",
+     "name_core"
+    ],
+    [
+     "University of Saint Joseph",
+     "Overture Maps Places"
+    ],
+    [
+     "Saint Joseph University",
+     "Overture Maps Places"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 2
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 16
+    }
+   ]
+  },
+  {
+   "query": "Hôtel-Dieu de France",
+   "kind": "hospital/fr",
+   "status": "created",
+   "ms": 108,
+   "company": "Hôtel-Dieu de France",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "Clemenceau Medical Center",
+   "kind": "hospital",
+   "status": "created",
+   "ms": 99,
+   "company": "Clemenceau Medical Center",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 2
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 4
+    }
+   ]
+  },
+  {
+   "query": "Bellevue Medical Center",
+   "kind": "hospital",
+   "status": "created",
+   "ms": 107,
+   "company": "\"BELLEVUE MEDICAL CENTER\" S.A.L. (HOLDING)",
+   "match": "source_name",
+   "resolved_from": "GLEIF",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 2,
+     "ms": 6
+    }
+   ]
+  },
+  {
+   "query": "مستشفى الجامعة الأميركية في بيروت",
+   "kind": "hospital/ar",
+   "status": "ambiguous",
+   "ms": 19882,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "باب مستشفى الجامعة الأميركية",
+     "Overture Maps Places"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    },
+    {
+     "source": "web_discovery",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "wikidata",
+     "status": "ok",
+     "found": 0
+    }
+   ]
+  },
+  {
+   "query": "Cortas",
+   "kind": "manufacturer",
+   "status": "created",
+   "ms": 108,
+   "company": "Cortas",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:GOVERNMENT",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 8
+    }
+   ]
+  },
+  {
+   "query": "Ogero",
+   "kind": "telecom",
+   "status": "created",
+   "ms": 68,
+   "company": "Ogero",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:ASSOCIATION",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 12
+    }
+   ]
+  },
+  {
+   "query": "Massaya",
+   "kind": "manufacturer",
+   "status": "created",
+   "ms": 153,
+   "company": "Massaya",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:GOVERNMENT",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 2,
+     "ms": 9
+    }
+   ]
+  },
+  {
+   "query": "Malak al Tawook",
+   "kind": "restaurant",
+   "status": "ambiguous",
+   "ms": 20031,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "Malak Al Tawouk",
+     "Overture Maps Places"
+    ],
+    [
+     "Malak Al Tawouk",
+     "Overture Maps Places"
+    ],
+    [
+     "Malak Al Tawouk",
+     "Overture Maps Places"
+    ],
+    [
+     "Malak Al Tawouk",
+     "Overture Maps Places"
+    ],
+    [
+     "Malak Al Tawouk",
+     "Overture Maps Places"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 20
+    },
+    {
+     "source": "web_discovery",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "wikidata",
+     "status": "timed_out"
+    }
+   ]
+  },
+  {
+   "query": "شركة طيران الشرق الأوسط",
+   "kind": "airline/ar",
+   "status": "timed_out",
+   "ms": 23591,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "SOURCE_TIMEOUT",
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 4
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "web_discovery",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "wikidata",
+     "status": "timed_out"
+    }
+   ]
+  },
+  {
+   "query": "Anghami",
+   "kind": "tech",
+   "status": "ambiguous",
+   "ms": 20043,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "WEAK_EVIDENCE",
+   "candidates": [
+    [
+     "A - Najm",
+     "transliteration"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 3
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "web_discovery",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "wikidata",
+     "status": "timed_out"
+    }
+   ]
+  },
+  {
+   "query": "Murex",
+   "kind": "tech",
+   "status": "created",
+   "ms": 97,
+   "company": "Murex",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 16
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "Born Interactive",
+   "kind": "tech",
+   "status": "created",
+   "ms": 86,
+   "company": "BORN INTERACTIVE",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:GOVERNMENT",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 20
+    }
+   ]
+  },
+  {
+   "query": "Middle East Airlines",
+   "kind": "airline",
+   "status": "created",
+   "ms": 64,
+   "company": "Middle East Airlines - Airliban sal",
+   "match": "source_name",
+   "resolved_from": "LOCAL_CORPUS:ASSOCIATION",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 1
+    }
+   ]
+  },
+  {
+   "query": "Mount Lebanon Hospital",
+   "kind": "hospital",
+   "status": "ambiguous",
+   "ms": 52,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "Mount Lebanon Hospital",
+     "Syndicate of Hospitals in Lebanon - hospital directory"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 1
+    }
+   ]
+  },
+  {
+   "query": "Debbas",
+   "kind": "contractor",
+   "status": "created",
+   "ms": 86,
+   "company": "Debbas",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 6
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 2
+    }
+   ]
+  },
+  {
+   "query": "Malia Group",
+   "kind": "group",
+   "status": "created",
+   "ms": 62,
+   "company": "Malia Group",
+   "match": "source_name",
+   "resolved_from": "MAP",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 6
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "touch.com.lb",
+   "kind": "domain",
+   "status": "ambiguous",
+   "ms": 3045,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "Touch Lebanon",
+     "Overture Maps Places"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 7
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 1
+    },
+    {
+     "source": "website",
+     "status": "ok",
+     "found": 1
+    }
+   ]
+  },
+  {
+   "query": "anghami.com",
+   "kind": "domain",
+   "status": "not_found",
+   "ms": 11251,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "NO_SOURCE_RESULT",
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "website",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "wikidata",
+     "status": "ok",
+     "found": 0
+    }
+   ]
+  },
+  {
+   "query": "ksara.com.lb",
+   "kind": "domain",
+   "status": "ambiguous",
+   "ms": 72,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "AMBIGUOUS",
+   "candidates": [
+    [
+     "Château Ksara s.a.l",
+     "IDAL - exporters' directories"
+    ]
+   ],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 1,
+     "ms": 15
+    }
+   ]
+  },
+  {
+   "query": "Emaar Properties in Dubai",
+   "kind": "uae",
+   "status": "created",
+   "ms": 625,
+   "company": "Emaar Properties (P.J.S.C.)",
+   "match": "source_name",
+   "resolved_from": "GLEIF",
+   "failure": null,
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 0
+    },
+    {
+     "source": "gleif",
+     "status": "ok",
+     "found": 1
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    }
+   ]
+  },
+  {
+   "query": "Aramex in Dubai",
+   "kind": "uae",
+   "status": "not_found",
+   "ms": 10556,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "NO_SOURCE_RESULT",
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 0
+    },
+    {
+     "source": "gleif",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "web_discovery",
+     "status": "ok",
+     "found": 0
+    }
+   ]
+  },
+  {
+   "query": "Almarai in Saudi Arabia",
+   "kind": "ksa",
+   "status": "timed_out",
+   "ms": 20436,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "SOURCE_TIMEOUT",
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 0
+    },
+    {
+     "source": "gleif",
+     "status": "failed",
+     "error": "ReadTimeout"
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "web_discovery",
+     "status": "timed_out"
+    }
+   ]
+  },
+  {
+   "query": "Jarir Bookstore in Saudi Arabia",
+   "kind": "ksa",
+   "status": "not_found",
+   "ms": 12694,
+   "company": null,
+   "match": null,
+   "resolved_from": null,
+   "failure": "NO_SOURCE_RESULT",
+   "candidates": [],
+   "sources": [
+    {
+     "source": "corpus",
+     "status": "ok",
+     "found": 0,
+     "ms": 0
+    },
+    {
+     "source": "gleif",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "extracts",
+     "status": "ok",
+     "found": 0
+    },
+    {
+     "source": "web_discovery",
+     "status": "ok",
+     "found": 0
+    }
+   ]
+  }
+ ]
+}

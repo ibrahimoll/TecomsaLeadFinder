@@ -1,12 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
+from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession, ManagerOrAdmin, Pagination
+from app.api.deps import CompanyAccess, CurrentUser, DbSession, ManagerOrAdmin, Pagination
+from app.models import Company, User
 from app.models.enums import CompanyStatus
 from app.schemas.common import Page
 from app.schemas.company import (CompanyCreate, CompanyDetail, CompanyLookupIn, CompanyLookupOut, CompanyLookupPick,
-                                 CompanyOut, CompanyPersonCorrection, CompanyPersonOut, CompanySearchHit,
+                                 CompanyOut, CompanyOwnerUpdate, CompanyPersonCorrection, CompanyPersonOut, CompanySearchHit,
                                  CompanyStatusUpdate, CompanyUpdate, ContactEventIn, ContactFeedbackIn,
                                  ContributionIn, PersonRemovalIn)
 from app.core.exceptions import BusinessRuleError, NotFoundError
@@ -15,8 +17,9 @@ from app.services.audit_service import AuditAction
 from app.services.enrichment import orchestrator as enrichment
 from app.services.people import orchestrator as people
 from app.services.pagination import page_response
+from app.services.permissions import is_privileged
 
-router = APIRouter(prefix="/companies", tags=["companies"])
+router = APIRouter(prefix="/companies", tags=["companies"], dependencies=[CompanyAccess])
 
 Text = Annotated[str | None, Query(max_length=200)]
 
@@ -24,10 +27,36 @@ Text = Annotated[str | None, Query(max_length=200)]
 @router.get("", response_model=Page[CompanyOut])
 def list_companies(user: CurrentUser, db: DbSession, params: Pagination, q: Text = None,
                    status: CompanyStatus | None = None, country: Text = None, region: Text = None,
-                   city: Text = None, industry: Text = None):
+                   city: Text = None, industry: Text = None, owner_id: int | None = None):
+    """A salesperson's own companies; managers / admins: everyone's, or one user's (owner_id)."""
     items, total = company_service.list_companies(db, params, q=q, status=status, country=country, region=region,
-                                                  city=city, industry=industry)
+                                                  city=city, industry=industry,
+                                                  owner_id=owner_id if is_privileged(user) else user.id)
     return page_response(items, total, params)
+
+
+@router.get("/export.csv")
+def export_companies(user: CurrentUser, db: DbSession, q: Text = None, status: CompanyStatus | None = None,
+                     country: Text = None, region: Text = None, city: Text = None, industry: Text = None,
+                     owner_id: int | None = None) -> Response:
+    """The filtered list as a CSV for Excel (the same companies and contact visibility as the app; audited)."""
+    data = company_service.export_csv(db, user, q=q, status=status, country=country, region=region, city=city,
+                                      industry=industry, owner_id=owner_id if is_privileged(user) else user.id)
+    audit_service.record(db, action="companies.exported", user_id=user.id, entity_type="company", entity_id=None,
+                         metadata={"q": q, "industry": industry, "city": city, "rows": data.count("\n") - 1})
+    db.commit()
+    return Response(data, media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="leadfinder-companies.csv"'})
+
+
+def _mine(db, user, hits: list[dict]) -> list[dict]:
+    """Hits a salesperson may open: their own companies and public-source candidates (no company yet)."""
+    if is_privileged(user):
+        return hits
+    ids = {h["company_id"] for h in hits if h.get("company_id")}
+    own = set(db.scalars(select(Company.id).where(Company.id.in_(ids), Company.owner_user_id == user.id))) if ids \
+        else set()
+    return [h for h in hits if not h.get("company_id") or h["company_id"] in own]
 
 
 @router.get("/search", response_model=list[CompanySearchHit])
@@ -36,8 +65,18 @@ def search_companies(user: CurrentUser, db: DbSession, q: Annotated[str, Query(m
                      limit: Annotated[int, Query(ge=1, le=10)] = 8):
     """Autocomplete: LeadFinder's own companies matching a name, legal / brand / Arabic / French name, domain or
     URL, best first, each with its match type and confidence. Database only: never a public-source request."""
-    return [h.out() for h in company_search.search(db, q, country=country, city=city, industry=industry,
-                                                   limit=limit)]
+    # ponytail: filtered after ranking (50 ranked, then own); push the owner into search() if hits run short
+    hits = [h.out() for h in company_search.search(db, q, country=country, city=city, industry=industry,
+                                                   limit=limit if is_privileged(user) else 50)]
+    return _mine(db, user, hits)[:limit]
+
+
+def _owned_lookup(db, user, result: dict) -> dict:
+    """A lookup that lands on another lead generator's company: not opened for a salesperson (it is theirs)."""
+    result["candidates"] = _mine(db, user, result.get("candidates") or [])
+    if result.get("company") and not _mine(db, user, [result["company"]]):
+        result.update(status="owned", company=None, created=False, failure_reason="OWNED_BY_ANOTHER_USER")
+    return result
 
 
 @router.post("/lookup", response_model=CompanyLookupOut)
@@ -45,15 +84,15 @@ def lookup_company(payload: CompanyLookupIn, user: CurrentUser, db: DbSession):
     """Search for a company (the explicit Search): LeadFinder's database first; when nothing strong is known, the
     permitted public sources (bounded, about 20 s at most). One strong company: found (opened, its research
     queued when stale) or created from source evidence; several: ambiguous (pick one); else not_found."""
-    return company_search.lookup(db, payload.q, user_id=user.id, country=payload.country, city=payload.city,
-                                 industry=payload.industry)
+    return _owned_lookup(db, user, company_search.lookup(db, payload.q, user_id=user.id, country=payload.country,
+                                                         city=payload.city, industry=payload.industry))
 
 
 @router.post("/lookup/{lookup_id}/select", response_model=CompanyLookupOut)
 def select_lookup_candidate(lookup_id: int, payload: CompanyLookupPick, user: CurrentUser, db: DbSession):
     """The user's pick among an ambiguous lookup's public-source candidates: created (or reused) and researched."""
     try:
-        return company_search.select_candidate(db, lookup_id, payload.index, user_id=user.id)
+        return _owned_lookup(db, user, company_search.select_candidate(db, lookup_id, payload.index, user_id=user.id))
     except LookupError:
         raise NotFoundError("This search result is no longer available. Search again.") from None
 
@@ -98,6 +137,22 @@ def change_status(company_id: int, payload: CompanyStatusUpdate, user: CurrentUs
     return company_service.change_status(db, user, company_id, payload)
 
 
+@router.patch("/{company_id}/owner", response_model=CompanyOut)
+def change_owner(company_id: int, payload: CompanyOwnerUpdate, user: ManagerOrAdmin, db: DbSession):
+    """Reassign the company to another lead generator (or unassign it)."""
+    company = company_service.get_company(db, company_id)
+    if payload.owner_user_id is not None and db.get(User, payload.owner_user_id) is None:
+        raise BusinessRuleError("No such user")
+    if company.owner_user_id != payload.owner_user_id:
+        audit_service.record(db, action=AuditAction.COMPANY_UPDATED, user_id=user.id, entity_type="company",
+                             entity_id=company.id, metadata={"changes": {"owner_user_id": {
+                                 "from": company.owner_user_id, "to": payload.owner_user_id}}})
+        company.owner_user_id = payload.owner_user_id
+        db.commit()
+        db.refresh(company)
+    return company
+
+
 @router.delete("/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_company(company_id: int, user: ManagerOrAdmin, db: DbSession) -> Response:
     company_service.delete_company(db, user, company_id)
@@ -130,6 +185,8 @@ def contribute(company_id: int, payload: ContributionIn, user: CurrentUser, db: 
     from app.services import contributions
 
     company_service.get_company(db, company_id)
+    if payload.channel == "LUSHA":
+        raise BusinessRuleError("Lusha contacts are added by revealing them (From Lusha)")
     entry = {k: v for k, v in payload.model_dump(exclude={"channel", "signature", "visibility"}).items() if v}
     if payload.signature:
         entry = {**(contributions.parse_signature(payload.signature) or {}), **entry}

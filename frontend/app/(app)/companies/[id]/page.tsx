@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, ExternalLink, FileText, Lightbulb, Mail, Phone, RefreshCw, Trash2, Users } from "lucide-react";
+import { Building2, CalendarDays, ChevronRight, ExternalLink, FileText, Globe, Lightbulb, Mail, MapPin, MessageCircle, Phone, RefreshCw, Smartphone, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,6 +10,7 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  CopyButton,
   DataTable,
   DescriptionList,
   EmptyState,
@@ -25,11 +26,14 @@ import {
   toast,
   type Tone,
 } from "@/components/ui";
+import { AgentInsights } from "@/components/agent-insights";
+import { LushaPeople } from "@/components/lusha-people";
 import { api, ApiError, useApi } from "@/lib/api";
 import { isPrivileged, useCurrentUser } from "@/lib/auth";
 import { COMPANY_STATUS, COMPANY_STATUSES, humanize, place } from "@/lib/companies";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, isLebaneseMobile } from "@/lib/format";
 import { safeHref } from "@/lib/url";
+import { OwnerSelect, useUsers } from "@/components/owner-select";
 import { isActive, pollDelay, researchView, POLL_LIMIT_MS } from "@/lib/people-research";
 import type { CompanyDetail, CompanyPerson, CompanySignal, CompanyStatus, SignalGroup } from "@/types/v2";
 
@@ -105,148 +109,202 @@ function Overview({ detail }: { detail: CompanyDetail }) {
   const products = detail.offerings.filter((o) => o.kind !== "service");
   const services = detail.offerings.filter((o) => o.kind === "service");
   const contacts = [
-    ...detail.phones.map((p) => ({ id: `p${p.id}`, value: p.phone, kind: p.phone_type === "whatsapp" ? "WhatsApp" : "Phone", purpose: p.purpose, confidence: p.confidence })),
+    ...detail.phones.map((p) => ({ id: `p${p.id}`, value: p.phone, kind: p.phone_type === "whatsapp" ? "WhatsApp" : isLebaneseMobile(p.phone) ? "Mobile" : "Phone", purpose: p.purpose, confidence: p.confidence })),
     ...detail.emails.map((e) => ({ id: `e${e.id}`, value: e.email, kind: "Email", purpose: e.purpose, confidence: e.confidence })),
+  ].sort((a, b) => CONTACT_ORDER.indexOf(a.kind) - CONTACT_ORDER.indexOf(b.kind)); // a mobile first: it often reaches a manager
+  const facts = [
+    { label: "Legal name", value: c.legal_name ?? muted("—") },
+    { label: "Industry", value: [c.industry, c.sub_industry].filter(Boolean).join(" · ") || muted("—") },
+    { label: "Type", value: c.company_type ?? muted("—") },
+    { label: "Employees", value: employees(c) },
+    { label: "Founded", value: c.founded_year ?? muted("—") },
+    { label: "Headquarters", value: place(c.headquarters_city, c.headquarters_region, c.headquarters_country) },
+    ...(relationships.length ? [{ label: "Group", value: relationships.map((r) => `${humanize(r.relation_type)}: ${r.related_name}`).join(" · ") }] : []),
+    { label: "Last verified", value: c.last_verified_at ? formatDate(c.last_verified_at) : muted("Never") },
+    { label: "Added", value: formatDate(c.created_at) },
   ];
   return (
-    <div className="space-y-5">
-      <Section title="Company" actions={<ResearchState c={c} />}>
-        {c.enrichment_status === "partial" && c.enrichment_message && <p className="mb-4 text-xs text-fg-muted">{c.enrichment_message}</p>}
-        {detail.overview && <p className="mb-4 text-[13px] text-fg">{detail.overview}</p>}
-        <DescriptionList
-          inline
-          items={[
-            { label: "Legal name", value: c.legal_name ?? muted("—") },
-            { label: "Website", value: <ExternalLinkText href={c.website} label={c.domain ?? c.website} /> },
-            { label: "Industry", value: [c.industry, c.sub_industry].filter(Boolean).join(" · ") || muted("—") },
-            { label: "Type", value: c.company_type ?? muted("—") },
-            { label: "Employees", value: employees(c) },
-            { label: "Founded", value: c.founded_year ?? muted("—") },
-            { label: "Headquarters", value: place(c.headquarters_city, c.headquarters_region, c.headquarters_country) },
-            ...(relationships.length
-              ? [
-                  {
-                    label: "Group",
-                    value: relationships.map((r) => `${humanize(r.relation_type)}: ${r.related_name}`).join(" · "),
-                  },
-                ]
-              : []),
-            { label: "Phone", value: c.primary_phone ?? muted("—") },
-            { label: "Email", value: c.primary_email ?? muted("—") },
-            {
-              label: "Social profiles",
-              value: socials.length ? (
-                <span className="flex flex-wrap gap-x-3 gap-y-1">
-                  {socials.map(([label, url]) => (
-                    <ExternalLinkText key={label} href={url} label={label} />
-                  ))}
-                </span>
-              ) : (
-                muted("—")
-              ),
-            },
-            { label: "Last verified", value: c.last_verified_at ? formatDate(c.last_verified_at) : muted("Never") },
-            { label: "Added", value: formatDate(c.created_at) },
-          ]}
-        />
-        {c.description && <p className="mt-4 whitespace-pre-line text-[13px] text-fg-muted">{c.description}</p>}
-      </Section>
-      {signals.length > 0 && (
-        <Section title="Operations">
-          <div className="space-y-3">
-            {SIGNAL_GROUPS.map(({ key, label }) => {
-              const rows = signals.filter((s) => s.group === key);
-              if (!rows.length) return null;
-              return (
-                <div key={key}>
-                  <p className="mb-1.5 text-xs font-medium text-fg-muted">{label}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {rows.map((s) => (
-                      <span key={s.id} title={`Confidence ${s.confidence ?? "—"}`}>
-                        <Badge tone={key === "news" ? "info" : "neutral"}>{signalLabel(s)}</Badge>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Section>
-      )}
-      {timeline.length > 0 && (
-        <Section title="Timeline" description="Dated business events, each from a public source.">
-          <ul className="space-y-2">
-            {timeline.map((e) => (
-              <li key={e.id} className="flex gap-3 text-[13px]">
-                <span className="w-24 shrink-0 tabular-nums text-fg-muted">{e.event_date ? formatDate(e.event_date) : "—"}</span>
-                <span className="min-w-0">
-                  <Badge tone="info">{humanize(e.signal_type)}</Badge> <span className="text-fg">{e.description}</span>
-                </span>
-              </li>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0 space-y-5">
+        <AgentInsights c={c} />
+        <Section title="About" actions={<ResearchState c={c} />}>
+          {c.enrichment_status === "partial" && c.enrichment_message && <p className="mb-3 text-xs text-fg-muted">{c.enrichment_message}</p>}
+          {(detail.overview || c.description) && (
+            <div className="mb-4 space-y-2 border-l-2 border-accent/60 pl-3">
+              {detail.overview && <p className="text-[13.5px] leading-relaxed text-fg">{detail.overview}</p>}
+              {c.description && <p className="whitespace-pre-line text-[13px] leading-relaxed text-fg-muted">{c.description}</p>}
+            </div>
+          )}
+          <dl className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {facts.map((f) => (
+              <div key={f.label} className="min-w-0 rounded-lg bg-surface-muted/50 px-3 py-2">
+                <dt className="text-[11.5px] text-fg-muted">{f.label}</dt>
+                <dd className="mt-0.5 break-words text-[13px] font-medium text-fg">{f.value}</dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </Section>
-      )}
-      {detail.offerings.length > 0 && (
-        <Section title="Products & services">
-          <div className="space-y-3">
-            {[
-              { label: "Products", rows: products },
-              { label: "Services", rows: services },
-            ].map(({ label, rows }) =>
-              rows.length ? (
-                <div key={label}>
-                  <p className="mb-1.5 text-xs font-medium text-fg-muted">{label}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {rows.map((o) => (
-                      <Badge key={o.id}>{o.raw_name}</Badge>
-                    ))}
+        {signals.length > 0 && (
+          <Section title="Operations">
+            <div className="space-y-3">
+              {SIGNAL_GROUPS.map(({ key, label }) => {
+                const rows = signals.filter((s) => s.group === key);
+                if (!rows.length) return null;
+                return (
+                  <div key={key}>
+                    <p className="mb-1.5 text-xs font-medium text-fg-muted">{label}</p>
+                    <div className="stagger flex flex-wrap gap-1.5">
+                      {rows.map((s) => (
+                        <span key={s.id} title={`Confidence ${s.confidence ?? "—"}`}>
+                          <Badge tone={key === "news" ? "info" : key === "activity" ? "accent" : "neutral"}>{signalLabel(s)}</Badge>
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : null,
-            )}
-          </div>
-        </Section>
-      )}
-      {contacts.length > 0 && (
+                );
+              })}
+            </div>
+          </Section>
+        )}
+        {detail.offerings.length > 0 && (
+          <Section title="Products & services">
+            <div className="space-y-3">
+              {[
+                { label: "Products", rows: products },
+                { label: "Services", rows: services },
+              ].map(({ label, rows }) =>
+                rows.length ? (
+                  <div key={label}>
+                    <p className="mb-1.5 text-xs font-medium text-fg-muted">{label}</p>
+                    <div className="stagger flex flex-wrap gap-1.5">
+                      {rows.map((o) => (
+                        <Badge key={o.id}>{o.raw_name}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null,
+              )}
+            </div>
+          </Section>
+        )}
+        {timeline.length > 0 && (
+          <Section title="Timeline" description="Dated business events, each from a public source.">
+            <ol className="stagger relative space-y-3 border-l border-border pl-4">
+              {timeline.map((e) => (
+                <li key={e.id} className="relative text-[13px]">
+                  <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-surface bg-accent" aria-hidden />
+                  <span className="block text-xs tabular-nums text-fg-muted">{e.event_date ? formatDate(e.event_date) : "—"}</span>
+                  <Badge tone="info">{humanize(e.signal_type)}</Badge> <span className="text-fg">{e.description}</span>
+                </li>
+              ))}
+            </ol>
+          </Section>
+        )}
+      </div>
+
+      <aside className="min-w-0 space-y-5 xl:sticky xl:top-4">
         <Section title="Contact" flush>
-          <DataTable
-            caption="Company contact details"
-            rows={contacts}
-            rowKey={(r) => r.id}
-            columns={[
-              { key: "value", header: "Contact", cell: (r) => <span className="font-medium tabular">{r.value}</span> },
-              { key: "kind", header: "Type", cell: (r) => r.kind },
-              { key: "purpose", header: "For", cell: (r) => humanize(r.purpose) },
-              { key: "confidence", header: "Confidence", align: "right", cell: (r) => r.confidence ?? "—" },
-            ]}
-          />
+          {contacts.length ? (
+            <ul className="stagger divide-y divide-border">
+              {contacts.map((r) => {
+                const email = r.kind === "Email";
+                const Icon = email ? Mail : r.kind === "WhatsApp" ? MessageCircle : r.kind === "Mobile" ? Smartphone : Phone;
+                const digits = r.value.replace(/[^\d+]/g, "");
+                const href = email ? `mailto:${r.value}` : r.kind === "WhatsApp" ? `https://wa.me/${digits.replace("+", "")}` : `tel:${digits}`;
+                return (
+                  <li key={r.id} className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-hover/60">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <a href={href} className="block truncate text-[13px] font-medium tabular text-fg hover:text-accent hover:underline">
+                        {r.value}
+                      </a>
+                      <span className="text-[11.5px] text-fg-muted">
+                        {r.kind === "Mobile" ? "Mobile · often reaches the owner or a manager" : r.purpose ? humanize(r.purpose) : r.kind}
+                        {r.confidence != null && <> · {r.confidence >= 75 ? "high" : r.confidence >= 50 ? "medium" : "low"} confidence</>}
+                      </span>
+                    </span>
+                    {r.kind === "Mobile" && (
+                      <a href={`https://wa.me/${digits.replace("+", "")}`} target="_blank" rel="noreferrer" className="text-fg-muted hover:text-accent" aria-label={`WhatsApp ${r.value}`} title="WhatsApp">
+                        <MessageCircle className="h-4 w-4" aria-hidden />
+                      </a>
+                    )}
+                    <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                      <CopyButton value={r.value} label={email ? "email" : "number"} />
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="px-4 py-4 text-[13px] text-fg-subtle">No company phone or e-mail yet.</p>
+          )}
         </Section>
-      )}
-      <Section title="Locations" flush>
-        <DataTable
-          caption="Locations"
-          rows={detail.locations}
-          rowKey={(l) => l.id}
-          empty={<EmptyState compact title="No locations recorded" />}
-          columns={[
-            {
-              key: "place",
-              header: "Location",
-              cell: (l) => (
-                <span>
-                  {l.name && <span className="block font-medium">{l.name}</span>}
-                  {place(l.city, l.region, l.country)}
-                </span>
-              ),
-            },
-            { key: "type", header: "Type", cell: (l) => humanize(l.location_type) },
-            { key: "address", header: "Address", cell: (l) => l.address ?? muted("—") },
-            { key: "phone", header: "Phone", cell: (l) => l.phone ?? muted("—") },
-            { key: "hq", header: "", cell: (l) => (l.is_headquarters ? <Badge tone="accent">Headquarters</Badge> : null) },
-          ]}
-        />
-      </Section>
+        {(safeHref(c.website) || socials.length > 0) && (
+          <Section title="Online">
+            <div className="flex flex-wrap gap-1.5">
+              {safeHref(c.website) && (
+                <a
+                  href={safeHref(c.website)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[12.5px] font-medium transition-colors hover:border-accent/50 hover:text-accent"
+                >
+                  <Globe className="h-3.5 w-3.5" aria-hidden /> {c.domain ?? "Website"}
+                </a>
+              )}
+              {socials.map(([label, url]) => (
+                <a
+                  key={label}
+                  href={safeHref(url) ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-[12.5px] font-medium transition-colors hover:border-accent/50 hover:text-accent"
+                >
+                  {label} <ExternalLink className="h-3 w-3" aria-hidden />
+                </a>
+              ))}
+            </div>
+          </Section>
+        )}
+        <Section title="Locations" description={detail.locations.length ? `${detail.locations.length} on record` : undefined} flush>
+          {detail.locations.length ? (
+            <ul className="stagger divide-y divide-border">
+              {detail.locations.map((l) => {
+                const where = [l.address, place(l.city, l.region, l.country)].filter((v) => v && v !== "—").join(", ");
+                return (
+                  <li key={l.id} className="flex gap-3 px-4 py-3">
+                    <MapPin className={`mt-0.5 h-4 w-4 shrink-0 ${l.is_headquarters ? "text-accent" : "text-fg-subtle"}`} aria-hidden />
+                    <span className="min-w-0 flex-1 text-[13px]">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-medium">{l.name ?? place(l.city, l.region, l.country)}</span>
+                        {l.is_headquarters && <Badge tone="accent">HQ</Badge>}
+                        {!l.is_headquarters && l.location_type && <span className="text-[11.5px] text-fg-muted">{humanize(l.location_type)}</span>}
+                      </span>
+                      {l.address && <span className="block text-xs text-fg-muted">{l.address}</span>}
+                      <span className="mt-1 flex flex-wrap gap-x-3 text-xs">
+                        {l.phone && (
+                          <a href={`tel:${l.phone.replace(/[^\d+]/g, "")}`} className="tabular text-fg hover:text-accent">
+                            {l.phone}
+                          </a>
+                        )}
+                        {where && (
+                          <a href={`https://www.openstreetmap.org/search?query=${encodeURIComponent(where)}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                            Map
+                          </a>
+                        )}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="px-4 py-4 text-[13px] text-fg-subtle">No locations recorded.</p>
+          )}
+        </Section>
+      </aside>
     </div>
   );
 }
@@ -390,7 +448,29 @@ function Feedback({ companyId, person, onChanged }: { companyId: number; person:
   const email = person.emails.find((e) => e.status !== "invalid");
   const phone = person.phones.find((p) => p.status !== "invalid" && p.phone_type !== "company_switchboard");
   const options = FEEDBACK.filter((f) => (f.on === "email" ? email : f.on === "phone" ? phone : true));
+  const canRemove = isPrivileged(useCurrentUser());
+  const [removing, setRemoving] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await api(`/companies/${companyId}/people/${person.person.id}/remove`, { method: "POST", body: { reason: reason.trim() } });
+      toast.success(`${person.person.full_name} removed: research and imports will not add them again`);
+      setRemoving(false);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not remove the person");
+    } finally {
+      setBusy(false);
+    }
+  };
   const send = async (event: string) => {
+    if (event === "remove") {
+      setReason("");
+      setRemoving(true);
+      return;
+    }
     const f = FEEDBACK.find((x) => x.event === event);
     if (!f) return;
     try {
@@ -405,14 +485,32 @@ function Feedback({ companyId, person, onChanged }: { companyId: number; person:
     }
   };
   return (
-    <select aria-label={`Feedback on ${person.person.full_name}`} className="rounded border border-border bg-surface px-1 py-0.5 text-xs text-fg-muted" value="" onChange={(e) => void send(e.target.value)}>
-      <option value="">Feedback…</option>
-      {options.map((f) => (
-        <option key={f.event} value={f.event}>
-          {f.label}
-        </option>
-      ))}
-    </select>
+    <>
+      <ConfirmDialog
+        open={removing}
+        title={`Remove ${person.person.full_name} from LeadFinder?`}
+        confirmLabel="Remove"
+        tone="danger"
+        busy={busy}
+        confirmDisabled={reason.trim().length < 3}
+        onConfirm={() => void remove()}
+        onClose={() => setRemoving(false)}
+      >
+        <p className="mb-3">Their roles, emails, phones and evidence are deleted, and research or imports never add them again at this company. This can&apos;t be undone.</p>
+        <Field label="Why (who asked, when, how)" htmlFor={`remove-${person.id}`}>
+          <Input id={`remove-${person.id}`} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. asked by phone on 12 Oct" />
+        </Field>
+      </ConfirmDialog>
+      <select aria-label={`Feedback on ${person.person.full_name}`} className="rounded border border-border bg-surface px-1 py-0.5 text-xs text-fg-muted" value="" onChange={(e) => void send(e.target.value)}>
+        <option value="">Feedback…</option>
+        {options.map((f) => (
+          <option key={f.event} value={f.event}>
+            {f.label}
+          </option>
+        ))}
+        {canRemove && <option value="remove">Remove (asked to be deleted)…</option>}
+      </select>
+    </>
   );
 }
 
@@ -499,6 +597,7 @@ function TargetPerson({ people, switchboard, generalEmail }: { people: CompanyPe
 }
 
 const CONTRIBUTION_CHANNELS = [
+  { value: "SALES_CONFIRMED", label: "Phone call (I confirmed it)" },
   { value: "CONTRIBUTED_BUSINESS_CONTACT", label: "Business contact I know" },
   { value: "BUSINESS_CARD", label: "Business card" },
   { value: "EMAIL_SIGNATURE", label: "Email signature" },
@@ -510,13 +609,17 @@ function AddContact({ companyId, onChanged }: { companyId: number; onChanged: ()
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({ channel: "CONTRIBUTED_BUSINESS_CONTACT", visibility: "organization" });
+  const start = (channel: string) => {
+    setForm({ channel, visibility: "organization" });
+    setOpen(true);
+  };
   const set = (key: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const submit = async () => {
     setSaving(true);
     try {
       const body = Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim() !== ""));
       await api(`/companies/${companyId}/contributions`, { method: "POST", body });
-      toast.success("Contact added");
+      toast.success(form.channel === "SALES_CONFIRMED" ? "Call saved: everyone sees this number now" : "Contact added");
       setOpen(false);
       setForm({ channel: "CONTRIBUTED_BUSINESS_CONTACT", visibility: "organization" });
       onChanged();
@@ -528,12 +631,17 @@ function AddContact({ companyId, onChanged }: { companyId: number; onChanged: ()
   };
   if (!open) {
     return (
-      <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        Add business contact
-      </Button>
+      <span className="flex gap-2">
+        <Button variant="secondary" size="sm" onClick={() => start("SALES_CONFIRMED")}>
+          <Phone className="h-3.5 w-3.5" aria-hidden /> Log a call
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => start("CONTRIBUTED_BUSINESS_CONTACT")}>
+          Add business contact
+        </Button>
+      </span>
     );
   }
-  const fields: [string, string][] = [["person", "Name"], ["title", "Job title"], ["email", "Work email"], ["mobile", "Business mobile"], ["phone", "Office phone"], ["whatsapp", "WhatsApp"]];
+  const fields: [string, string][] = [["person", "Name"], ["title", "Job title"], ["email", "Work email"], ["mobile", "Business mobile"], ["phone", form.channel === "SALES_CONFIRMED" ? "Direct line" : "Office phone"], ["extension", "Extension"], ["whatsapp", "WhatsApp"]];
   return (
     <div className="space-y-3 rounded border border-border p-3">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -564,7 +672,11 @@ function AddContact({ companyId, onChanged }: { companyId: number; onChanged: ()
           <Textarea id="contribution-signature" rows={5} value={form.signature ?? ""} onChange={set("signature")} />
         </Field>
       )}
-      <p className="text-xs text-fg-subtle">Business contacts only. It is recorded as contributed by you and can be removed later.</p>
+      <p className="text-xs text-fg-subtle">
+        {form.channel === "SALES_CONFIRMED"
+          ? "What the call gave you: who the manager is, their direct line / extension / mobile. Saved as confirmed by you."
+          : "Business contacts only. It is recorded as contributed by you and can be removed later."}
+      </p>
       <div className="flex gap-2">
         <Button size="sm" loading={saving} onClick={() => void submit()}>
           Add
@@ -605,6 +717,9 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
         <div className="mt-4">
           <AddContact companyId={c.id} onChanged={onChanged} />
         </div>
+        <div className="mt-4">
+          <LushaPeople companyId={c.id} companyName={c.name} onChanged={onChanged} />
+        </div>
       </Section>
     );
   }
@@ -618,17 +733,28 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
     <div className="space-y-5">
       <TargetPerson people={people} switchboard={switchboard} generalEmail={generalEmail} />
       <AddContact companyId={c.id} onChanged={onChanged} />
+      <LushaPeople companyId={c.id} companyName={c.name} onChanged={onChanged} />
       <Section title="Key people" actions={state}>
-        <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="stagger grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {departments.map((d) => {
             const p = keyPeople.get(d.key);
             return (
-              <div key={d.key} className="min-w-0">
-                <p className="mb-1 text-xs font-medium text-fg-muted">{d.label}</p>
+              <div
+                key={d.key}
+                className={`min-w-0 rounded-lg border p-3 transition-[border-color,box-shadow] duration-200 ${p ? "border-border bg-surface hover:border-accent/40 hover:shadow-card-hover" : "border-dashed border-border-strong bg-surface-muted/40"}`}
+              >
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-accent">{d.label}</p>
                 {p ? (
-                  <div className="space-y-1">
-                    <p className="truncate text-[13px] font-medium text-fg">{p.person.full_name}</p>
-                    <p className="truncate text-xs text-fg-muted">{p.job_title}</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={p.person.full_name} size="md" />
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-medium text-fg">{p.person.full_name}</p>
+                        <p className="truncate text-xs text-fg-muted" title={p.job_title ?? undefined}>
+                          {p.job_title}
+                        </p>
+                      </div>
+                    </div>
                     {contact(p)}
                     <span className="flex flex-wrap items-center gap-2">
                       {confidence(p.confidence)}
@@ -636,7 +762,7 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
                     </span>
                   </div>
                 ) : (
-                  <p className="text-xs text-fg-subtle">{view.active ? "Researching…" : researched ? "None found in public sources" : "—"}</p>
+                  <p className={`text-xs text-fg-subtle ${view.active ? "animate-pulse" : ""}`}>{view.active ? "Researching…" : researched ? "None found in public sources" : "—"}</p>
                 )}
               </div>
             );
@@ -653,7 +779,8 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
               key: "name",
               header: "Name",
               cell: (p) => (
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2.5">
+                  <Avatar name={p.person.full_name} size="sm" />
                   <span className="font-medium">{p.person.full_name}</span>
                   {p.is_key && <Badge tone="accent">Key</Badge>}
                 </span>
@@ -662,19 +789,27 @@ function People({ detail, overdue, onChanged }: { detail: CompanyDetail; overdue
             {
               key: "title",
               header: "Title",
+              className: "whitespace-normal",
               cell: (p) => (
-                <span title={p.sources.map((s) => s.url ?? s.name).join("\n")}>
+                <span className="block min-w-[220px] max-w-[320px] whitespace-normal" title={p.sources.map((s) => s.url ?? s.name).join("\n")}>
                   {p.job_title}
-                  {p.normalized_title && p.normalized_title !== p.job_title && <span className="block text-xs text-fg-subtle">{p.normalized_title}</span>}
+                  <span className="block text-xs text-fg-subtle">
+                    {[DEPARTMENT_LABEL[p.department ?? ""] ?? humanize(p.department), humanize(p.seniority), sourceLabels(p).join(", ")].filter((v) => v && v !== "—").join(" · ")}
+                  </span>
                 </span>
               ),
             },
-            { key: "department", header: "Department", cell: (p) => DEPARTMENT_LABEL[p.department ?? ""] ?? humanize(p.department) },
-            { key: "seniority", header: "Seniority", cell: (p) => humanize(p.seniority) },
-            { key: "status", header: "Status", cell: (p) => <Badge tone={EMPLOYMENT[p.employment_status].tone}>{EMPLOYMENT[p.employment_status].label}</Badge> },
-            { key: "confidence", header: "Confidence", cell: (p) => confidence(p.confidence) },
-            { key: "sources", header: "Sources", cell: (p) => <span className="text-xs text-fg-muted">{sourceLabels(p).join(" · ")}</span> },
-            { key: "contact", header: "Contact", cell: (p) => contact(p) },
+            {
+              key: "status",
+              header: "Status",
+              cell: (p) => (
+                <span className="flex items-center gap-1">
+                  <Badge tone={EMPLOYMENT[p.employment_status].tone}>{EMPLOYMENT[p.employment_status].label}</Badge>
+                  {confidence(p.confidence)}
+                </span>
+              ),
+            },
+            { key: "contact", header: "Contact", cell: (p) => <div className="min-w-[200px] max-w-[300px] whitespace-normal">{contact(p)}</div> },
             { key: "verified", header: "Last verified", cell: (p) => (p.last_verified_at ? formatDate(p.last_verified_at) : muted("—")) },
             { key: "feedback", header: "", cell: (p) => <Feedback companyId={c.id} person={p} onChanged={onChanged} /> },
           ]}
@@ -760,11 +895,14 @@ function Sources({ detail }: { detail: CompanyDetail }) {
   );
 }
 
+const CONTACT_ORDER = ["Mobile", "WhatsApp", "Phone", "Email"];
+
 export default function CompanyPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const user = useCurrentUser();
   const { data, error, loading, reload } = useApi<CompanyDetail>(`/companies/${id}`);
+  const users = useUsers(isPrivileged(user));
   const [tab, setTab] = useState<TabKey>("overview");
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -804,6 +942,19 @@ export default function CompanyPage() {
     }
   }
 
+  async function changeOwner(owner: string) {
+    setSaving(true);
+    try {
+      await api(`/companies/${id}/owner`, { method: "PATCH", body: { owner_user_id: owner ? Number(owner) : null } });
+      toast.success(owner ? `Assigned to ${users.find((u) => String(u.id) === owner)?.name ?? "the user"}` : "Unassigned");
+      await reload();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not reassign the company");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function refresh() {
     setSaving(true);
     try {
@@ -832,24 +983,49 @@ export default function CompanyPage() {
 
   return (
     <>
-      <PageHeader
-        title={
-          <span className="flex items-center gap-3">
-            <Avatar name={c.name} domain={c.domain} size="lg" />
-            {c.name}
+      <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1.5 text-xs text-fg-muted">
+        <Link href="/companies" className="hover:text-accent">
+          Companies
+        </Link>
+        <ChevronRight className="h-3 w-3" aria-hidden />
+        <span className="truncate text-fg">{c.name}</span>
+      </nav>
+      <header className="relative mb-5 animate-page-in overflow-hidden rounded-xl bg-accent text-white shadow-card">
+        <div className="flex flex-wrap items-start gap-4 p-5">
+          <span className="shrink-0 rounded-xl bg-white p-1 shadow-sm">
+            <Avatar name={c.name} domain={c.domain} size="xl" />
           </span>
-        }
-        breadcrumbs={[{ label: "Companies", href: "/companies" }, { label: c.name }]}
-        meta={[c.industry, place(c.headquarters_city, c.headquarters_country), c.domain].filter((v) => v && v !== "—").join(" · ")}
-        actions={
-          <>
-            {c.website && (
-              <Button variant="secondary" onClick={refresh} disabled={saving || researching}>
-                <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                Refresh research
-              </Button>
-            )}
-            <Select aria-label="Status" value={c.status} disabled={saving} onChange={(e) => changeStatus(e.target.value as CompanyStatus)} className="w-48">
+          <div className="min-w-0 flex-1 basis-[320px]">
+            <h1 className="font-display text-[24px] font-semibold leading-tight">{c.name}</h1>
+            {c.brief && <p className="mt-1 max-w-3xl text-[13.5px] leading-snug text-white/85">{c.brief}</p>}
+            <div className="stagger mt-3 flex flex-wrap gap-1.5 text-[12px]">
+              {[
+                c.industry && { icon: Building2, text: c.industry },
+                (c.headquarters_city || c.headquarters_country) && { icon: MapPin, text: place(c.headquarters_city, c.headquarters_country) },
+                c.employee_count_estimate && { icon: Users, text: `${c.employee_count_estimate.toLocaleString()} employees` },
+                c.founded_year && { icon: CalendarDays, text: `Since ${c.founded_year}` },
+                { icon: Users, text: `${data.people.length} people` },
+              ]
+                .filter((x): x is { icon: typeof Building2; text: string } => !!x)
+                .map(({ icon: Icon, text }) => (
+                  <span key={text} className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/15 px-2.5 py-1 font-medium">
+                    <Icon className="h-3 w-3 opacity-80" aria-hidden /> {text}
+                  </span>
+                ))}
+              {safeHref(c.website) && (
+                <a
+                  href={safeHref(c.website)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2.5 py-1 font-medium text-accent transition-transform hover:-translate-y-px"
+                >
+                  <Globe className="h-3 w-3" aria-hidden /> {c.domain ?? "Website"}
+                </a>
+              )}
+            </div>
+          </div>
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+            <Select aria-label="Status" value={c.status} disabled={saving} onChange={(e) => changeStatus(e.target.value as CompanyStatus)} className="w-44 border-white/0 bg-white text-fg">
               {COMPANY_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {COMPANY_STATUS[s].label}
@@ -857,14 +1033,29 @@ export default function CompanyPage() {
               ))}
             </Select>
             {isPrivileged(user) && (
-              <Button variant="danger" onClick={() => setConfirmDelete(true)} disabled={saving}>
-                <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                Delete
+              <OwnerSelect users={users} value={c.owner_user_id ? String(c.owner_user_id) : ""} onChange={changeOwner} allLabel="Unassigned" className="w-44 border-white/0 bg-white text-fg" disabled={saving} />
+            )}
+            {c.website && (
+              <Button variant="secondary" onClick={refresh} disabled={saving || researching} title="Read the website and public sources again">
+                <RefreshCw className={`h-3.5 w-3.5 ${researching ? "animate-spin" : ""}`} aria-hidden />
+                {researching ? "Researching…" : "Refresh"}
               </Button>
             )}
-          </>
-        }
-      />
+            {isPrivileged(user) && (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                disabled={saving}
+                aria-label={`Delete ${c.name}`}
+                title="Delete company"
+                className="flex h-9 w-9 items-center justify-center rounded-md text-white/75 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
       <div className="mb-5">
         <Tabs
           label="Company sections"
@@ -878,7 +1069,7 @@ export default function CompanyPage() {
           ]}
         />
       </div>
-      <div role="tabpanel">
+      <div key={tab} role="tabpanel" className="animate-page-in">
         {tab === "overview" && <Overview detail={data} />}
         {tab === "people" && <People detail={data} overdue={overdue} onChanged={reload} />}
         {tab === "opportunity" && <Opportunity detail={data} />}

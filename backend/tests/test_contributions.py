@@ -78,8 +78,10 @@ def test_cards_signatures_meetings_corroboration_and_visibility(client_for, db, 
                          owner_user_id=bob.id, visibility="private", apply=True)
     manager, _ = client_for(UserRole.SALES_MANAGER, email="manager@tecomsa.example")
     see = lambda c: [x["email"] for x in people(c, company_id)["Lina Khoury"]["emails"]]  # noqa: E731
-    assert "lina.private@omegafoods.example" in see(bob_client)
     assert "lina.private@omegafoods.example" not in see(manager) and "lina.private@omegafoods.example" not in see(agent)
+    assert bob_client.get(f"/companies/{company_id}/people").status_code == 404  # alice's company
+    manager.patch(f"/companies/{company_id}/owner", json={"owner_user_id": bob.id})  # reassigned to bob
+    assert "lina.private@omegafoods.example" in see(bob_client)
 
 
 def test_suppression_keeps_public_evidence_and_blocks_reimport(client_for, db, site):  # noqa: F811
@@ -137,3 +139,20 @@ def test_page_contribution_and_connector_sync(client_for, db, site):  # noqa: F8
     public, proprietary = measure([company_id], public=True), measure([company_id])
     assert proprietary["departments"]["Operations"]["people_contactable"] ==         public["departments"]["Operations"]["people_contactable"] + 1  # Tony: contributed + confirmed, not public
     assert db.scalar(select(Email.status).where(Email.email == "tony.rizk@omegafoods.example")) == "confirmed"
+
+
+def test_log_a_call_saves_the_manager_with_mobile_and_extension(client_for, db, site):  # noqa: F811
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    company_id = omega(agent, site)
+    r = agent.post(f"/companies/{company_id}/contributions", json={
+        "channel": "SALES_CONFIRMED", "person": "Karim Aoun", "title": "IT Manager", "mobile": "03 123 456",
+        "phone": "+961 8 800 801", "extension": "214"})
+    assert r.status_code == 201, r.text
+    karim = db.scalar(select(Person.id).where(Person.full_name == "Karim Aoun"))
+    kinds = set(db.scalars(select(Phone.phone_type).where(Phone.person_id == karim)))
+    assert "business_mobile" in kinds and kinds & {"office_extension", "direct_business_phone"}
+    # ...and the export carries him with his number, as Excel reads it (BOM, one row per person)
+    csv_text = agent.get("/companies/export.csv").text
+    assert csv_text.startswith("﻿Company,") and "Karim Aoun,IT Manager" in csv_text and "123456" in csv_text.replace(" ", "")
+    other, _ = client_for(UserRole.SALES_AGENT)
+    assert "Karim Aoun" not in other.get("/companies/export.csv").text  # another salesperson's company: not exported

@@ -101,6 +101,14 @@ class Company(TimestampMixin, Base):
                                                 server_default=EnrichmentStatus.NOT_STARTED.value)
     contact_message: Mapped[str | None] = mapped_column(String(300))
     contact_researched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Profiler agent (services/agents/profiler.py): written by a local model from the cached website pages only.
+    brief: Mapped[str | None] = mapped_column(String(300))  # one line: what the company does
+    profile: Mapped[str | None] = mapped_column(Text)  # a few sentences: activity, offerings, customers
+    profiled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    profile_meta: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # model, pages read, offerings, outcome
+    # Scout agent (services/agents/scout.py): 0-100 likelihood of becoming a lead, learned from sales statuses.
+    scout_score: Mapped[int | None] = mapped_column(SmallInteger)
+    scout_reasons: Mapped[list[str] | None] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(String(32), nullable=False, server_default=CompanyStatus.NEW.value,
                                         index=True)
     status_reason: Mapped[str | None] = mapped_column(String(500))
@@ -109,6 +117,10 @@ class Company(TimestampMixin, Base):
     last_researched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # The lead generator who found it first (permissions.can_see); defaults to its creator, managers reassign.
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True,
+        default=lambda ctx: ctx.get_current_parameters().get("created_by_user_id"))
 
 
 class CompanyLocation(TimestampMixin, Base):

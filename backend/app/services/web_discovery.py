@@ -32,14 +32,20 @@ from app.services.normalization import company_domain
 
 LEBANON_PHONE = re.compile(r"(?:\+|00)\s?961[\s\-/().]*\d(?:[\s\-/().]*\d){5,8}"
                            r"|\b0[1-9][\s\-/]?\d{3}[\s\-]?\d{3}\b|\(0[1-9]\)\s?\d{3}[\s\-]?\d{3}")
-FOREIGN_PHONE = re.compile(r"(?:\+|00)\s?(?:1|44|33|49|971|966|974|965|962|20|90|39|34|61)[\s\-/().]*\d{2}")
+FOREIGN_PHONE = re.compile(r"(?:\+|00)\s?(1|44|33|49|971|966|974|965|962|20|90|39|34|61)[\s\-/().]*\d{2}")
 PARKED = re.compile(r"domain (?:name )?(?:is )?for sale|buy this domain|this domain (?:may be|is) for sale|"
                     r"parked (?:free|domain)|domain parking|sedo|hugedomains|dan\.com|godaddy\.com/domainsearch|"
                     r"default web site page|it works!|index of /|welcome to nginx|apache2 (?:ubuntu|debian) default|"
                     r"account suspended|website is under construction|lorem ipsum dolor", re.IGNORECASE)
 DIRECTORY = re.compile(r"\b(?:business directory|company directory|yellow pages|listings? of companies|"
                        r"find (?:a|any) (?:business|company)|browse (?:all )?(?:companies|categories))\b", re.IGNORECASE)
-COUNTRY_WORDS = {"Lebanon": ("lebanon", "liban", "لبنان", "beirut", "beyrouth", "بيروت")}
+COUNTRY_WORDS = {"Lebanon": ("lebanon", "liban", "لبنان", "beirut", "beyrouth", "بيروت"),
+                 "United Arab Emirates": ("united arab emirates", "uae", "dubai", "abu dhabi", "sharjah", "الإمارات",
+                                          "دبي"),
+                 "Saudi Arabia": ("saudi arabia", "ksa", "riyadh", "jeddah", "dammam", "السعودية", "الرياض"),
+                 "Qatar": ("qatar", "doha", "قطر"), "Kuwait": ("kuwait", "الكويت"), "Jordan": ("jordan", "amman")}
+PHONE_CODES = {"United Arab Emirates": "971", "Saudi Arabia": "966", "Qatar": "974", "Kuwait": "965",
+               "Jordan": "962", "Egypt": "20", "France": "33"}  # the searched country's own code is not foreign
 TLDS = {"lb": "Lebanon", "ae": "United Arab Emirates", "sa": "Saudi Arabia", "qa": "Qatar", "kw": "Kuwait",
         "jo": "Jordan", "eg": "Egypt", "iq": "Iraq", "cy": "Cyprus", "fr": "France", "om": "Oman", "bh": "Bahrain"}
 MAX_DOMAINS = 12  # DNS-checked only; a site is fetched for the few that resolve
@@ -97,13 +103,14 @@ class Breaker:
 def _slugs(name: str) -> list[str]:
     """Domain labels a company with this name could use: 'ABC Foods SAL' -> abcfoods, abc-foods, abc."""
     from app.services.people.external.lebanon.records import _LEGAL
+    from app.services.query_understanding import INDUSTRY_WORDS
 
     words = [w for w in re.findall(r"[a-z0-9]+", _fold(name)) if w not in _LEGAL]
     if not words:
         return []
     slugs = ["".join(words)]
-    if len(words) > 1 and len(words[0]) >= 4:
-        slugs.append(words[0])  # 'Formatech Training' -> formatech
+    if len(words) > 1 and (len(words[0]) >= 4 or all(w in _DESCRIPTIVE or w in INDUSTRY_WORDS for w in words[1:])):
+        slugs.append(words[0])  # 'Formatech Training' -> formatech, 'IBL Bank' -> ibl
     slugs.append("-".join(words))
     initials = "".join(w[0] for w in words if w not in ("of", "and", "for", "the", "de", "du", "des", "et"))
     if len(initials) >= 3 and len(words) >= 3:
@@ -215,7 +222,8 @@ def _site_names(doc) -> list[str]:
 
 _DESCRIPTIVE = {"boutique", "hotel", "hotels", "resort", "restaurant", "cafe", "group", "company", "co", "sal", "sarl",
                 "lebanon", "liban", "international", "industries", "industry", "trading", "services", "solutions",
-                "consulting", "training", "official", "website", "home", "lebanese", "beirut"}
+                "consulting", "training", "official", "website", "home", "lebanese", "beirut", "bank", "university",
+                "medical", "center", "centre", "hospital", "school", "college", "holding"}
 
 
 def _names_company(site_name: str, name: str) -> bool:
@@ -228,6 +236,8 @@ def _names_company(site_name: str, name: str) -> bool:
     if {k for k in name_keys(site_name) if k[0] not in "~^"} & wanted:
         return True
     words, site = _fold(name).split(), _fold(site_name).split()
+    if len("".join(words)) >= 5 and "".join(words) == "".join(site):
+        return True  # 'Liban Lait' for 'Libanlait'
     rest = site[len(words):]
     return bool(words) and site[:len(words)] == words and bool(rest) and all(
         w in _DESCRIPTIVE or w in INDUSTRY_WORDS for w in rest)
@@ -262,10 +272,10 @@ def verify(name: str, url: str, *, country: str | None, fetcher=None) -> Verific
     cities = [a.label for a in AREAS.get("LB", {}).values() if a.kind == "city" and any(
         re.search(rf"\b{re.escape(k)}\b", folded) for k in a.keys)] if country == "Lebanon" else []
     phone = (LEBANON_PHONE.search(text) if country == "Lebanon" else None)
-    in_country = bool(tld_country == country or (country and (phone or cities or any(
+    codes, own = set(FOREIGN_PHONE.findall(text)), PHONE_CODES.get(country or "")
+    in_country = bool(tld_country == country or (country and (phone or cities or own in codes or any(
         re.search(rf"\b{re.escape(_fold(w))}\b", folded) for w in words))))
-    foreign = bool(tld_country and country and tld_country != country) or (
-        not in_country and FOREIGN_PHONE.search(text) is not None)
+    foreign = bool(tld_country and country and tld_country != country) or (not in_country and bool(codes - {own}))
     if named is None:
         return Verification("rejected", final, page.url, "NAME_NOT_ON_SITE")
     if foreign and not in_country:

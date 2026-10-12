@@ -65,6 +65,10 @@ class CompanyUpdate(_CompanyFields):
         return require_value(v, info.field_name)
 
 
+class CompanyOwnerUpdate(InModel):
+    owner_user_id: int | None  # None: unassigned (managers / admins only)
+
+
 class CompanyStatusUpdate(InModel):
     status: CompanyStatus
     reason: str | None = Field(default=None, max_length=500)
@@ -98,6 +102,7 @@ class CompanyOut(OutModel):
     employee_count_max: int | None = None
     status: CompanyStatus
     status_reason: str | None
+    owner_user_id: int | None = None  # the lead generator who owns it (permissions.can_see)
     identity_confidence: str | None
     # Company research (Step 4), separate from discovery and from the sales status.
     enrichment_status: str = "not_started"
@@ -110,6 +115,12 @@ class CompanyOut(OutModel):
     contact_status: str = "not_started"
     contact_message: str | None = None
     contact_researched_at: datetime | None = None
+    # Agents: the Profiler's brief / description (local model, from the website) and the Scout's learned score
+    brief: str | None = None
+    profile: str | None = None
+    profiled_at: datetime | None = None
+    scout_score: int | None = None
+    scout_reasons: list[str] | None = None
     last_enriched_at: datetime | None = None
     website_confidence: int | None = None
     last_researched_at: datetime | None

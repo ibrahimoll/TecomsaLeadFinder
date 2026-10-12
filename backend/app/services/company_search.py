@@ -367,6 +367,15 @@ def lookup(db: Session, raw: str, *, user_id: int | None, country: str | None = 
                       confidence=chosen[0].confidence, resolved_from=_FROM.get(chosen[0].match_type, "DB"))
     elif outcome == "ambiguous":
         result.update(status="ambiguous", candidates=[h.out() for h in chosen])
+        if external and q.keys and not any(h.match_type in _NAME_TYPES for h in chosen):
+            # LeadFinder only has companies that sound like it ('Saint Joseph' for 'Université Saint-Joseph'):
+            # the public sources' entity of that exact name is offered beside them, never created on its own
+            from app.services import company_lookup
+
+            found = company_lookup.run(db, q, intent=intent, country=country, city=city, user_id=user_id,
+                                       deadline=time.monotonic() + LOOKUP_SECONDS, offer=True)
+            result.update(external_used=True, sources=found["sources"])
+            result["candidates"] += found["candidates"]
     elif external and not q.domain and len(q.normalized.split()) == 1 and             [h for h in hits if h.match_type in ("contains", "brand_core", "name_core", "name_prefix")]:
         # one word ('ACT', 'Village') that several known names contain: offered, never researched into a new company
         result.update(status="ambiguous", candidates=[h.out() for h in hits if h.confidence != WEAK],
@@ -403,6 +412,7 @@ def lookup(db: Session, raw: str, *, user_id: int | None, country: str | None = 
                     "WEB_DISCOVERY_FAILED" if any(s["source"] == "web_discovery" and s["status"] != "ok"
                                                   for s in found["sources"]) else "NO_SOURCE_RESULT"))
     else:
+        hits = [h for h in hits if h.confidence != WEAK]  # a distant spelling is not a candidate
         result.update(status="ambiguous" if hits else "not_found", candidates=[h.out() for h in hits],
                       failure_reason="WEAK_EVIDENCE" if hits else "NO_LOCAL_MATCH")
     if result["company"]:

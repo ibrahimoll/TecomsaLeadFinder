@@ -72,5 +72,6 @@ def logout(request: Request, db: DbSession) -> Response:
 def me(user: CurrentUser):
     return {
         **UserOut.model_validate(user).model_dump(),
-        "capabilities": {"manage_users": user.role == UserRole.ADMIN},
+        "capabilities": {"manage_users": user.role == UserRole.ADMIN,
+                         "run_imports": user.role in (UserRole.ADMIN, UserRole.SALES_MANAGER)},
     }

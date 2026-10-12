@@ -271,6 +271,10 @@ def channels(emails, phones, corroborated: frozenset = frozenset()) -> list[dict
             return "TECOMSA CRM"
         if provenance == "contributed":
             return LABEL["contributed"]
+        if provenance == "licensed":
+            return "Licensed directory"
+        if provenance == "lusha":
+            return "Lusha"
         return LABEL["human_confirmed" if provenance == "human_confirmed" else kind]
 
     def entry(kind: str, value: str, row) -> dict:
@@ -503,7 +507,7 @@ def _save_email(db: Session, company: Company, person_id: int, address: str, sta
                     first_seen_at=now, provenance=provenance)
         db.add(row)
     elif strength.get(row.status, 0) > strength[status.value] or row.provenance in ("human_confirmed",
-                                                                                    "internal_crm"):
+                                                                                    "internal_crm", "lusha"):
         row.last_seen_at = now
         return
     row.status, row.provenance, row.confidence = status.value, provenance, confidence

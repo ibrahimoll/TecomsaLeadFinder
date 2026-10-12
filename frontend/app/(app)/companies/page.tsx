@@ -1,9 +1,12 @@
 "use client";
 
-import { Building2, FilterX, Trash2 } from "lucide-react";
+import { Building2, Download, FilterX, Trash2 } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 
 import { Avatar, Button, ConfirmDialog, CountUp, DataTable, EmptyState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Toolbar, toast } from "@/components/ui";
+import { ScoutScore } from "@/components/agent-insights";
+import { PublicLookup } from "@/components/company-search";
+import { OwnerSelect, useUsers } from "@/components/owner-select";
 import { api, ApiError, useApi } from "@/lib/api";
 import { isPrivileged, useCurrentUser } from "@/lib/auth";
 import { COMPANY_STATUS, COMPANY_STATUSES, place } from "@/lib/companies";
@@ -12,7 +15,7 @@ import type { Page } from "@/types";
 import type { Company, CompanyStatus } from "@/types/v2";
 
 const PAGE_SIZE = 50;
-const KEYS = ["q", "status", "country", "region", "city", "industry", "page"] as const;
+const KEYS = ["q", "status", "country", "region", "city", "industry", "owner", "page"] as const;
 
 function CompaniesView() {
   const [filters, setFilters] = useUrlState(KEYS);
@@ -25,11 +28,18 @@ function CompaniesView() {
     region: filters.region,
     city: filters.city,
     industry: filters.industry,
+    owner_id: filters.owner,
     page,
     page_size: PAGE_SIZE,
   });
   const filtered = KEYS.some((k) => k !== "page" && filters[k]);
+  // The same filters as the list, as a CSV for Excel (one row per person, with their numbers).
+  const exportUrl = `/api/companies/export.csv?${new URLSearchParams(
+    Object.entries({ q: filters.q, status: filters.status, country: filters.country, region: filters.region, city: filters.city, industry: filters.industry, owner_id: filters.owner }).filter((e): e is [string, string] => !!e[1]),
+  )}`;
   const user = useCurrentUser();
+  const users = useUsers(isPrivileged(user));
+  const ownerName = new Map(users.map((u) => [u.id, u.name]));
   const [deleting, setDeleting] = useState<Company | null>(null);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(() => new Set());
@@ -83,9 +93,14 @@ function CompaniesView() {
     <>
       <PageHeader
         title="Companies"
+        actions={
+          <a href={exportUrl} download className="inline-flex items-center gap-1.5 rounded border border-border-strong px-3 py-1.5 text-[12.5px] font-medium text-fg hover:bg-surface-hover">
+            <Download className="h-3.5 w-3.5" aria-hidden /> Export to Excel
+          </a>
+        }
         description={
           <>
-            Every company LeadFinder knows, from all searches
+            {canDelete ? "Every lead generator's companies" : "Your companies: the ones you found first"}
             {data && (
               <>
                 {" · "}
@@ -113,12 +128,13 @@ function CompaniesView() {
               </option>
             ))}
           </Select>
+          {canDelete && <OwnerSelect users={users} value={filters.owner} onChange={(owner) => setFilters({ owner })} allLabel="All lead generators" className="w-48" />}
           {filtered && (
             <Button
               variant="ghost"
               size="sm"
               className="animate-pop-in"
-              onClick={() => setFilters({ q: "", status: "", country: "", region: "", city: "", industry: "", page: "" })}
+              onClick={() => setFilters({ q: "", status: "", country: "", region: "", city: "", industry: "", owner: "", page: "" })}
             >
               <FilterX className="h-3.5 w-3.5" aria-hidden /> Clear filters
             </Button>
@@ -134,11 +150,20 @@ function CompaniesView() {
           rowHref={(c) => `/companies/${c.id}`}
           selection={canDelete ? { selected, onChange: setSelected } : undefined}
           empty={
-            <EmptyState
-              icon={<Building2 />}
-              title={filtered ? "No companies match these filters" : "No companies yet"}
-              description={filtered ? undefined : "Companies found through Find Leads appear here automatically."}
-            />
+            filters.q.trim().length >= 2 ? (
+              <EmptyState
+                icon={<Building2 />}
+                title={`“${filters.q.trim()}” is not in LeadFinder yet`}
+                description="Search the permitted public sources for it: a verified match is added and opened."
+                action={<PublicLookup q={filters.q.trim()} country={filters.country || "Lebanon"} />}
+              />
+            ) : (
+              <EmptyState
+                icon={<Building2 />}
+                title={filtered ? "No companies match these filters" : "No companies yet"}
+                description={filtered ? undefined : "Companies found through Find Leads appear here automatically."}
+              />
+            )
           }
           columns={[
             {
@@ -149,13 +174,25 @@ function CompaniesView() {
                   <Avatar name={c.name} size="md" domain={c.domain} />
                   <div className="min-w-0">
                     <p className="truncate font-medium">{c.name}</p>
-                    {c.domain && <p className="truncate text-xs text-fg-muted">{c.domain}</p>}
+                    {c.brief ? (
+                      <p className="max-w-[380px] truncate text-xs text-fg-muted" title={c.brief}>
+                        {c.brief}
+                      </p>
+                    ) : (
+                      c.domain && <p className="truncate text-xs text-fg-muted">{c.domain}</p>
+                    )}
                   </div>
                 </div>
               ),
             },
+            ...(data?.items.some((c) => c.scout_score != null)
+              ? [{ key: "scout", header: "Scout", cell: (c: Company) => (c.scout_score != null ? <ScoutScore score={c.scout_score} reasons={c.scout_reasons} size="sm" /> : null) }]
+              : []),
             { key: "industry", header: "Industry", cell: (c) => c.industry ?? <span className="text-fg-subtle">—</span> },
             { key: "location", header: "Location", cell: (c) => place(c.headquarters_city, c.headquarters_region, c.headquarters_country) },
+            ...(canDelete
+              ? [{ key: "owner", header: "Lead generator", cell: (c: Company) => (c.owner_user_id && ownerName.get(c.owner_user_id)) || <span className="text-fg-subtle">—</span> }]
+              : []),
             { key: "size", header: "Employees", align: "right", cell: (c) => (c.employee_count_estimate ? c.employee_count_estimate.toLocaleString() : "—") },
             {
               key: "status",

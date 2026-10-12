@@ -24,6 +24,7 @@ persistence with each source and its evidence.
 
 import copy
 import logging
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -62,6 +63,25 @@ def _keys(name: str) -> frozenset[str]:
     return frozenset(name_keys(name))
 
 
+def _loose(key: str) -> str | None:
+    """A name key of 2+ words without its vowels after each word's first letter: the transliteration variants
+    ('malak tawook' / 'malak tawouk') share it. A spelling match only: POSSIBLE, never created."""
+    words = key.split()
+    if key[0] in "~^@%" or len(words) < 2:
+        return None
+    return "%" + " ".join(w[0] + re.sub(r"[aeiouy]", "", w[1:]) for w in words)
+
+
+@lru_cache(maxsize=400_000)
+def _unplaced(name: str) -> frozenset[str]:
+    """A record's name keys without their place / country words ('... School Beirut' -> '... school')."""
+    from app.services.company_search import _COUNTRY
+    from app.services.people.external.lebanon.records import PLACES
+
+    return frozenset(u for k in _keys(name) if k[0] not in "~^" and (
+        u := " ".join(t for t in k.split() if t not in PLACES and t not in _COUNTRY)) and u != k)
+
+
 def strength(name: str, q) -> str | None:
     """'strong' (the query's exact keys) / 'possible' (the same consonant skeleton) / None for a source record's
     name, or for a domain query, its domain label inside the name ('possible')."""
@@ -69,7 +89,7 @@ def strength(name: str, q) -> str | None:
         label = q.domain.split(".")[0]
         return "possible" if len(label) >= 4 and label in "".join(name.lower().split()) else None
     keys = _keys(name)
-    if keys & q.keys:
+    if keys & q.keys or _unplaced(name) & q.keys:  # 'American Community School Beirut' for its name
         return "strong"
     if keys & q.skeletons and any(len(k.split()) >= 2 for k in keys & q.skeletons):
         return "possible"
@@ -208,7 +228,7 @@ def _extract_index(country) -> dict[str, list]:
             for c in result.candidates:
                 if c.rejected:
                     continue
-                for key in _keys(c.company_name):
+                for key in _keys(c.company_name) | {_loose(k) for k in _keys(c.company_name)} - {None}:
                     index.setdefault(key, []).append((c, connector.config))
                 if domain := company_domain(c.website):
                     index.setdefault(f"@{domain}", []).append((c, connector.config))
@@ -228,16 +248,17 @@ def warm(country: str = "Lebanon") -> None:
 
 def _extracts(q, country) -> list[Found]:
     index = _extract_index(country)
-    keys = [f"@{q.domain}"] if q.domain else [*q.keys, *q.skeletons]
+    keys = [f"@{q.domain}"] if q.domain else [*q.keys, *q.skeletons, *filter(None, map(_loose, q.keys))]
     out: list[Found] = []
     seen: set[int] = set()
     for key in keys:
         for c, config in index.get(key, [])[:20]:
             if id(c) in seen:
                 continue
-            seen.add(id(c))
-            found = "strong" if q.domain or key in q.keys else strength(c.company_name, q)
+            found = "strong" if q.domain or key in q.keys else strength(c.company_name, q) or (
+                "possible" if key[0] == "%" else None)  # a spelling variant: offered, never created
             if found:
+                seen.add(id(c))
                 out.append(Found(copy.copy(c), config, found))  # a copy: the pipeline marks its records
     return out
 
@@ -432,7 +453,9 @@ def _foreign(name: str):
 
 
 def run(db, q, *, country: str | None, city: str | None, user_id: int | None, deadline: float,
-        intent=None) -> dict:
+        intent=None, offer: bool = False) -> dict:
+    """offer: the strong entities are offered for the user to pick, never created (the database already holds
+    companies that sound like the query)."""
     country_obj = find_country(country or "Lebanon") or _foreign(country)
     report: list[dict] = []
     found: list[Found] = []
@@ -476,9 +499,16 @@ def run(db, q, *, country: str | None, city: str | None, user_id: int | None, de
     wanted_country = country_obj.name
     if wanted_country and q.domain is None:  # a name search stays in the searched country
         strong = [f for f in strong if (f.candidate.country or wanted_country) == wanted_country]
-    if strong:
+    if strong and not offer:
         return {**_create(db, strong, country_obj, user_id, city=city), "sources": report}
-    candidates = [_out(f, "possible") for f in found][:MAX_CANDIDATES]
+    seen: set[tuple] = set()
+    candidates = []
+    strong_ids = {id(f) for f in strong}
+    for f in sorted(found, key=lambda f: id(f) not in strong_ids):  # stable; one line per name and city (map branches)
+        if (k := (_fold(f.candidate.company_name), _fold(f.candidate.city or ""))) not in seen:
+            seen.add(k)
+            candidates.append(_out(f, "possible"))
+    candidates = candidates[:MAX_CANDIDATES]
     status = "ambiguous" if candidates else ("timed_out" if timed_out else "not_found")
     return {"status": status, "company": None, "candidates": candidates, "match_type": None, "confidence": None,
             "sources": report}
@@ -555,9 +585,14 @@ def _create(db, strong: list[Found], country, user_id: int | None, picked: bool 
         from app.services.discovery.deduplication import Resolution
 
         resolution = Resolution(company=known.company, via="name (direct search)")
-    if resolution.suppressed:
-        db.rollback()
-        return {"status": "not_found", "company": None, "candidates": [], "match_type": None, "confidence": None}
+    if resolution.suppressed and not picked:
+        db.rollback()  # deleted on purpose: never re-created on its own, offered so the user may add it back
+        out = _out(by_candidate[id(group.primary)], "possible")
+        out["detail"] = "Deleted from LeadFinder earlier: add it again only if you need it"
+        return {"status": "ambiguous", "company": None, "match_type": None, "confidence": None, "candidates": [out]}
+    if resolution.suppressed:  # the user's explicit pick lifts that deletion (this entity's keys only)
+        _unsuppress(db, group, norms, country.code)
+        resolution = resolve(db, group, norms, country.code)
     assessment = assess(group)
     curated = any(by_candidate[id(c)].record is not None or c.connector == "lookup_gleif"  # a registry /
                   for c in group.records)  # association list, a legal-entity register (LEI)
@@ -599,6 +634,20 @@ def _create(db, strong: list[Found], country, user_id: int | None, picked: bool 
               if is_new else "source_known", EXACT if is_new else STRONG, 90)
     return {"status": "created" if is_new else "found", "company": hit.out(), "candidates": [],
             "match_type": hit.match_type, "confidence": hit.confidence, "resolved_from": group.primary.connector}
+
+
+def _unsuppress(db, group, norms, country_code: str) -> None:
+    """The user picked a deleted company in a direct search: its suppression keys are lifted, so it is created."""
+    from sqlalchemy import delete, tuple_
+
+    from app.models import DiscoverySuppression
+    from app.services.discovery.deduplication import identifiers
+
+    keys = [k for c in group.records for k in identifiers(c, norms[id(c)], country_code)]
+    keys += [("domain", n.domain) for c in group.records if (n := norms[id(c)]).domain]
+    if keys:
+        db.execute(delete(DiscoverySuppression).where(
+            tuple_(DiscoverySuppression.scheme, DiscoverySuppression.value).in_(keys)))
 
 
 def _learn_domains(db, company: Company, records) -> None:

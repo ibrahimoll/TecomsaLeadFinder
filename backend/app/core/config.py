@@ -65,6 +65,17 @@ class Settings(BaseSettings):
     enrichment_page_budget: int = 12  # pages fetched per company, homepage included
     enrichment_job_seconds: float = 60  # a company's research stops (partial) after this long
     enrichment_fresh_days: int = 14  # a company researched more recently is not researched again on open
+    # Agents (services/agents), run by the worker. Profiler: brief + description from the cached website pages,
+    # written by a local model (Ollama; nothing leaves the machine). Scout: learns from sales statuses which
+    # companies become leads, scores all companies and starts lookalike searches.
+    agents_enabled: bool = True
+    ollama_url: str = "http://ollama:11434"
+    ollama_model: str = "qwen2.5:3b"
+    ollama_timeout_seconds: float = 180
+    profiler_enrich_per_hour: int = 30  # companies with a website but no cached pages: research queued per hour
+    scout_min_labels: int = 5  # leads (and non-leads) needed before the Scout scores anything
+    scout_daily_searches: int = 1  # lookalike searches the Scout may start per day (0 = never)
+    scout_search_size: int = 25
     # External people discovery (Step 5.1): free public sources beyond the company's own website (Lebanon source
     # pack, Common Crawl, Wikidata, documents the company links to). No paid API is needed.
     external_people_enabled: bool = True
@@ -99,6 +110,17 @@ class Settings(BaseSettings):
     commoncrawl_budget_seconds: float = 45  # Common Crawl's share of one company's deep research
     commoncrawl_down_seconds: float = 600  # after the index failed: skipped for every company for this long
     commoncrawl_min_interval_seconds: float = 1.5  # Common Crawl's public index is shared: never hammered
+    # Lusha (services/lusha.py): paid people search + per-person reveal, only on an explicit, confirmed click.
+    lusha_api_key: SecretStr | None = None  # LUSHA_API_KEY; empty = feature off. Never logged or returned
+    lusha_base_url: str = "https://api.lusha.com"
+    lusha_monthly_credit_budget: int = 0  # hard cap on LeadFinder's Lusha credits per calendar month (0 = no cap)
+    lusha_search_size: int = 25  # people per company search (Lusha bills search per result: api_search)
+    lusha_search_cache_days: int = 30  # a company's Lusha people list is reused this long (no new paid search)
+    lusha_timeout_seconds: float = 20
+    # One Lusha seat for the whole team: numbers only (an email reveal is refused), at most this many paid reveals per
+    # user per day (0 = no cap), never for a person LeadFinder already has a number for.
+    lusha_phone_only: bool = True
+    lusha_user_daily_reveals: int = 20
 
     @property
     def is_production(self) -> bool:

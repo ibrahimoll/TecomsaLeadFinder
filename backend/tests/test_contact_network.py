@@ -118,9 +118,7 @@ def test_person_matching_conflicts_phones_and_visibility(client_for, db, site): 
     assert "Lina Khoury" in see(manager_client) and "Lina Khoury" in see(owner_client)
     internal_only = db.scalar(select(func.count()).select_from(Phone).where(Phone.visibility != "organization"))
     assert internal_only >= 1
-    lina_contacts = next(p for p in other_client.get(f"/companies/{company_id}/people").json()
-                         if p["person"]["full_name"] == "Lina Khoury")["phones"]
-    assert all(ph["phone"] != "555 1234" for ph in lina_contacts)
+    assert other_client.get(f"/companies/{company_id}/people").status_code == 404  # not their company at all
 
 
 def test_evidence_trail_feedback_idempotency_title_history_and_freshness(client_for, db, site):  # noqa: F811

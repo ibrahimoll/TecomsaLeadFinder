@@ -65,8 +65,11 @@ def list_companies(
     region: str | None = None,
     city: str | None = None,
     industry: str | None = None,
+    owner_id: int | None = None,
 ) -> tuple[list[Company], int]:
     stmt = select(Company)
+    if owner_id is not None:
+        stmt = stmt.where(Company.owner_user_id == owner_id)
     if q and q.strip():
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(Company.name.ilike(like), Company.normalized_name.ilike(f"%{_normalized_name(q)}%"),
@@ -384,3 +387,42 @@ def sources_summary(db: Session, company_id: int) -> list[dict[str, Any]]:
 
 def _columns(row: Any) -> dict[str, Any]:
     return {c.key: getattr(row, c.key) for c in row.__mapper__.column_attrs}
+
+
+EXPORT_MAX = 2000  # ponytail: companies per export (company_people per company); page the export if a list grows past it
+EXPORT_COLUMNS = ["Company", "Industry", "City", "Website", "Company mobile", "Company phone", "Company email",
+                  "Person", "Title", "Department", "Seniority", "Mobile", "Direct line / extension", "Email"]
+
+
+def export_csv(db: Session, user: User, **filters) -> str:
+    """The filtered company list as a CSV a lead generator opens in Excel: one row per current person (the company's
+    own numbers repeated), one row for a company without people. Same companies and contact visibility as the app.
+    UTF-8 with a BOM, so Excel shows Arabic / accents."""
+    import csv
+    import io
+
+    from app.services.contact_intelligence import LEBANON_MOBILE, national
+
+    companies, _ = list_companies(db, PageParams(page=1, page_size=EXPORT_MAX), **filters)
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(EXPORT_COLUMNS)
+    for company in companies:
+        own_phones = [p.phone for p in db.scalars(select(Phone).where(Phone.company_id == company.id,
+                                                                      Phone.person_id.is_(None)))]
+        if company.primary_phone and company.primary_phone not in own_phones:
+            own_phones.insert(0, company.primary_phone)
+        mobile = [p for p in own_phones if LEBANON_MOBILE.match(national(p) or "")]
+        base = [company.name, company.industry or "", company.headquarters_city or "", company.website or "",
+                " / ".join(mobile), " / ".join(p for p in own_phones if p not in mobile), company.primary_email or ""]
+        people = [p for p in company_people(db, company.id, user) if p["is_current"]]
+        for p in people:
+            phones = [x for x in p["phones"] if x.status != "invalid"]
+            mobiles = [x.phone for x in phones if x.phone_type in ("business_mobile", "whatsapp")]
+            direct = [x.phone for x in phones if x.phone_type not in ("business_mobile", "whatsapp", "company_switchboard")]
+            emails = [e.email for e in p["emails"] if e.status not in ("invalid", "predicted")]
+            writer.writerow(base + [p["person"].full_name, p["job_title"], p["department"] or "", p["seniority"] or "",
+                                    " / ".join(mobiles), " / ".join(direct), " / ".join(emails)])
+        if not people:
+            writer.writerow(base + [""] * 7)
+    return "﻿" + out.getvalue()

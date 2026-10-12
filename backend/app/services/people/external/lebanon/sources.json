@@ -124,6 +124,6 @@
     {"key": "licensed_directory", "name": "Licensed business directory (e.g. 5INDEX, when licensed)", "parser": "csv_file",
      "sectors": ["*"], "category": "official_register", "source_type": "licensed_directory", "quality": 85,
      "refresh_days": 0, "access": "disabled",
-     "notes": "Subscription directories are never scraped (5index.com is blocked). If Tecomsa licenses a file / feed, enable this entry and ingest it as a file."}
+     "notes": "Subscription directories are never scraped (5index.com is blocked). Licensed exports (5INDEX, Yelleb, Infobel, Kompass, IFP) are imported through the app (Settings > Directory imports) or contributions.py LICENSED_DIRECTORY, not this pack."}
   ]
 }

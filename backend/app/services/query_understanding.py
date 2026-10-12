@@ -112,6 +112,8 @@ def _place(words: list[str]) -> tuple[str | None, str | None, str | None]:
         return FOREIGN_CITIES[folded], None, COUNTRY_WORDS.get(folded)
     if folded in COUNTRY_WORDS:
         return None, None, COUNTRY_WORDS[folded]
+    if named := next((c for c in COUNTRY_TLD if _fold(c) == folded), None):  # 'Saudi Arabia', 'United Arab Emirates'
+        return None, None, named
     if (country := find_country(text)) is not None:
         return None, None, country.name
     return None, None, None
@@ -213,7 +215,8 @@ def parse(raw: str, *, country: str | None = None) -> Intent:
         core.pop(0)
     while len(core) > 1 and (INDUSTRY_WORDS.get(_bare(core[-1])) or _place([_bare(core[-1])])[2]):
         note(core[-1])
-        place(core[-1:])
+        if _fold(core[-2]) not in _CONNECTORS or _place([_bare(core[-1])])[2] in (country, "Lebanon"):
+            place(core[-1:])  # 'Hôtel-Dieu de France': a foreign place after 'de' / 'of' is the name's, not context
         core.pop()
     while len(core) > 1 and _fold(core[0]) in _CONNECTORS:
         core.pop(0)

@@ -27,6 +27,9 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   eslint: { ignoreDuringBuilds: true },
+  // The /api proxy defaults to a 30 s timeout; checking or importing a directory export of ~1,000 rows takes longer.
+  // ponytail: raised timeout, not a fix for slow imports; move them to the worker queue if files grow.
+  experimental: { proxyTimeout: 300_000 },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${backendUrl}/:path*` }];
   },

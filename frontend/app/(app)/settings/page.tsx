@@ -1,15 +1,17 @@
 "use client";
 
 import clsx from "clsx";
-import { ArrowRight, Link2, PlugZap, ScrollText, ServerCog, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, FileSpreadsheet, Link2, PlugZap, ScrollText, ServerCog, ShieldCheck, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
-import { Avatar, CountUp, PageHeader, TimeAgo } from "@/components/ui";
+import { Avatar, Badge, CountUp, DataTable, PageHeader, Section, TimeAgo } from "@/components/ui";
 import { useApi } from "@/lib/api";
-import { useCurrentUser } from "@/lib/auth";
+import { isPrivileged, useCurrentUser } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/constants";
-import { formatDate } from "@/lib/format";
+import { AgentsCard } from "@/components/agents-card";
+import { formatDate, formatDateTime } from "@/lib/format";
 import type { SystemStatus } from "@/types";
+import type { LushaCredits } from "@/types/v2";
 
 const ADMIN_LINKS: { href: string; title: string; description: string; icon: LucideIcon }[] = [
   { href: "/admin", title: "Users", description: "Create accounts, set roles, deactivate people.", icon: Users },
@@ -93,6 +95,51 @@ function SystemHealth() {
   );
 }
 
+interface LushaLogRow {
+  id: number;
+  at: string;
+  user: string | null;
+  company_id: number | null;
+  company: string | null;
+  action: "search" | "email" | "phone";
+  status: string;
+  credits: number;
+  query: string | null;
+  error: string | null;
+}
+
+const LUSHA_ACTION = { search: "Search", email: "Email revealed", phone: "Number revealed" } as const;
+
+/** Managers / admins: what LeadFinder spent on Lusha this month, and who searched / revealed what. */
+function LushaUsage() {
+  const credits = useApi<LushaCredits>("/lusha/credits");
+  const log = useApi<LushaLogRow[]>("/lusha/ledger");
+  if (!credits.data?.configured) return null;
+  const c = credits.data;
+  return (
+    <Section
+      title="Lusha usage"
+      description={`${c.spent_this_month} credits this month${c.monthly_budget ? ` of ${c.monthly_budget}` : ""}${c.account?.remaining != null ? ` · ${c.account.remaining} left on the Lusha account` : ""}${c.daily_reveals ? ` · ${c.daily_reveals} reveals per person per day` : ""}`}
+      flush
+    >
+      <DataTable
+        caption="Lusha searches and reveals"
+        rows={log.data ?? []}
+        loading={log.loading}
+        rowKey={(r) => r.id}
+        columns={[
+          { key: "at", header: "When", cell: (r) => formatDateTime(r.at) },
+          { key: "user", header: "Who", cell: (r) => r.user ?? "—" },
+          { key: "company", header: "Company", cell: (r) => (r.company_id ? <Link href={`/companies/${r.company_id}`} className="hover:text-accent hover:underline">{r.company ?? r.company_id}</Link> : "—") },
+          { key: "action", header: "What", cell: (r) => `${LUSHA_ACTION[r.action] ?? r.action}${r.query ? `: “${r.query}”` : ""}` },
+          { key: "credits", header: "Credits", cell: (r) => <span className="tabular">{r.credits}</span> },
+          { key: "status", header: "Result", cell: (r) => (r.status === "failed" ? <Badge tone="danger">{r.error ?? "failed"}</Badge> : r.status === "not_found" ? <Badge>Lusha had none</Badge> : r.status === "pending" ? <Badge tone="info">Running</Badge> : <Badge tone="success">Done</Badge>) },
+        ]}
+      />
+    </Section>
+  );
+}
+
 export default function SettingsPage() {
   const user = useCurrentUser();
   return (
@@ -100,6 +147,25 @@ export default function SettingsPage() {
       <PageHeader title="Settings" description="Your account and, for administrators, the workspace." />
       <div className="max-w-4xl space-y-8">
         <ProfileCard />
+        <AgentsCard />
+
+        {user.capabilities.run_imports && (
+          <Link
+            href="/imports"
+            className="group flex items-start gap-3 rounded-lg border border-border bg-surface p-4 shadow-card transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-card-hover focus-visible:outline-offset-2"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+              <FileSpreadsheet className="h-[18px] w-[18px]" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-display text-[14px] font-semibold">Directory imports</span>
+              <span className="mt-0.5 block text-[12.5px] text-fg-muted">Upload a 5INDEX / Yelleb / Infobel / Kompass / IFP export: companies, decision-makers and their mobiles. History and coverage per directory.</span>
+            </span>
+            <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-fg-subtle group-hover:text-accent" aria-hidden />
+          </Link>
+        )}
+
+        {isPrivileged(user) && <LushaUsage />}
 
         {user.capabilities.manage_users ? (
           <section>

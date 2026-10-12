@@ -233,3 +233,20 @@ def test_generic_words_and_single_words_never_open_or_create_a_company(client_fo
     assert village["status"] == "ambiguous" and not village["created"]
     assert count(db, Company) == 3
     assert company_search.name_keys("Consulting Center") == set()
+
+
+def test_country_words_inside_a_name_and_full_country_names():
+    assert parse("Hôtel-Dieu de France", country="Lebanon").country == "Lebanon"  # 'de France' is its name
+    assert parse("Almarai in Saudi Arabia").country == "Saudi Arabia"
+    assert parse("Bank of Beirut").city == "Beirut"
+
+
+def test_web_discovery_spacing_short_brands_and_gulf_sites(sites):
+    assert web_discovery._names_company("Liban Lait", "Libanlait")
+    assert web_discovery._names_company("Mount Lebanon Hospital University Medical Center", "Mount Lebanon Hospital")
+    assert not web_discovery._names_company("Aleph Dental", "Aleph")
+    assert "ibl.com.lb" in web_discovery.candidate_domains("IBL Bank", "Lebanon")
+    sites["zetadairy.com"] = page("Zeta Dairy | Home", "Fresh milk.", "© 2026 Zeta Dairy · +966 11 470 0005")
+    assert web_discovery.verify("Zeta Dairy", "https://zetadairy.com/", country="Saudi Arabia").status == "strong"
+    assert web_discovery.verify("Zeta Dairy", "https://zetadairy.com/", country="Lebanon").reason == \
+        "FOREIGN_ENTITY"  # the Saudi company is not a Lebanese one

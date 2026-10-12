@@ -46,6 +46,8 @@ export interface Company {
   employee_count_max: number | null;
   status: CompanyStatus;
   status_reason: string | null;
+  /** The lead generator who owns it (found it first); salespeople see only their own. */
+  owner_user_id: number | null;
   identity_confidence: "low" | "medium" | "high" | null;
   /** Company research (website enrichment), separate from discovery and from the sales status. */
   enrichment_status: EnrichmentStatus;
@@ -61,6 +63,13 @@ export interface Company {
   external_people_status: EnrichmentStatus;
   external_people_researched_at: string | null;
   contact_status: EnrichmentStatus;
+  /** Profiler agent: written by the local model from the company's own website pages. */
+  brief?: string | null;
+  profile?: string | null;
+  profiled_at?: string | null;
+  /** Scout agent: 0-100, learned from the team's sales statuses; null until it has enough outcomes. */
+  scout_score?: number | null;
+  scout_reasons?: string[] | null;
   last_researched_at: string | null;
   last_verified_at: string | null;
   created_by_user_id: number | null;
@@ -238,7 +247,7 @@ export interface CompanySearchHit {
 export interface CompanyLookup {
   lookup_id: number | null;
   query: string;
-  status: "found" | "created" | "ambiguous" | "not_found" | "timed_out" | "failed";
+  status: "found" | "created" | "ambiguous" | "not_found" | "timed_out" | "failed" | "owned";
   company: CompanySearchHit | null;
   candidates: CompanySearchHit[];
   match_type: string | null;
@@ -309,4 +318,52 @@ export interface LeadSearchResult {
   is_new: boolean;
   source_count: number;
   company: Company;
+}
+
+/** A person Lusha has at the company (GET /companies/{id}/lusha): masked until revealed (paid, on a click). */
+export interface LushaPerson {
+  id: string;
+  name: string;
+  title: string | null;
+  departments: string[];
+  seniority: string | null;
+  linkedin: string | null;
+  has_email: boolean;
+  has_phone: boolean;
+  /** Lusha credits a reveal costs (0 = already revealed for the account). */
+  email_credits: number;
+  phone_credits: number;
+  masked_email: string | null;
+  masked_phone: string | null;
+  /** Revealed already (by anyone at TECOMSA): the real values; null = not revealed. */
+  emails: { email: string; type: string | null }[] | null;
+  phones: { number: string; type: string | null; do_not_call: boolean }[] | null;
+  /** The same person in LeadFinder's people list (by name). */
+  person_id: number | null;
+  /** LeadFinder already has a number for that person: no paid reveal. */
+  leadfinder_has_phone: boolean;
+}
+
+export interface LushaPeople {
+  configured: boolean;
+  searched_at: string | null;
+  fresh: boolean;
+  search_credits_estimate: number;
+  page: number;
+  total: number | null;
+  has_more: boolean;
+  people: LushaPerson[];
+}
+
+export interface LushaCredits {
+  configured: boolean;
+  monthly_budget: number | null;
+  spent_this_month: number;
+  budget_left: number | null;
+  /** Lusha's own balance, when its API answers. */
+  account: { total: number | null; used: number | null; remaining: number | null } | null;
+  /** One seat for the team: numbers only, a daily cap per user (null = no cap). */
+  phone_only: boolean;
+  daily_reveals: number | null;
+  reveals_left_today: number | null;
 }

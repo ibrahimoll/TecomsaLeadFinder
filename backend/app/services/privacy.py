@@ -23,7 +23,8 @@ from app.services import audit_service
 from app.services.people.names import name_key
 
 logger = logging.getLogger("leadfinder.privacy")
-PROTECTED = ("internal_crm", "contributed", "human_confirmed")  # TECOMSA's own / a colleague's: never expired
+PROTECTED = ("internal_crm", "contributed", "human_confirmed", "licensed", "lusha")  # TECOMSA's own / a colleague's /
+# a licensed directory's (removed with its import) / paid Lusha reveals: never expired
 
 
 def _key_hash(company_id: int, full_name: str) -> str | None:

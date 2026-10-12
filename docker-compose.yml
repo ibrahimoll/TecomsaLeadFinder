@@ -64,6 +64,24 @@ services:
       backend:
         condition: service_started
 
+  # Local language model for the Profiler agent (company briefs/descriptions). Nothing leaves this machine.
+  # Model: OLLAMA_MODEL (default qwen2.5:3b, ~2 GB, fits a 4 GB GPU). Pulled once into the volume.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
   frontend:
     build:
       context: ./frontend
@@ -82,3 +100,4 @@ services:
 
 volumes:
   pgdata:
+  ollama:

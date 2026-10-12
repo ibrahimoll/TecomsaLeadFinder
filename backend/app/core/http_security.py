@@ -17,6 +17,8 @@ from app.core.config import get_settings
 
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 DEFAULT_BODY_LIMIT = 1024 * 1024  # 1 MB: every JSON body LeadFinder accepts is far smaller
+UPLOAD_BODY_LIMIT = 10 * 1024 * 1024  # file imports (bigger files: the CLI)
+UPLOAD_PATHS = ("/imports/",)
 _SECURITY_HEADERS = [
     (b"x-content-type-options", b"nosniff"),
     (b"x-frame-options", b"DENY"),
@@ -76,7 +78,7 @@ class SecurityMiddleware:
             if f"{s.cookie_name}=" in cookie and cross_site(headers, allowed_origins()):
                 return await _reject(send, 403, "Cross-site request refused.")
 
-        limit = DEFAULT_BODY_LIMIT
+        limit = UPLOAD_BODY_LIMIT if scope.get("path", "").startswith(UPLOAD_PATHS) else DEFAULT_BODY_LIMIT
         declared = headers.get(b"content-length", b"")
         if declared.isdigit() and int(declared) > limit:
             return await _reject(send, 413, "Request body too large.")

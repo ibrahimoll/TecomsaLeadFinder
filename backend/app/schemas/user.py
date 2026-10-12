@@ -25,6 +25,7 @@ class Capabilities(BaseModel):
     """What the current user may do; the frontend uses it only to shape navigation."""
 
     manage_users: bool
+    run_imports: bool = False
 
 
 class MeOut(UserOut):

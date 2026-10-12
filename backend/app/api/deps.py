@@ -63,3 +63,16 @@ Pagination = Annotated[PageParams, Depends(page_params)]
 
 def client_ip(request: Request) -> str | None:
     return request.client.host if request.client else None
+
+
+def company_access(request: Request, user: CurrentUser, db: DbSession) -> None:
+    """Routes under /companies/{company_id}: a salesperson's own companies only (404: another's is not probed)."""
+    from app.models import Company
+    from app.services.permissions import can_see
+
+    raw = request.path_params.get("company_id")
+    if raw is not None and str(raw).isdigit() and not can_see(user, db.get(Company, int(raw))):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Company not found")
+
+
+CompanyAccess = Depends(company_access)

@@ -40,9 +40,10 @@ export interface User {
 
 export interface Capabilities {
   manage_users: boolean;
-  /** V1 only (parked legacy pages); the V2 backend no longer sends these. */
-  view_crm?: boolean;
+  /** Managers / admins: licensed directory imports (/imports). */
   run_imports?: boolean;
+  /** V1 only (parked legacy pages); the V2 backend no longer sends it. */
+  view_crm?: boolean;
 }
 
 export interface Me extends User {

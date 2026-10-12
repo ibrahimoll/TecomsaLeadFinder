@@ -89,7 +89,7 @@ def test_internal_seed_resolution_provenance_and_visibility(client_for, db, site
     assert db.scalar(select(Phone.phone_type).where(Phone.person_id == email.person_id)) == "business_mobile"
     assert people(owner, company_id)["Nadine Frem"]["contactable"]
     other, _ = client_for(UserRole.SALES_AGENT, email="other.agent@tecomsa.example")
-    assert "Nadine Frem" not in people(other, company_id)  # another salesperson's restricted contact
+    assert other.get(f"/companies/{company_id}/people").status_code == 404  # another salesperson's company
     manager, _ = client_for(UserRole.SALES_MANAGER, email="manager@tecomsa.example")
     assert people(manager, company_id)["Nadine Frem"]["contacts"][0]["label"] == "TECOMSA CRM"
     again = contributions.ingest(db, system="ODOO_CRM", file_name="contacts.csv", raw=SEED.encode(),

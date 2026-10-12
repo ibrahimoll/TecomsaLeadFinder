@@ -182,8 +182,8 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
 
 - The Commercial Register website (cr.justice.gov.lb) is never queried, because its terms forbid commercial use of
   its data. Use official extracts as files instead.
-- Subscription directories such as 5INDEX are never fetched. Enable `licensed_directory` only once a licence is in
-  place.
+- Subscription directories (5INDEX, Yelleb, Infobel, Kompass, IFP) are never fetched. Their licensed exports are
+  imported as files (section 5d, *Licensed directory exports*), not through this pack.
 - Common Crawl and Wikidata run per company, only while people are missing. Their answers are cached in
   `external_search_cache`.
 - Web search (`PEOPLE_SEARCH_PROVIDER`) is optional and set to `none` by default.
@@ -202,7 +202,7 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
   - Order of Engineers and CCIB: their pages sit behind a challenge.
   - Commercial Register: file import only.
   - BDL: blocks automated access.
-  - 5INDEX: needs a licence.
+  - 5INDEX, Yelleb, Infobel, Kompass, IFP: licensed exports as files only (section 5d).
 
 ## 5c. Direct company search (Find Leads › Search for a company)
 
@@ -247,6 +247,28 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
   person to an e-mail, never a title; unknown people are not created). One contact can also be added on a company's
   People tab (*Add business contact*). A contributed source is removed with `contributions.suppress(source_id)`:
   only what it alone stated goes; public evidence stays; it is never imported again.
+- **Licensed directory exports** (5INDEX, Yelleb Data Hub, later InfobelPRO / Kompass / IFP: files TECOMSA is
+  licensed to use; the directories' websites are never accessed). Settings › *Directory imports* (managers / admins):
+  pick or type the directory, upload its .xlsx / .csv export (≤ 10 MB) → the detected columns (English or French
+  headers: *Company / Société / Raison sociale*, *Contact / Contact person / Manager / General Manager / Owner /
+  Gérant*, *Title / Position / Fonction*, *Phone / Tel / Téléphone*, *Mobile / Cell / GSM / Portable*, *WhatsApp /
+  WhatsApp number / WA* (kept apart from the mobile), *E-mail*, *Website / Site web*, *Sector / Activity / Activité*,
+  *City / Ville*, *Address / Adresse*; *Fax* ignored; any other column listed as not recognised) and what the import
+  would add (new / existing companies, people, mobiles, WhatsApp, other numbers, e-mails, skipped rows with reasons)
+  → *Import*. Sample: `docs/5index_import_sample.csv` (fictional). Bigger files, same dry run / apply:
+  `docker compose exec backend python -m app.services.contributions /tmp/export.xlsx LICENSED_DIRECTORY --directory
+  Yelleb --owner EMAIL [--apply]`.
+  A company LeadFinder lacks is created through discovery's duplicate resolution (never twice; a deleted company is
+  not re-created); a known one is only completed (contacts added, blank phone / e-mail filled). The Tel column is the
+  company's line, the Mobile / WhatsApp columns the named person's (the company's on a row naming nobody); a person
+  column named after a role (*General Manager*, *Owner*, *Gérant*) is the title when the row has none; a person
+  without any title is not created. Every record is a source named `<directory> (licensed directory)`; its contacts
+  carry the `licensed` provenance, are kept by retention and go with their import: the history's *Remove* deletes
+  what only that import added (contacts, people, the companies it created that nothing else describes) — so one
+  directory's data can be removed alone, and the file can be imported again. The same person from two directories is
+  one person (corroborated). *Coverage per directory* (same page, `GET /imports/directory/coverage`): per directory,
+  people, people with a mobile / WhatsApp / e-mail, companies with a number — what each states today. Check each
+  directory's licence terms before using its data beyond TECOMSA's own sales team.
 - **Sales feedback**: People tab › *Feedback…* per person (or `POST /companies/{id}/contact-feedback`): email
   delivered / replied / bounced, phone correct / wrong / company line, correct person / left / wrong person. Applied at
   once; research never undoes it.
@@ -280,6 +302,45 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
 - **Common Crawl** is read from its static index files on data.commoncrawl.org (the index server is unreachable from
   this network); lookups take 10–50 s each, so they run inside deep research only, bounded by
   `COMMONCRAWL_BUDGET_SECONDS`.
+
+## 5e. Lusha (paid people + contact reveal)
+
+- **Key**: every Lusha plan, Free included, comes with an API key (Lusha help centre). In the Lusha dashboard open
+  *API Hub* (left sidebar) › *Copy API key* (https://dashboard.lusha.com/api/manage-api-keys). LeadFinder calls API V3
+  (`https://api.lusha.com/v3/...`); an account without V3 access gets 403 "V3 API access is not enabled": ask Lusha.
+- **Env** (`.env`, then restart backend + worker): `LUSHA_API_KEY` (empty = off; the People tab says "Lusha not
+  configured"; the key is never logged or returned), `LUSHA_MONTHLY_CREDIT_BUDGET` (hard cap on LeadFinder's Lusha
+  credits per calendar month, enforced server-side; `0` = no cap), optional `LUSHA_SEARCH_SIZE` (people per company
+  search, default 25), `LUSHA_SEARCH_CACHE_DAYS` (default 30), `LUSHA_TIMEOUT_SECONDS`, `LUSHA_BASE_URL`.
+- **One seat for the team**: `LUSHA_PHONE_ONLY` (default `true`: only *Get number*, an email reveal is refused) and
+  `LUSHA_USER_DAILY_REVEALS` (paid reveals per user per day, default 20, `0` = no cap; an already revealed person is
+  free and does not count). A person LeadFinder already has a number for shows *Number in LeadFinder*, and a reveal of
+  them is refused before Lusha is called.
+- **Costs** (Lusha docs, 2026-10): a work email 1 credit, a phone 5 credits (per revealed data point, billed once per
+  account: a person already revealed costs 0); a search is billed per result (`api_search`), so *Search Lusha* is a
+  confirmed click too and its list is kept for `LUSHA_SEARCH_CACHE_DAYS`. Lusha's per-account price list:
+  `GET https://api.lusha.com/v3/account/usage` (`pricing`). The waterfall (third-party providers, extra credits) is
+  turned off on every reveal.
+- **How it works**: People tab › *From Lusha* › *Search Lusha* (confirm) lists the people Lusha has (by the company's
+  domain, else its name) with email / phone masked and what Lusha has. *Reveal email* / *Reveal phone* shows the cost
+  and the credits left, and only on confirm calls Lusha for that one field of that one person. The result is saved as
+  the person (same name = same person) + title + work email / phones (provenance `lusha`, visible to everyone at
+  TECOMSA, kept by retention) and shown in clear to every user from then on: nobody pays twice. A person removed on
+  request is never revealed. Nothing is revealed in bulk, automatically or by background research.
+- **Free-text search** (one box above the *From Lusha* list, like the Lusha extension on a company page): type
+  *IT*, *IT manager*, *CFO*, *marketing*… (empty = everyone at the company; optional *Has phone*). Words that are
+  exactly one of Lusha's departments (*IT* = Information Technology, *finance*, *marketing*…) or seniorities
+  (*director*, *manager*, *c-level*…) search that whole department / level; anything else is a job title (Lusha
+  combines filter types with AND, so never both). The value lists come from Lusha's filter endpoints
+  (`/v3/contacts/prospecting/filters/…`, cached a day; if they fail, the words are a job title). Enter / *Search*:
+  the same search (words with case and spacing ignored, toggle, page) within `LUSHA_SEARCH_CACHE_DAYS` shows again
+  free without asking; otherwise it is confirmed with "up to `LUSHA_SEARCH_SIZE` credits". *Next page* is another
+  confirmed search.
+- **Ledger**: table `lusha_requests` (every search / reveal: who, company, status, credits; pending rows are written
+  before the call, so a double click or second tab pays once). Managers / admins: `GET /lusha/ledger`; everyone:
+  `GET /lusha/credits` (this month's spend, budget left, Lusha's balance). Audit actions `lusha.*`.
+- **Licence**: Lusha's terms may restrict storing revealed data or showing it to people outside the subscribing
+  company. Check them before using this for anyone but TECOMSA's own team.
 
 ## 6. Troubleshooting
 

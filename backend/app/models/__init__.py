@@ -6,7 +6,7 @@ from app.models.company import (Company, CompanyAlias, CompanyGapReason, Company
                                 CompanyOffering, CompanyRelationship, CompanySignal, CompanyDomain, CompanyEmailPattern, CompanyLookup, SourceLookup,
                                 CompanyStatusHistory, CompanyWebPage, DiscoverySuppression, ExternalDocument,
                                 ExternalSearchCache, OpportunityAnalysis, PossibleDuplicate)
-from app.models.integration import Integration
+from app.models.integration import Integration, LushaRequest
 from app.models.people import (CompanyPerson, ContactEvidence, ContactFeedback, Email, Person, PersonSuppression, Phone,
                                PossibleDuplicatePerson)
 from app.models.provenance import Evidence, Source
@@ -42,6 +42,7 @@ __all__ = [
     "Integration",
     "LeadSearch",
     "LeadSearchResult",
+    "LushaRequest",
     "OpportunityAnalysis",
     "Person",
     "Phone",

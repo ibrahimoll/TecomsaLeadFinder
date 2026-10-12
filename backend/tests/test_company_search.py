@@ -217,3 +217,30 @@ def test_search_requires_login_and_uses_no_paid_or_linkedin_source(anon_client, 
     assert [[name for name, _ in tier] for tier in tiers] == [["extracts"], ["web_discovery"], ["wikidata"]]  # never
     # a paid
     # search API or LinkedIn; Wikidata (rate-limited) only when the cheaper sources found nothing strong
+
+
+def test_deleted_company_is_offered_never_recreated_and_the_users_pick_restores_it(client_for, db, no_extracts):
+    from app.models import DiscoverySuppression
+
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    no_extracts.append(FakeConnector(config("osm"), lambda: [cand("Sigma Foods", connector="osm", n=1)]))
+    db.add(DiscoverySuppression(scheme="osm", value="osm-Sigma Foods", company_name="Sigma Foods"))
+    db.commit()
+    result = lookup(agent, "Sigma Foods")
+    assert result["status"] == "ambiguous" and count(db, Company) == 0  # deleted on purpose: not re-created
+    [offer] = [c for c in result["candidates"] if c["pick_index"] is not None]
+    assert offer["name"] == "Sigma Foods" and "Deleted" in offer["detail"]
+    picked = agent.post(f"/companies/lookup/{result['lookup_id']}/select", json={"index": offer["pick_index"]})
+    assert picked.status_code == 200 and picked.json()["status"] == "created"  # the user's explicit choice
+    assert count(db, DiscoverySuppression) == 0
+
+
+def test_place_suffix_is_strong_and_a_spelling_variant_only_offered(client_for, db, no_extracts):
+    q = company_search.parse("American Community School")
+    assert company_lookup.strength("American Community School Beirut", q) == "strong"  # its name + a place
+    assert company_lookup.strength("American Community Bank", q) != "strong"  # another name
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    no_extracts.append(FakeConnector(config("osm"), lambda: [cand("Malak Al Tawouk", connector="osm", n=1)]))
+    result = lookup(agent, "Malak al Tawook")  # oo / ou: one transliteration of the same name
+    assert result["status"] == "ambiguous" and count(db, Company) == 0  # possible: offered, never created
+    assert [c["name"] for c in result["candidates"] if c["pick_index"] is not None] == ["Malak Al Tawouk"]

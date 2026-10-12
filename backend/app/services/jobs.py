@@ -319,6 +319,9 @@ if __name__ == "__main__":
     for sig in (signal.SIGTERM, signal.SIGINT):  # docker stop / watchfiles reload: stop cleanly
         signal.signal(sig, lambda *_: stop_worker())
     start_worker()
+    from app.services.agents import loop as agents  # the Profiler and the Scout (one process cluster-wide)
+
+    agents.start(_stop)
     purged_at = 0.0
     while not _stop.wait(1):
         if time.monotonic() - purged_at > 86400:  # contact retention, daily (idempotent: any worker may run it)

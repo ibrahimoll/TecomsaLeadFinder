@@ -417,6 +417,7 @@ class CompanySearchHit(OutModel):
     confidence: str | None = None  # exact / strong / possible / weak
     detail: str | None = None
     source: str | None = None  # a public-source candidate's source
+    page_url: str | None = None  # a web search result: the company's page on a platform (Facebook, Maps...)
     pick_index: int | None = None
 
 

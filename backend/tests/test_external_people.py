@@ -123,7 +123,7 @@ def web(monkeypatch):
             return [r for word, rs in results.items() if word.lower() in query.lower() for r in rs][:limit]
 
     state = SimpleNamespace(sites=sites, requests=requests, results=results, queries=queries, provider=FakeProvider())
-    monkeypatch.setattr(search, "provider", lambda: state.provider)
+    monkeypatch.setattr(search, "provider", lambda purpose="people": state.provider)
     return state
 
 

@@ -81,6 +81,11 @@ function LookupResult({ result, pick }: { result: CompanyLookup; pick: (lookupId
                     <Building2 className="h-3.5 w-3.5 text-fg-subtle" aria-hidden />
                     <span className="truncate">{c.name}</span>
                     {c.company_id === null && <Badge tone="neutral">{c.source ?? "Public source"}</Badge>}
+                    {c.page_url && (
+                      <a href={c.page_url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs font-medium text-accent hover:underline">
+                        View page
+                      </a>
+                    )}
                   </span>
                   <span className="block truncate text-xs text-fg-subtle">{[where(c), c.website, c.company_id === null && c.detail].filter(Boolean).join(" · ")}</span>
                 </span>

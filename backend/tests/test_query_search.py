@@ -35,7 +35,7 @@ def sites(web, monkeypatch):
         return ["93.184.216.34"]
     monkeypatch.setattr(fetch, "resolve", resolve)
     from app.services.people.external import search
-    monkeypatch.setattr(search, "provider", lambda: None)  # the default: no licensed search API
+    monkeypatch.setattr(search, "provider", lambda purpose="people": None)  # the default: no licensed search API
     return web.sites
 
 

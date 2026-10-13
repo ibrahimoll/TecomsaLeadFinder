@@ -111,6 +111,7 @@ def _out(f: Found, confidence: str) -> dict:
     return {"company_id": None, "name": c.company_name, "city": c.city, "country": c.country,
             "industry": c.industry, "website": c.website, "source": f.config.label or f.config.key,
             "match_type": "source_" + f.strength, "confidence": confidence,
+            "page_url": c.source_url if c.source_type == "public_web" else None,  # the platform page, to check first
             "payload": {"candidate": {**asdict(c), "observed_at": c.observed_at.isoformat()},
                         "config": {"key": f.config.key, "source_type": f.config.source_type,
                                    "quality": f.config.quality, "label": f.config.label}}}
@@ -397,6 +398,36 @@ def _gleif(q, intent) -> list[Found]:
     return out
 
 
+_TITLE_PARTS = re.compile(r"\s+[|•·–—-]\s+|\s+\(@|\s*\|\s*")
+_PLATFORM_WORDS = {"home", "facebook", "instagram", "photos", "videos", "about", "menu", "google maps", "tiktok",
+                   "linkedin", "x", "twitter", "posts", "reviews", "contact"}
+
+
+def _page_name(title: str) -> str:
+    """'Al Shayeb - Home | Facebook' -> 'Al Shayeb': the first part of a platform page's title."""
+    parts = [p.strip() for p in _TITLE_PARTS.split(title or "") if p.strip()]
+    return next((p for p in parts if _fold(p) not in _PLATFORM_WORDS), "")[:200]
+
+
+def _profiles(q, pages, country_name) -> list[Found]:
+    """The company's pages on platforms (Facebook, Instagram, Maps, directories) a web search found: offered with
+    the page as the source, never created on their own (a search result is not a fact; the user's pick is the
+    confirmation). Only pages whose title carries the searched name."""
+    words = [w for w in _fold(q.normalized or q.raw).split() if len(w) >= 3]
+    out = []
+    for page in pages:
+        name = _page_name(page.title)
+        if not name or not words or not any(w in _fold(name) for w in words):
+            continue
+        out.append(Found(CompanyCandidate(
+            connector="lookup_web_page", source_name=f"{page.domain} (web search)", source_type="public_web",
+            company_name=name, external_id=page.url[:300], source_url=page.url, country=country_name,
+            raw_metadata={"title": page.title, "snippet": page.snippet, "publisher": page.domain,
+                          "discovered_by": page.source}),
+            _config("lookup_web_page", "public_web", 50, page.domain.removeprefix("www.")), "possible"))
+    return out[:4]
+
+
 def _web(q, country, intent) -> list[Found]:
     """The company's own website from its name: candidates from the discovery providers, each verified on the site
     (name AND country); a verified site is a strong candidate, a site naming the company outside the country is
@@ -416,8 +447,8 @@ def _web(q, country, intent) -> list[Found]:
             breaker.record(True)
         except Exception:
             breaker.record(False)
-    out: list[Found] = []
-    unique = list({c.domain: c for c in candidates}.values())[:6]
+    out = _profiles(q, [c for c in candidates if c.profile], country_name)
+    unique = list({c.domain: c for c in candidates if not c.profile}.values())[:6]
     pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="verify")  # sites verified in parallel
     futures = {pool.submit(web_discovery.verify, name, c.url, country=country_name): c for c in unique}
     done, _ = wait(futures, timeout=VERIFY_SECONDS)  # a site that does not answer is not waited for

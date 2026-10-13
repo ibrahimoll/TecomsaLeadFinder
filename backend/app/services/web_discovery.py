@@ -60,6 +60,7 @@ class DiscoveryCandidate:
     title: str = ""
     snippet: str = ""  # a hint only, never a fact
     observed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    profile: bool = False  # a page about the company on a platform (Facebook, Instagram, Maps, a directory)
 
 
 class WebDiscoveryProvider(Protocol):
@@ -164,7 +165,9 @@ def expand(name: str, *, country: str | None = None, city: str | None = None, in
 
 
 class LicensedSearchDiscovery:
-    """The configured public web search API, when one is licensed and configured (never a result page)."""
+    """The configured public web search API (never a result page): the company's own site (verified later) and its
+    pages on platforms (Facebook, Instagram, Maps, directories: offered to the user, never created on their own).
+    One query per lookup, cached (search_cache_days), so a repeated search spends nothing."""
 
     key = "licensed_search"
 
@@ -173,23 +176,30 @@ class LicensedSearchDiscovery:
 
     def search_company(self, name: str, *, country: str | None = None, city: str | None = None,
                        industry: str | None = None, limit: int = 5) -> list[DiscoveryCandidate]:
+        from app.db.session import SessionLocal
+        from app.services.people.external.search import cached_search
         from app.services.people.external.sources import blocked
 
+        with SessionLocal() as db:
+            results, _ = cached_search(db, self.engine, " ".join(filter(None, (name, city or country))), limit=8,
+                                       country=country)
         out: dict[str, DiscoveryCandidate] = {}
-        for variant in expand(name, country=country, city=city, industry=industry, limit=2):
-            for rank, r in enumerate(self.engine.search(variant, limit=limit)):
-                domain = company_domain(r.url)
-                if domain and not blocked(r.url) and domain not in out:
-                    out[domain] = DiscoveryCandidate(url=f"https://{urlsplit(r.url).hostname}/", domain=domain,
-                                                     source=self.key, rank=rank, title=r.title, snippet=r.snippet)
-        return list(out.values())[:limit]
+        for rank, r in enumerate(results):
+            domain = company_domain(r.url)
+            if domain and not blocked(r.url):
+                out.setdefault(domain, DiscoveryCandidate(url=f"https://{urlsplit(r.url).hostname}/", domain=domain,
+                                                          source=self.key, rank=rank, title=r.title, snippet=r.snippet))
+            elif r.url not in out:
+                out[r.url] = DiscoveryCandidate(url=r.url, domain=r.domain, source=self.key, rank=rank, title=r.title,
+                                                snippet=r.snippet, profile=True)
+        return list(out.values())
 
 
 def providers() -> list[WebDiscoveryProvider]:
     from app.services.people.external import search
 
     out: list[WebDiscoveryProvider] = [DomainGuessDiscovery()]
-    if (engine := search.provider()) is not None:
+    if (engine := search.provider("company")) is not None:
         out.append(LicensedSearchDiscovery(engine))
     return out
 

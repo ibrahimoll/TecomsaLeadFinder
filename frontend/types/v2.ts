@@ -276,6 +276,7 @@ export interface CompanySearchHit {
   confidence: "exact" | "strong" | "possible" | "weak" | null;
   detail: string | null;
   source: string | null;
+  page_url: string | null;
   pick_index: number | null;
 }
 

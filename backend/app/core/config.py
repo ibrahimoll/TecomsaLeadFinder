@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     # needs BRAVE_SEARCH_API_KEY; anything else = no search.
     people_search_provider: str = "none"
     brave_search_api_key: SecretStr | None = None  # BRAVE_SEARCH_API_KEY; never logged
+    # Find Leads' direct company search: a real web search (Facebook / Instagram / Maps pages included) when a key is
+    # set. Tavily: 1,000 free searches a month, no card (TAVILY_API_KEY). "none" = domain guessing only.
+    company_search_provider: str = "tavily"
+    tavily_api_key: SecretStr | None = None  # TAVILY_API_KEY; never logged
     search_min_interval_seconds: float = 1.1  # the provider's rate limit (Brave free tier: 1 query / second)
     search_timeout_seconds: float = 10
     search_cache_days: int = 14

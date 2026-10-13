@@ -244,3 +244,48 @@ def test_place_suffix_is_strong_and_a_spelling_variant_only_offered(client_for, 
     result = lookup(agent, "Malak al Tawook")  # oo / ou: one transliteration of the same name
     assert result["status"] == "ambiguous" and count(db, Company) == 0  # possible: offered, never created
     assert [c["name"] for c in result["candidates"] if c["pick_index"] is not None] == ["Malak Al Tawouk"]
+
+
+# ---- a real web search (Tavily) ----------------------------------------------------------------------------------
+
+
+def test_web_search_offers_a_business_known_only_by_its_platform_pages(client_for, db, monkeypatch):
+    """A shop with no website of its own: the web search finds its Facebook page; offered (never created on its own),
+    created when picked; the same search again is answered from the cache (no second paid / counted search)."""
+    import httpx
+    from pydantic import SecretStr
+
+    from app.core.config import get_settings
+    from app.services.people.external import search
+
+    sent = []
+
+    def tavily(request: httpx.Request) -> httpx.Response:
+        sent.append(request.read())
+        assert request.headers["authorization"] == "Bearer tvly-test"
+        return httpx.Response(200, json={"results": [
+            {"title": "Al Shayeb - Home | Facebook", "url": "https://www.facebook.com/alshayeb.lb",
+             "content": "Al Shayeb, Beirut. Sweets and roastery."},
+            {"title": "Best sweets in Beirut - a blog", "url": "https://someblog.example/best-sweets",
+             "content": "..."}]})
+
+    engine = search.TavilySearchProvider("tvly-test", timeout=5, transport=httpx.MockTransport(tavily))
+    monkeypatch.setattr(web_discovery, "providers", lambda: [web_discovery.LicensedSearchDiscovery(engine)])
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    result = lookup(agent, "Al Shayeb")
+    assert result["status"] == "ambiguous" and result["company"] is None
+    offer = next(c for c in result["candidates"] if c["name"] == "Al Shayeb")
+    assert offer["page_url"] == "https://www.facebook.com/alshayeb.lb" and offer["source"] == "facebook.com"
+    assert all(c["name"] != "Best sweets in Beirut" for c in result["candidates"])  # the name must be in the title
+    assert count(db, Company) == 0  # a search result is never a fact on its own
+    picked = agent.post(f"/companies/lookup/{result['lookup_id']}/select", json={"index": offer["pick_index"]})
+    assert picked.status_code == 200, picked.text
+    assert picked.json()["company"]["name"] == "Al Shayeb" and count(db, Company) == 1
+    lookup(agent, "Al Shayeb Sweets")  # another query: a new search
+    lookup(agent, "Al Shayeb Sweets")  # the same query again: from the cache
+    assert len(sent) == 2
+
+    s = get_settings()
+    monkeypatch.setattr(s, "tavily_api_key", SecretStr("tvly-test"))
+    assert isinstance(search.provider("company"), search.TavilySearchProvider)
+    assert search.provider() is None  # people research never spends the free monthly searches

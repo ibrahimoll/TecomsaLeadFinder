@@ -291,7 +291,7 @@ function ContactList({ contacts }: { contacts: ContactRow[] }) {
                   <MessageCircle className="h-4 w-4" aria-hidden />
                 </a>
               )}
-              <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+              <span>
                 <CopyButton value={value} label={email ? "email" : "number"} />
               </span>
             </li>

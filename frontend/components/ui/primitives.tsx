@@ -232,6 +232,30 @@ export function Tooltip({ label, children, side = "top" }: { label: string; chil
 }
 
 /** Copies a value (phone, email, id) with inline confirmation. Visible on row/field hover (parent `group`). */
+/** Copies text. The Clipboard API exists only on https / localhost, and LeadFinder is opened over the office network
+ * on plain http (192.168...), so the old selection + copy command is the fallback that works there. */
+export function copyText(value: string): boolean {
+  if (window.isSecureContext && navigator.clipboard) {
+    void navigator.clipboard.writeText(value);
+    return true;
+  }
+  const area = document.createElement("textarea");
+  area.value = value;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  area.remove();
+  return ok;
+}
+
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -239,13 +263,15 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       type="button"
       aria-label={copied ? "Copied" : `Copy ${label}`}
       title={copied ? "Copied" : `Copy ${label}`}
-      onClick={() => {
-        void navigator.clipboard?.writeText(value).then(() => {
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (copyText(value)) {
           setCopied(true);
           setTimeout(() => setCopied(false), 1200);
-        });
+        }
       }}
-      className="rounded p-1 text-fg-subtle opacity-0 transition-opacity hover:bg-surface-hover hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
+      className="rounded p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-accent"
     >
       {copied ? <Check className="h-3 w-3 text-accent" aria-hidden /> : <Copy className="h-3 w-3" aria-hidden />}
     </button>

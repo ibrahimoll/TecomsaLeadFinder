@@ -10,6 +10,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.exceptions import AppError
 from app.core.http_security import SecurityMiddleware
+from app.core.owner_lock import OwnerLockMiddleware
 
 logger = logging.getLogger("leadfinder")
 
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
         openapi_url=None if settings.is_production else "/openapi.json",
     )
 
+    app.add_middleware(OwnerLockMiddleware)  # while the owner has locked LeadFinder, nothing runs (inside CORS: readable)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

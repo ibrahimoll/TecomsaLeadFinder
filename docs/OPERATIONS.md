@@ -355,6 +355,23 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
 - **Licence**: Lusha's terms may restrict storing revealed data or showing it to people outside the subscribing
   company. Check them before using this for anyone but TECOMSA's own team.
 
+## 5g. Owner lock
+
+The owner can stop the whole website with a key only they know. The key is typed into a hidden prompt; LeadFinder
+stores only its Argon2 hash, so nobody (admins, developers, AI assistants) can read it back. While locked, every API
+request except `/health` returns 503 "LeadFinder is locked by its owner" (login included).
+
+```
+docker compose exec backend python -m scripts.owner_lock set      # once: choose the key (min. 12 characters)
+docker compose exec backend python -m scripts.owner_lock lock     # stop the website
+docker compose exec backend python -m scripts.owner_lock unlock   # start it again
+docker compose exec backend python -m scripts.owner_lock change   # new key (needs the current one)
+docker compose exec backend python -m scripts.owner_lock status
+```
+
+Keep the key in a password manager: a lost key cannot be recovered (a database administrator can only remove the
+lock with `DELETE FROM owner_lock`). The lock protects against app users, not against whoever controls the server.
+
 ## 6. Troubleshooting
 
 | Symptom | Check |

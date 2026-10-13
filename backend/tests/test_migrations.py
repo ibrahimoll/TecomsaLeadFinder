@@ -17,7 +17,7 @@ V2_TABLES = {"companies", "company_locations", "company_relationships", "company
              "lead_searches", "lead_search_results", "research_runs", "opportunity_analysis",
              "company_status_history", "integrations", "company_identifiers", "possible_duplicates",
              "discovery_suppressions", "company_signals", "company_products_services", "company_web_pages",
-             "possible_duplicate_people", "external_documents", "external_search_cache", "lusha_requests"}
+             "possible_duplicate_people", "external_documents", "external_search_cache", "lusha_requests", "owner_lock"}
 
 
 def test_v1_database_upgrades_keeping_users_sessions_and_audit_log():

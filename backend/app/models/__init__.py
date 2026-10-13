@@ -11,9 +11,10 @@ from app.models.people import (CompanyPerson, ContactEvidence, ContactFeedback, 
                                PossibleDuplicatePerson)
 from app.models.provenance import Evidence, Source
 from app.models.search import LeadSearch, LeadSearchResult, ResearchRun
-from app.models.user import User, UserSession
+from app.models.user import OwnerLock, User, UserSession
 
 __all__ = [
+    "OwnerLock",
     "AuditLog",
     "Base",
     "Company",

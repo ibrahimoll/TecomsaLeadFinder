@@ -359,7 +359,8 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
 
 The owner can stop the whole website with a key only they know. The key is typed into a hidden prompt; LeadFinder
 stores only its Argon2 hash, so nobody (admins, developers, AI assistants) can read it back. While locked, every API
-request except `/health` returns 503 "LeadFinder is locked by its owner" (login included).
+request except `/health` returns a bare 503 "Service Unavailable" and the website shows only a 503 error page (login
+included; nothing of LeadFinder loads, nothing names the lock).
 
 ```
 docker compose exec backend python -m scripts.owner_lock set      # once: choose the key (min. 12 characters)

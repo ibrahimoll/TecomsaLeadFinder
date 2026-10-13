@@ -42,6 +42,6 @@ class OwnerLockMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http" and scope["path"] not in OPEN_PATHS and await anyio.to_thread.run_sync(is_locked):
-            await _reject(send, 503, "LeadFinder is locked by its owner.")
+            await _reject(send, 503, "Service Unavailable")  # says nothing about a lock
             return
         await self.app(scope, receive, send)

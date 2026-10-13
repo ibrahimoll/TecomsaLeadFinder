@@ -37,7 +37,7 @@ def test_lock_stops_everything_and_only_the_key_unlocks(client_for, db, run):
     assert run("lock", "wrong key guess") == 1 and agent.get("/auth/me").status_code == 200
     assert run("lock", KEY) == 0
     r = agent.get("/auth/me")
-    assert r.status_code == 503 and "locked" in r.json()["detail"]
+    assert r.status_code == 503 and r.json()["detail"] == "Service Unavailable"
     assert agent.post("/auth/login", json={"email": "x@y.z", "password": "p"}).status_code == 503
     assert agent.get("/health").status_code == 200
     assert run("unlock", "wrong key guess") == 1 and agent.get("/auth/me").status_code == 503

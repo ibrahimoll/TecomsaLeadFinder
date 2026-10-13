@@ -43,7 +43,9 @@ def decode_session_token(token: str) -> dict | None:
             token,
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
-            options={"require": ["sub", "sid", "exp"]},
+            # 'iat' is not checked: a clock stepping back a moment (WSL, NTP) made a fresh token "not yet valid" and
+            # logged people out at random; the expiry and the server-side session are what protect a session
+            options={"require": ["sub", "sid", "exp"], "verify_iat": False},
         )
     except jwt.PyJWTError:
         return None

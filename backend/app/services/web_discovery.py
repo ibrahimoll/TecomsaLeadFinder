@@ -165,6 +165,10 @@ def expand(name: str, *, country: str | None = None, city: str | None = None, in
     return [v for v in dict.fromkeys(v for v in variants if v)][:limit]
 
 
+_SERVICE_SUBDOMAINS = {"order", "orders", "menu", "shop", "store", "app", "m", "online", "delivery", "booking",
+                       "book", "en", "ar", "fr", "portal", "careers", "jobs", "blog"}
+
+
 class LicensedSearchDiscovery:
     """The configured public web search API (never a result page): the company's own site (verified later) and its
     pages on platforms (Facebook, Instagram, Maps, directories: offered to the user, never created on their own).
@@ -188,9 +192,12 @@ class LicensedSearchDiscovery:
         for rank, r in enumerate(results):
             domain = company_domain(r.url)
             if domain and not blocked(r.url):
-                out.setdefault(domain, DiscoveryCandidate(url=f"https://{urlsplit(r.url).hostname}/", domain=domain,
-                                                          source=self.key, rank=rank, title=r.title, snippet=r.snippet,
-                                                          page=r.url))
+                host = urlsplit(r.url).hostname
+                head, _, rest = domain.partition(".")
+                if head in _SERVICE_SUBDOMAINS and "." in rest:
+                    domain = host = rest  # 'order.malakaltawouk.com': the company's site is malakaltawouk.com
+                out.setdefault(domain, DiscoveryCandidate(url=f"https://{host}/", domain=domain, source=self.key,
+                                                          rank=rank, title=r.title, snippet=r.snippet, page=r.url))
             elif r.url not in out:
                 out[r.url] = DiscoveryCandidate(url=r.url, domain=r.domain, source=self.key, rank=rank, title=r.title,
                                                 snippet=r.snippet, profile=True, page=r.url)

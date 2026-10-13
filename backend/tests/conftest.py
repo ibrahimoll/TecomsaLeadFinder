@@ -140,6 +140,10 @@ def public_apis(monkeypatch):
     from app.services.people.external.lebanon import wikidata
 
     monkeypatch.setattr(wikidata, "MIN_INTERVAL", 0)
+    from app.core.config import get_settings
+
+    for key in ("searxng_url", "langsearch_api_key", "tavily_api_key", "brave_search_api_key"):
+        monkeypatch.setattr(get_settings(), key, None)  # no real web search engine, unless a test installs one
     return state
 
 

@@ -433,3 +433,65 @@ def test_the_company_a_user_opens_is_researched_before_search_results(client_for
     db.expire_all()
     assert db.get(Company, opened).enrichment_status == "completed"
     assert db.get(Company, queued_by_search.id).enrichment_status == "queued"
+
+
+# ---- a company without a website: found on the web first -----------------------------------------------------------
+
+
+def test_a_company_without_a_website_gets_it_from_a_web_search_when_a_person_asks(client_for, db, site, monkeypatch):
+    """Opened by a person: its website is looked for on the web (verified on the site), then researched as usual.
+    Background research never searches the web."""
+    from app.services import web_discovery
+    from app.services.people.external import search
+
+    class Engine:
+        key, supports_quotes, queries = "fake", True, []
+
+        def search(self, query, *, limit, country=None, language=None):
+            Engine.queries.append(query)
+            return [search.SearchResult("Crown Flour Mills - Home | Facebook", "https://www.facebook.com/crownmills",
+                                        "", "www.facebook.com"),
+                    search.SearchResult("Crown Flour Mills | Bread and flour", "https://www.crownmills.example/about",
+                                        "", "www.crownmills.example")]
+
+    monkeypatch.setattr(search, "provider", lambda purpose="people": Engine() if purpose == "company" else None)
+    monkeypatch.setattr(web_discovery, "providers", lambda: [web_discovery.LicensedSearchDiscovery(Engine())])
+    site.sites["www.crownmills.example"] = SITE
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    cid = new_company(agent, website=None)
+    company = db.get(Company, cid)
+    assert enrichment.request(db, company, enrichment.STALE) is False and not Engine.queries  # background: never
+    db.rollback()
+    detail = research(agent, cid)["company"]
+    assert detail["website"].startswith("https://www.crownmills.example")
+    assert detail["facebook_url"] == "https://www.facebook.com/crownflourmills"  # the site's own link wins
+    assert "Crown Flour Mills produces bread" in (detail["description"] or "")  # the found site was then read
+    assert any(e.email == "info@crownmills.example" for e in db.scalars(select(Email).where(Email.company_id == cid)))
+
+
+def test_no_website_found_is_partial_and_not_searched_again_on_every_view(client_for, db, site, monkeypatch):
+    from app.services import web_discovery
+    from app.services.people.external import search
+
+    calls = []
+
+    class Nothing:
+        key, supports_quotes = "fake", True
+
+        def search(self, query, *, limit, country=None, language=None):
+            calls.append(query)
+            return [search.SearchResult("Unfindable Shop (@unfindableshop) • Instagram", "https://www.instagram.com/"
+                                        "unfindableshop/", "", "www.instagram.com"),
+                    search.SearchResult("Unfindable Shop | sweets | Instagram", "https://www.instagram.com/"
+                                        "reel/xyz/", "", "www.instagram.com")]
+
+    monkeypatch.setattr(search, "provider", lambda purpose="people": Nothing() if purpose == "company" else None)
+    monkeypatch.setattr(web_discovery, "providers", lambda: [web_discovery.LicensedSearchDiscovery(Nothing())])
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    cid = new_company(agent, name="Unfindable Shop", website=None)
+    detail = research(agent, cid)["company"]
+    assert detail["enrichment_status"] == "partial" and "No website" in detail["enrichment_message"]
+    assert detail["instagram_url"] == "https://www.instagram.com/unfindableshop/"  # its page, never a reel
+    searched = len(calls)
+    research(agent, cid)  # opened again: fresh, not searched again
+    assert searched == 1 and len(calls) == searched

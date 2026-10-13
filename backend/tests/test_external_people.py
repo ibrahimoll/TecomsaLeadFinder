@@ -458,3 +458,20 @@ def test_coverage_benchmark_instrumentation(client_for, db, web):
     result = measure([company_id, empty])
     assert (result["companies"], result["with_1_person"], result["useful_people_coverage_pct"]) == (2, 1, 50.0)
     assert result["department_coverage"]["it"] == 1 and result["roles_from_external_sources"] > 0
+
+
+def test_the_direct_search_engine_finds_people_only_for_research_a_person_asked_for(client_for, db, web, monkeypatch):
+    """PEOPLE_SEARCH_PROVIDER off: the direct search's engine (SearXNG...) is used for people only when the research
+    was asked for by a person (opened / searched / refreshed: priority <= OPENED), never for background research."""
+    from app.services.enrichment import orchestrator as enrichment
+    from app.services.people.external import orchestrator as external
+
+    engine = web.provider
+    monkeypatch.setattr(search, "provider", lambda purpose="people": engine if purpose == "company" else None)
+    full_web(web)
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    cid = abc(agent, web)
+    external.run(db, cid, force=True, priority=enrichment.STALE)
+    assert web.queries == []  # background: no web search
+    external.run(db, cid, force=True, priority=enrichment.OPENED)
+    assert web.queries and any("ABC Foods" in q for q in web.queries)

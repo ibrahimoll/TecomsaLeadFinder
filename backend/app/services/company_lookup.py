@@ -356,7 +356,7 @@ def _sources(q, country, intent=None) -> list[list[tuple[str, Callable[[], list[
         first.append(("gleif", lambda: _gleif(q, intent)))
     tiers = [first]
     if not q.domain and q.keys:
-        tiers.append([("web_discovery", lambda: _web(q, country, intent))])
+        tiers.append([("web_discovery", lambda: web_search(q, country, intent))])
     if country is not None and country.code == "LB":
         tiers.append([("wikidata", lambda: _wikidata(q, country))])
     return tiers
@@ -425,7 +425,8 @@ _PLATFORM_WORDS = {"home", "facebook", "instagram", "photos", "videos", "about",
                    "linkedin", "x", "twitter", "posts", "reviews", "contact"}
 
 
-_POST = re.compile(r"/(?:reel|reels|p|posts|videos|photos|video|status|watch|stories)/", re.IGNORECASE)
+_POST = re.compile(r"/(?:reel|reels|p|posts|videos|photos|video|status|watch|stories|explore|hashtag|events|groups|"
+                   r"search|sharer)/", re.IGNORECASE)  # a post, or a place / tag page: not the business's own page
 _ARABIC = re.compile(r"[\u0600-\u06ff]")
 
 
@@ -442,7 +443,12 @@ def _profiles(q, pages, country_name) -> list[Found]:
     confirmation). Only a page whose title carries every word of the searched name (in Latin letters or in Arabic:
     'Jbeil Supermarket' is not 'Le Mall Jbeil'), and a page, never a single post / video or an article (a headline
     is a sentence, a business's page title is its name)."""
+    from app.services.normalization import _NAME_STOP
+    from app.services.people.external.lebanon.identity import _GENERIC_WORDS
+
     words = [w for w in _fold(q.normalized or q.raw).split() if len(w) >= 3]
+    if all(w in _NAME_STOP or w in _GENERIC_WORDS for w in words):
+        return []  # '4 M Group Sarl': only 'group' to look for, any group's page would match
     groups = [g for g in ([w for w in words if not _ARABIC.search(w)], [w for w in words if _ARABIC.search(w)]) if g]
     out = []
     for page in pages:
@@ -462,7 +468,7 @@ def _profiles(q, pages, country_name) -> list[Found]:
     return out[:4]
 
 
-def _web(q, country, intent) -> list[Found]:
+def web_search(q, country, intent) -> list[Found]:
     """The company's own website from its name: candidates from the discovery providers, each verified on the site
     (name AND country); a verified site is a strong candidate, a site naming the company outside the country is
     never one."""

@@ -134,10 +134,10 @@ def refresh_research(company_id: int, user: CurrentUser, db: DbSession):
     """Refresh Research: research the company's website again now (pages are re-fetched; unchanged pages add
     nothing). Returns at once with enrichment_status `queued` / `researching`."""
     company = company_service.get_company(db, company_id)
-    if not company.website:
+    if not company.website and not enrichment.can_find_website(enrichment.OPENED):
         raise BusinessRuleError("LeadFinder has no website for this company yet, so there is nothing to research.")
     enrichment.request(db, company, enrichment.OPENED, force=company.enrichment_status != "researching",
-                       user_id=user.id)
+                       user_id=user.id)  # no website: it is looked for on the web first
     audit_service.record(db, action=AuditAction.COMPANY_RESEARCH_REQUESTED, user_id=user.id, entity_type="company",
                          entity_id=company.id)
     db.commit()

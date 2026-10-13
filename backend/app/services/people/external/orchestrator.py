@@ -216,7 +216,8 @@ def request(db: Session, company: Company, priority: int, *, force: bool = False
 # ---- one company ------------------------------------------------------------------------------------------------------
 
 
-def run(db: Session, company_id: int, *, force: bool = False, queue_wait: float | None = None) -> dict:
+def run(db: Session, company_id: int, *, force: bool = False, queue_wait: float | None = None,
+        priority: int = 50) -> dict:
     started = time.perf_counter()
     stats: Counter = Counter()
     timings: dict = {"queue_wait": round(queue_wait, 2) if queue_wait is not None else None}
@@ -226,7 +227,10 @@ def run(db: Session, company_id: int, *, force: bool = False, queue_wait: float 
     company.external_people_status, company.external_people_message = EnrichmentStatus.RESEARCHING.value, None
     db.commit()
     budget = Budget()
-    engine = search.provider()
+    from app.services.enrichment.orchestrator import OPENED
+
+    # PEOPLE_SEARCH_PROVIDER for every research; the direct search's engine (SearXNG...) only when a person asked
+    engine = search.provider() or (search.provider("company") if priority <= OPENED else None)
     plan = planner.plan(db, company, max_queries=budget.max_queries, quotes=getattr(engine, "supports_quotes", True))
     stats["missing_departments_at_start"] = len(plan.missing)
     country = find_country(company.headquarters_country)

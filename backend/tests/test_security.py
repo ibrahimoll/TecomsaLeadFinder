@@ -301,3 +301,22 @@ def test_audit_log_is_read_only_and_actor_comes_from_the_session(client_for, mak
         assert s.scalar(select(CompanyStatusHistory.changed_by_user_id)) == agent_user.id
         login_entries = s.scalars(select(AuditLog).where(AuditLog.action == "auth.login")).all()
         assert all("password" not in str(e.metadata_ or {}).lower() for e in login_entries)
+
+
+def test_a_token_issued_a_moment_in_the_future_is_accepted():
+    """The clock stepping back a moment (WSL / NTP) right after a login must not log the person out."""
+    from datetime import datetime, timedelta, timezone
+
+    import jwt
+
+    from app.core.config import get_settings
+    from app.core.security import decode_session_token
+
+    s = get_settings()
+    now = datetime.now(timezone.utc)
+    token = jwt.encode({"sub": "1", "sid": "x", "iat": now + timedelta(seconds=5), "exp": now + timedelta(hours=1)},
+                       s.jwt_secret, algorithm=s.jwt_algorithm)
+    assert decode_session_token(token)["sid"] == "x"
+    expired = jwt.encode({"sub": "1", "sid": "x", "exp": now - timedelta(seconds=5)}, s.jwt_secret,
+                         algorithm=s.jwt_algorithm)
+    assert decode_session_token(expired) is None  # the expiry still counts

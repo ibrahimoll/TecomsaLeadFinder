@@ -14,6 +14,7 @@ is down, blocks robots or needs JavaScript gives a `partial` result, never a fai
 """
 
 import hashlib
+import re
 import logging
 import time
 from collections import Counter
@@ -81,11 +82,54 @@ def is_fresh(company: Company, now: datetime | None = None) -> bool:
     return age < timedelta(days=get_settings().enrichment_fresh_days)
 
 
+def can_find_website(priority: int) -> bool:
+    """A company without a website is researched only when a person asked (searched, opened, refreshed it): its
+    website is then looked for on the web first (never for background research: the search engines' patience)."""
+    from app.services.people.external import search
+
+    return priority <= OPENED and search.provider("company") is not None
+
+
+def find_website(db: Session, company: Company, stats: Counter) -> bool:
+    """The company's own website from a web search, verified on the site (its name and country), as the direct
+    search does; its Facebook / Instagram / LinkedIn pages from the same results fill the empty social links (only
+    when one page per network carries its whole name). Returns whether a website was found (set on the company)."""
+    from types import SimpleNamespace
+
+    from app.services import company_lookup, company_search
+    from app.services.discovery.domain_resolution import resolve_website
+
+    country = find_country(company.headquarters_country or "Lebanon")
+    intent = SimpleNamespace(city=company.headquarters_city, industry=None, country=country.name if country else None)
+    found = company_lookup.web_search(company_search.parse(company.name), country, intent)
+    pages: dict[str, set[str]] = {}
+    for f in found:
+        if f.candidate.source_type == "public_web" and f.candidate.source_url:
+            for column, url in resolve_website(f.candidate.source_url).social.items():
+                pages.setdefault(column, set()).add(url)
+    for column, urls in pages.items():
+        if len(urls) == 1 and not getattr(company, column):  # two different pages: not sure which is theirs
+            setattr(company, column, urls.pop())
+            stats["social_found"] += 1
+    own = re.sub(r"[^a-z0-9]", "", _fold(company.name))
+    sites = [f for f in found if f.candidate.source_type == "company_website" and f.candidate.website]
+    # a known company's site that names it without saying where (no Lebanon on its home page) is enough when the
+    # domain is its name ('malakaltawouk.com'): the ownership check below still decides whether it is used
+    site = next((f.candidate.website for f in sites if f.strength == "strong"), None) or next(
+        (f.candidate.website for f in sites if len(own) >= 5
+         and own in (company_domain(f.candidate.website) or "").replace("-", "")), None)
+    if site:
+        company.website = normalize_website(site) or site
+        stats["website_found"] = 1
+    db.commit()
+    return bool(site)
+
+
 def request(db: Session, company: Company, priority: int, *, force: bool = False, user_id: int | None = None,
             search_id: int | None = None) -> bool:
     """Queue research of the company unless it is fresh / already queued (then only its priority is raised).
     The caller commits. Returns whether a research run is (now) queued for it."""
-    if not get_settings().enrichment_enabled or not company.website:
+    if not get_settings().enrichment_enabled or not (company.website or can_find_website(priority)):
         return False
     running = company.enrichment_status in (EnrichmentStatus.QUEUED, EnrichmentStatus.RESEARCHING)
     if not force and (running or is_fresh(company)):
@@ -251,7 +295,7 @@ def run(db: Session, company_id: int, *, force: bool = False, queue_wait: float 
     stats: Counter = Counter()
     timings: dict = {"queue_wait": round(queue_wait, 2) if queue_wait is not None else None}
     company = db.get(Company, company_id)
-    if company is None or not company.website:
+    if company is None or not (company.website or can_find_website(priority)):
         if company is not None:  # the website was removed since it was queued
             company.enrichment_status = EnrichmentStatus.NOT_STARTED.value
             db.commit()
@@ -274,6 +318,13 @@ def run(db: Session, company_id: int, *, force: bool = False, queue_wait: float 
         logger.info("company=%s enrichment=%s %s", company.id, status.value, result)
         return result
 
+    if not company.website:
+        t = time.perf_counter()
+        found = find_website(db, company, stats)
+        timings["website_search"] = round(time.perf_counter() - t, 2)
+        if not found:
+            return done(EnrichmentStatus.PARTIAL, "No website of its own was found on the web" + (
+                "; its social pages were added." if stats["social_found"] else "."))
     home_url = normalize_website(company.website) or company.website
     t = time.perf_counter()
     home = _get_page(db, company, home_url, "homepage", force=force, quality=persistence.WEBSITE_QUALITY, stats=stats)

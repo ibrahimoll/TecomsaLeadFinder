@@ -79,7 +79,7 @@ function ResearchState({ c }: { c: CompanyDetail["company"] }) {
   if (c.enrichment_status === "queued" || c.enrichment_status === "researching")
     return (
       <Badge tone="info" dot live>
-        Researching company…
+        {c.website ? "Researching company…" : "Looking for its website…"}
       </Badge>
     );
   if (c.enrichment_status === "partial") return <Badge tone="warning">Research partial</Badge>;
@@ -1232,12 +1232,15 @@ export default function CompanyPage() {
             {isPrivileged(user) && (
               <OwnerSelect users={users} value={c.owner_user_id ? String(c.owner_user_id) : ""} onChange={changeOwner} allLabel="Unassigned" className="w-40" disabled={saving} />
             )}
-            {c.website && (
-              <Button variant="secondary" onClick={refresh} disabled={saving || researching} title="Read the website and public sources again">
-                <RefreshCw className={`h-3.5 w-3.5 ${researching ? "animate-spin" : ""}`} aria-hidden />
-                {researching ? "Researching…" : "Refresh"}
-              </Button>
-            )}
+            <Button
+              variant="secondary"
+              onClick={refresh}
+              disabled={saving || researching}
+              title={c.website ? "Read the website and public sources again" : "Find its website and pages on the web, then research it"}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${researching ? "animate-spin" : ""}`} aria-hidden />
+              {researching ? "Researching…" : c.website ? "Refresh" : "Research"}
+            </Button>
             {isPrivileged(user) && (
               <button
                 type="button"

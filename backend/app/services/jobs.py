@@ -134,7 +134,8 @@ def _run(run_id: int, queue_wait: float) -> None:
         try:
             if research:
                 if kind == EXTERNAL:
-                    result = external.run(db, run.company_id, force=force, queue_wait=queue_wait)
+                    result = external.run(db, run.company_id, force=force, queue_wait=queue_wait,
+                                          priority=priority)
                 elif kind == CONTACT:
                     result = contacts.run(db, run.company_id, force=force, queue_wait=queue_wait)
                 elif kind == PEOPLE:

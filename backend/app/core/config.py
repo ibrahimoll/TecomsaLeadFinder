@@ -85,10 +85,12 @@ class Settings(BaseSettings):
     brave_search_api_key: SecretStr | None = None  # BRAVE_SEARCH_API_KEY; never logged
     # Find Leads' direct company search: a real web search (Facebook / Instagram / Maps pages included) when a key is
     # set: LangSearch (free daily allowance; LANGSEARCH_API_KEY) or Tavily (1,000 free a month; TAVILY_API_KEY).
-    # "auto" = the first key set (langsearch, tavily, brave); "none" = domain guessing only.
+    # "auto" = SearXNG (SEARXNG_URL, the docker compose service) then every key set (langsearch, tavily, brave), each
+    # the next one's backup; "none" = domain guessing only.
     company_search_provider: str = "auto"
     tavily_api_key: SecretStr | None = None  # TAVILY_API_KEY; never logged
     langsearch_api_key: SecretStr | None = None  # LANGSEARCH_API_KEY; never logged
+    searxng_url: str | None = None  # SEARXNG_URL, e.g. http://searxng:8080 (set by docker-compose.yml)
     search_min_interval_seconds: float = 1.1  # the provider's rate limit (Brave free tier: 1 query / second)
     search_timeout_seconds: float = 10
     search_cache_days: int = 14

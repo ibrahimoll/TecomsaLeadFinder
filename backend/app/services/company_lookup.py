@@ -32,6 +32,7 @@ from dataclasses import asdict, dataclass
 from functools import lru_cache
 from datetime import datetime
 from typing import Callable
+from urllib.parse import urlsplit
 
 from sqlalchemy import func, select
 
@@ -424,25 +425,37 @@ _PLATFORM_WORDS = {"home", "facebook", "instagram", "photos", "videos", "about",
                    "linkedin", "x", "twitter", "posts", "reviews", "contact"}
 
 
+_POST = re.compile(r"/(?:reel|reels|p|posts|videos|photos|video|status|watch|stories)/", re.IGNORECASE)
+_ARABIC = re.compile(r"[\u0600-\u06ff]")
+
+
 def _page_name(title: str) -> str:
     """'Al Shayeb - Home | Facebook' -> 'Al Shayeb': the first part of a platform page's title."""
-    parts = [p.strip() for p in _TITLE_PARTS.split(title or "") if p.strip()]
+    title = re.sub(r"[\u200e\u200f\u202a-\u202e]", "", title or "")  # direction marks around Arabic
+    parts = [p.strip() for p in _TITLE_PARTS.split(title) if p.strip()]
     return next((p for p in parts if _fold(p) not in _PLATFORM_WORDS), "")[:200]
 
 
 def _profiles(q, pages, country_name) -> list[Found]:
     """The company's pages on platforms (Facebook, Instagram, Maps, directories) a web search found: offered with
     the page as the source, never created on their own (a search result is not a fact; the user's pick is the
-    confirmation). Only pages whose title carries the searched name."""
+    confirmation). Only a page whose title carries every word of the searched name (in Latin letters or in Arabic:
+    'Jbeil Supermarket' is not 'Le Mall Jbeil'), and a page, never a single post / video or an article (a headline
+    is a sentence, a business's page title is its name)."""
     words = [w for w in _fold(q.normalized or q.raw).split() if len(w) >= 3]
+    groups = [g for g in ([w for w in words if not _ARABIC.search(w)], [w for w in words if _ARABIC.search(w)]) if g]
     out = []
     for page in pages:
+        url = page.page or page.url
         name = _page_name(page.title)
-        if not name or not words or not any(w in _fold(name) for w in words):
+        title = _fold(re.sub(r"[\u064b-\u0652\u200e\u200f]", "", page.title or ""))  # Arabic vowel marks off
+        if not name or len(name.split()) > 6 or not groups or _POST.search(urlsplit(url).path) or \
+                not any(all(w in title for w in g) for g in groups) or \
+                not any(w in _fold(name) for g in groups for w in g):  # 'Mapstr': the platform, not the company
             continue
         out.append(Found(CompanyCandidate(
             connector="lookup_web_page", source_name=f"{page.domain} (web search)", source_type="public_web",
-            company_name=name, external_id=page.url[:300], source_url=page.url, country=country_name,
+            company_name=name, external_id=url[:300], source_url=url, country=country_name,
             raw_metadata={"title": page.title, "snippet": page.snippet, "publisher": page.domain,
                           "discovered_by": page.source}),
             _config("lookup_web_page", "public_web", 50, page.domain.removeprefix("www.")), "possible"))
@@ -468,8 +481,8 @@ def _web(q, country, intent) -> list[Found]:
             breaker.record(True)
         except Exception:
             breaker.record(False)
-    out = _profiles(q, [c for c in candidates if c.profile], country_name)
     unique = list({c.domain: c for c in candidates if not c.profile}.values())[:6]
+    out: list[Found] = []
     pool = ThreadPoolExecutor(max_workers=6, thread_name_prefix="verify")  # sites verified in parallel
     futures = {pool.submit(web_discovery.verify, name, c.url, country=country_name): c for c in unique}
     done, _ = wait(futures, timeout=VERIFY_SECONDS)  # a site that does not answer is not waited for
@@ -493,6 +506,8 @@ def _web(q, country, intent) -> list[Found]:
             _config("lookup_web", "company_website", 80, v.domain), "strong" if v.status == "strong" else "possible"))
         if v.status == "strong":
             break  # the company's own verified site: the others are not needed
+    if not any(f.strength == "strong" for f in out):  # its pages elsewhere (Facebook, a directory...): offered
+        out += _profiles(q, [c for c in candidates if c.profile or c.domain not in seen], country_name)
     return out
 
 
@@ -547,7 +562,8 @@ def run(db, q, *, country: str | None, city: str | None, user_id: int | None, de
             timed_out = True
             report.append({"source": futures[future][0], "status": "timed_out"})
         pool.shutdown(wait=False, cancel_futures=True)
-    strong = [f for f in found if f.strength == "strong" and (q.domain or in_city(f.candidate, city))]         if q.domain or q.keys else []  # another town than the one named: offered, never opened or created
+    strong = [f for f in found if f.strength == "strong" and (q.domain or in_city(f.candidate, city))] \
+        if q.domain or q.keys else []  # another town than the one named: offered, never opened or created
     wanted_country = country_obj.name
     if wanted_country and q.domain is None:  # a name search stays in the searched country
         strong = [f for f in strong if (f.candidate.country or wanted_country) == wanted_country]

@@ -290,7 +290,8 @@ def resolve(hits: list[Hit], *, country: str | None = None, city: str | None = N
         sounds[0].match_type, sounds[0].confidence = "typo", STRONG
         return "found", sounds
     close = [h for h in hits if h.similarity >= 0.8]
-    if not strong and len(close) == 1 and close[0].similarity >= CLOSE_SPELLING and             len(close[0].company.normalized_name.split()) >= 2:
+    if not strong and len(close) == 1 and close[0].similarity >= CLOSE_SPELLING and \
+            len(close[0].company.normalized_name.split()) >= 2:
         # one company spelled almost exactly as typed, nothing else close ('Makassed Nursing Universiti')
         close[0].match_type, close[0].confidence = "typo", STRONG
         return "found", close
@@ -352,8 +353,8 @@ def lookup(db: Session, raw: str, *, user_id: int | None, country: str | None = 
                                                                                           else ""))[:200])
     from app.services.people.external import search as web_search
 
-    if web_search.provider("company") is not None:  # a 'nothing found' from before the web search was on is stale
-        record.normalized_query = (record.normalized_query[:195] + "|web")
+    if (engine := web_search.provider("company")) is not None:  # a 'nothing found' by another engine is stale
+        record.normalized_query = f"{record.normalized_query[:170]}|{engine.key}"[:200]
     hits = search(db, raw, country=country, city=city, industry=industry)
     outcome, chosen = resolve(hits, country=country, city=city)
     for name in names:  # 'hotel called Aleph in Byblos' -> 'Aleph', in Byblos
@@ -380,7 +381,8 @@ def lookup(db: Session, raw: str, *, user_id: int | None, country: str | None = 
                                        deadline=time.monotonic() + LOOKUP_SECONDS, offer=True)
             result.update(external_used=True, sources=found["sources"])
             result["candidates"] += found["candidates"]
-    elif external and not q.domain and len(q.normalized.split()) == 1 and             [h for h in hits if h.match_type in ("contains", "brand_core", "name_core", "name_prefix")]:
+    elif external and not q.domain and len(q.normalized.split()) == 1 and \
+            [h for h in hits if h.match_type in ("contains", "brand_core", "name_core", "name_prefix")]:
         # one word ('ACT', 'Village') that several known names contain: offered, never researched into a new company
         result.update(status="ambiguous", candidates=[h.out() for h in hits if h.confidence != WEAK],
                       failure_reason="AMBIGUOUS")

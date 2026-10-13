@@ -267,7 +267,11 @@ def test_web_search_offers_a_business_known_only_by_its_platform_pages(client_fo
             {"title": "Al Shayeb - Home | Facebook", "url": "https://www.facebook.com/alshayeb.lb",
              "content": "Al Shayeb, Beirut. Sweets and roastery."},
             {"title": "Best sweets in Beirut - a blog", "url": "https://someblog.example/best-sweets",
-             "content": "..."}]})
+             "content": "..."},
+            {"title": "Al Shayeb | Instagram", "url": "https://www.instagram.com/reel/DcfosySoDAu/", "content": "a reel"},
+            {"title": "The champion Al Shayeb wins bronze at the Asian games in Hangzhou", "content": "news",
+             "url": "https://news.example/sports/1743214"},
+            {"title": "Jbeil Supermarket (@jbeilsupermarket) • Instagram", "url": "https://www.instagram.com/jbeil/"}]})
 
     engine = search.TavilySearchProvider("tvly-test", timeout=5, transport=httpx.MockTransport(tavily))
     monkeypatch.setattr(web_discovery, "providers", lambda: [web_discovery.LicensedSearchDiscovery(engine)])
@@ -276,21 +280,24 @@ def test_web_search_offers_a_business_known_only_by_its_platform_pages(client_fo
     assert result["status"] == "ambiguous" and result["company"] is None
     offer = next(c for c in result["candidates"] if c["name"] == "Al Shayeb")
     assert offer["page_url"] == "https://www.facebook.com/alshayeb.lb" and offer["source"] == "facebook.com"
-    assert all(c["name"] != "Best sweets in Beirut" for c in result["candidates"])  # the name must be in the title
+    assert [c["name"] for c in result["candidates"]] == ["Al Shayeb"]  # not a blog without the name, a single post
+    #                                                                     (reel), a news headline, another shop
     assert count(db, Company) == 0  # a search result is never a fact on its own
     picked = agent.post(f"/companies/lookup/{result['lookup_id']}/select", json={"index": offer["pick_index"]})
     assert picked.status_code == 200, picked.text
     assert picked.json()["company"]["name"] == "Al Shayeb" and count(db, Company) == 1
     lookup(agent, "Al Shayeb Sweets")  # another query: a new search
-    lookup(agent, "Al Shayeb Sweets")  # the same query again: from the cache
-    assert len(sent) == 2
+    searches = len(sent)
+    lookup(agent, "Al Shayeb Sweets")  # the same query again: from the cache, no new search
+    assert searches > 1 and len(sent) == searches
 
     s = get_settings()
+    monkeypatch.setattr(s, "searxng_url", None)
     monkeypatch.setattr(s, "langsearch_api_key", None)
     monkeypatch.setattr(s, "tavily_api_key", SecretStr("tvly-test"))
     assert isinstance(search.provider("company"), search.TavilySearchProvider)
     monkeypatch.setattr(s, "langsearch_api_key", SecretStr("sk-test"))
-    assert isinstance(search.provider("company"), search.LangSearchProvider)  # auto: LangSearch first
+    assert search.provider("company").key == "langsearch+tavily"  # auto: LangSearch first, Tavily its backup
     assert search.provider() is None  # people research never spends the free searches
 
 
@@ -329,3 +336,45 @@ def test_a_branch_place_or_another_town_is_never_the_company_searched(client_for
     assert {c["name"] for c in result["candidates"]} >= {"Le Mall"}  # offered, the user decides
     found = lookup(agent, "le mall")  # no town named: the mall itself, never the restaurant inside it
     assert found["company"] is None or found["company"]["name"] == "Le Mall"
+
+
+def test_searxng_first_then_langsearch_when_blocked(monkeypatch):
+    """SearXNG (self-hosted, near Google's coverage) answers first; when every engine blocks it (CAPTCHA) or finds
+    nothing, LangSearch answers instead."""
+    import httpx
+    from pydantic import SecretStr
+
+    from app.core.config import get_settings
+    from app.services.people.external import search
+
+    state = {"blocked": False}
+
+    def searxng(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/search" and request.url.params["format"] == "json"
+        if state["blocked"]:
+            return httpx.Response(200, json={"results": [], "unresponsive_engines": [["yahoo", "CAPTCHA"]]})
+        return httpx.Response(200, json={"results": [
+            {"title": "El-Shayeb - الشّايب | Beirut - Facebook", "url": "https://www.facebook.com/al.shayeb0/",
+             "content": "Restaurant", "engines": ["yahoo"]}], "unresponsive_engines": []})
+
+    def langsearch(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"code": 200, "data": {"webPages": {"value": [
+            {"name": "Al Shayeb | Instagram", "url": "https://www.instagram.com/alshayebrestaurant/"}]}}})
+
+    chain = search.FallbackSearchProvider([
+        search.SearxngSearchProvider("http://searxng:8080", timeout=5, transport=httpx.MockTransport(searxng)),
+        search.LangSearchProvider("sk-test", timeout=5, transport=httpx.MockTransport(langsearch))])
+    assert [r.domain for r in chain.search("Al Shayeb Lebanon", limit=5)] == ["www.facebook.com"]
+    state["blocked"] = True
+    assert [r.domain for r in chain.search("Al Shayeb Lebanon", limit=5)] == ["www.instagram.com"]
+
+    s = get_settings()
+    monkeypatch.setattr(s, "searxng_url", "http://searxng:8080")
+    monkeypatch.setattr(s, "langsearch_api_key", SecretStr("sk-test"))
+    monkeypatch.setattr(s, "tavily_api_key", None)
+    engine = search.provider("company")
+    assert engine.key == "searxng+langsearch"
+    monkeypatch.setattr(s, "langsearch_api_key", None)
+    assert isinstance(search.provider("company"), search.SearxngSearchProvider)
+    assert search.provider() is None  # people research: never
+

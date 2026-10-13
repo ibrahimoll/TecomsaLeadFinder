@@ -10,7 +10,12 @@ and Wikidata are free). Providers use a permitted API (never a search engine's r
     langsearch  LangSearch Web Search API (free plan: a daily allowance, $0; https://langsearch.com; reachable from
             Lebanon), key in LANGSEARCH_API_KEY
 
-COMPANY_SEARCH_PROVIDER (default auto: the first key set of langsearch, tavily, brave) is the one Find Leads' direct company search uses; people research keeps
+    searxng SearXNG, self-hosted beside LeadFinder (docker compose service; SEARXNG_URL). Free, near Google's coverage
+            (it queries Yahoo / Google... for us): reads search engines' result pages, which their terms forbid, so
+            engines may block the IP for a while. Chosen for internal use; a licensed API replaces it for a product.
+
+COMPANY_SEARCH_PROVIDER (default auto: SearXNG, then the first key set of langsearch, tavily, brave, each the next
+one's backup when it fails or finds nothing) is the one Find Leads' direct company search uses; people research keeps
 PEOPLE_SEARCH_PROVIDER (default none), so background research never spends the free monthly searches.
 
 Results are cached (external_search_cache) for SEARCH_CACHE_DAYS: the same query is not sent twice. The same table
@@ -169,6 +174,60 @@ class LangSearchProvider:
         return results
 
 
+class SearxngSearchProvider:
+    key = "searxng"
+    supports_quotes = True
+
+    def __init__(self, url: str, *, timeout: float, transport: httpx.BaseTransport | None = None):
+        self.url, self.timeout, self.transport = url.rstrip("/"), timeout, transport
+
+    def search(self, query: str, *, limit: int, country: str | None = None,
+               language: str | None = None) -> list[SearchResult]:
+        try:
+            with httpx.Client(transport=self.transport, timeout=self.timeout) as client:
+                response = client.get(f"{self.url}/search", params={"q": query, "format": "json"})
+        except httpx.HTTPError as exc:
+            raise SearchError(f"search provider unreachable ({exc.__class__.__name__})") from None
+        if response.status_code != 200:
+            raise SearchError(f"search provider answered HTTP {response.status_code}")
+        body = response.json()
+        results = []
+        for item in (body.get("results") or [])[:limit]:
+            url = item.get("url") or ""
+            if url.startswith(("http://", "https://")):
+                results.append(SearchResult(
+                    title=_TAGS.sub("", item.get("title") or "")[:300], url=url,
+                    snippet=_TAGS.sub("", item.get("content") or "")[:500],
+                    domain=(urlsplit(url).hostname or "").lower(), published=item.get("publishedDate") or None))
+        if not results and body.get("unresponsive_engines"):  # every engine blocked us (CAPTCHA, rate limit)
+            raise SearchError("search engines blocked: " + ", ".join(e[0] for e in body["unresponsive_engines"]))
+        return results
+
+
+class FallbackSearchProvider:
+    """The first provider that answers with results; the next one when it fails or finds nothing."""
+
+    supports_quotes = True
+
+    def __init__(self, providers: list):
+        self.providers = providers
+        self.key = "+".join(p.key for p in providers)
+
+    def search(self, query: str, *, limit: int, country: str | None = None,
+               language: str | None = None) -> list[SearchResult]:
+        error = None
+        for p in self.providers:
+            try:
+                if results := p.search(query, limit=limit, country=country, language=language):
+                    return results
+            except SearchError as exc:
+                error = exc
+                logger.info("search provider %s failed (%s): next one", p.key, exc)
+        if error is not None:
+            raise error
+        return []
+
+
 def provider(purpose: str = "people") -> PublicWebSearchProvider | None:
     """The provider configured for people research (PEOPLE_SEARCH_PROVIDER) or for the direct company search
     (purpose="company": COMPANY_SEARCH_PROVIDER), or None (no search)."""
@@ -176,16 +235,23 @@ def provider(purpose: str = "people") -> PublicWebSearchProvider | None:
     secrets = {"langsearch": s.langsearch_api_key, "tavily": s.tavily_api_key, "brave": s.brave_search_api_key}
     keys = {n: v.get_secret_value().strip() for n, v in secrets.items() if v and v.get_secret_value().strip()}
     name = s.company_search_provider if purpose == "company" else s.people_search_provider
-    if name == "auto":
-        name = next(iter(keys), "none")
-    key = keys.get(name)
-    if not key:
-        return None
-    if name == "brave":
-        return BraveSearchProvider(key, timeout=s.search_timeout_seconds, min_interval=s.search_min_interval_seconds)
-    if name == "langsearch":
-        return LangSearchProvider(key, timeout=s.search_timeout_seconds)
-    return TavilySearchProvider(key, timeout=s.search_timeout_seconds)
+
+    def build(n: str):
+        if n == "searxng":
+            return SearxngSearchProvider(s.searxng_url, timeout=s.search_timeout_seconds) if s.searxng_url else None
+        if not (key := keys.get(n)):
+            return None
+        if n == "brave":
+            return BraveSearchProvider(key, timeout=s.search_timeout_seconds,
+                                       min_interval=s.search_min_interval_seconds)
+        if n == "langsearch":
+            return LangSearchProvider(key, timeout=s.search_timeout_seconds)
+        return TavilySearchProvider(key, timeout=s.search_timeout_seconds)
+
+    if name != "auto":
+        return build(name)
+    chain = [p for p in map(build, ("searxng", *keys)) if p is not None]
+    return None if not chain else chain[0] if len(chain) == 1 else FallbackSearchProvider(chain)
 
 
 def cached_search(db: Session, engine: PublicWebSearchProvider, query: str, *, limit: int,

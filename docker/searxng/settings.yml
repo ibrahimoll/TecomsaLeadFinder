@@ -1,0 +1,29 @@
+# SearXNG for LeadFinder's direct company search (backend: COMPANY_SEARCH_PROVIDER=auto uses it first, LangSearch
+# when it finds nothing or is blocked). Internal only: no published port, JSON answers for the backend.
+use_default_settings:
+  engines:
+    # Tested from the office (2026-10-13): yahoo answers well; google = access denied, duckduckgo / qwant = CAPTCHA,
+    # brave = too many requests, bing = unrelated results. Google / startpage / mojeek kept: they may come back.
+    keep_only: [yahoo, google, startpage, mojeek]
+
+engines:
+  - name: startpage
+    disabled: false
+  - name: mojeek
+    disabled: false
+  - name: yahoo
+    disabled: false
+
+server:
+  limiter: false          # only the backend calls it
+  image_proxy: false
+  public_instance: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  formats: [html, json]
+
+outgoing:
+  request_timeout: 4.0
+  max_request_timeout: 8.0

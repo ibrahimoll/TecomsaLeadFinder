@@ -61,6 +61,7 @@ class DiscoveryCandidate:
     snippet: str = ""  # a hint only, never a fact
     observed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     profile: bool = False  # a page about the company on a platform (Facebook, Instagram, Maps, a directory)
+    page: str = ""  # the search result itself (url is the site's home page for a domain candidate)
 
 
 class WebDiscoveryProvider(Protocol):
@@ -188,10 +189,11 @@ class LicensedSearchDiscovery:
             domain = company_domain(r.url)
             if domain and not blocked(r.url):
                 out.setdefault(domain, DiscoveryCandidate(url=f"https://{urlsplit(r.url).hostname}/", domain=domain,
-                                                          source=self.key, rank=rank, title=r.title, snippet=r.snippet))
+                                                          source=self.key, rank=rank, title=r.title, snippet=r.snippet,
+                                                          page=r.url))
             elif r.url not in out:
                 out[r.url] = DiscoveryCandidate(url=r.url, domain=r.domain, source=self.key, rank=rank, title=r.title,
-                                                snippet=r.snippet, profile=True)
+                                                snippet=r.snippet, profile=True, page=r.url)
         return list(out.values())
 
 

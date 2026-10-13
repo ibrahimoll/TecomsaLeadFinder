@@ -211,9 +211,20 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
   - The database is searched first: domain, identifier, exact name, legal name, alias (Arabic, French, English), the name without legal form or place, brand, transliteration and typos.
   - If nothing strong is known, the permitted public sources are tried, cheapest first, for at most 20 seconds: the local source corpus, then the Overture / OpenStreetMap / dataset extracts and the website itself (for a domain), then Wikidata.
   - A company is created only on strong source evidence, through discovery's duplicate resolution. Its research is queued at priority 3.
-  - **Web search**: with `LANGSEARCH_API_KEY` (free plan, a daily allowance; https://langsearch.com, reachable
-    from Lebanon) or `TAVILY_API_KEY` (1,000 free a month; tavily.com is blocked from Lebanon, its API is not) set,
-    the lookup also runs one real web search per query (`COMPANY_SEARCH_PROVIDER=auto`: LangSearch first). Its results are cached for
+  - **Web search**: the lookup also runs one real web search per query (`COMPANY_SEARCH_PROVIDER=auto`). The
+    engines are tried in order, each the next one's backup when it fails or finds nothing:
+    1. **SearXNG** (the `searxng` compose service, `SEARXNG_URL`; settings in `docker/searxng/settings.yml`). It is
+       free and comes close to Google's coverage. It reads search engines' result pages, which their terms forbid,
+       so it is for internal use only; a licensed API replaces it if LeadFinder is sold. From the office (2026-10-13)
+       only Yahoo answers; Google, DuckDuckGo, Qwant and Brave block the IP. Check the engines with
+       `docker compose logs searxng`.
+    2. **LangSearch** (`LANGSEARCH_API_KEY`, a free daily allowance).
+    3. **Tavily** (`TAVILY_API_KEY`, 1,000 free a month).
+
+    A page about the company elsewhere is offered with **View page**, never created on its own. That covers Facebook,
+    Instagram and directory pages, and a site that is not verified as its own. Only pages whose title carries every
+    word of the searched name are kept; single posts, reels and news headlines are skipped.
+    `docker-compose.prod.yml` has no SearXNG service, so production uses the API keys. Its results are cached for
     `SEARCH_CACHE_DAYS`, so a repeated search spends nothing. The company's own website is verified as before. Its
     pages on platforms (Facebook, Instagram, Google Maps, directories) whose title carries the searched name are
     offered with a "View page" link. They are never created on their own; **Add company** creates one. People research

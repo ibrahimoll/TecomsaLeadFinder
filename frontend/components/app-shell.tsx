@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Building2, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, X, type LucideIcon } from "lucide-react";
+import { Building2, FileUp, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Settings, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -19,11 +19,14 @@ interface NavItem {
   icon: LucideIcon;
   /** Other paths that belong to this item. */
   also?: string[];
+  /** Only for users with this capability (the page and the API check it too). */
+  capability?: keyof Me["capabilities"];
 }
 
 const NAV: NavItem[] = [
   { href: "/find-leads", label: "Find Leads", icon: Search },
   { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/imports", label: "Imports", icon: FileUp, capability: "run_imports" },
   { href: "/settings", label: "Settings", icon: Settings, also: ["/admin"] },
 ];
 
@@ -87,7 +90,7 @@ function Sidebar({
 
       <nav aria-label="Main" className={clsx("flex-1 overflow-y-auto py-2", collapsed ? "px-2" : "px-3")}>
         <div className="space-y-0.5">
-          {NAV.map((item) => (
+          {NAV.filter((item) => !item.capability || user.capabilities[item.capability]).map((item) => (
             <NavLink key={item.href} item={item} collapsed={collapsed} onNavigate={onNavigate} />
           ))}
         </div>

@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { AlertTriangle, ArrowDown, ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 import { Button } from "./primitives";
@@ -371,8 +372,9 @@ export function DataTable<T, K extends string | number = string | number>({
 
 /** Floating bulk-action bar shown while table rows are selected (Linear-style). */
 export function SelectionBar({ count, onClear, children }: { count: number; onClear: () => void; children: ReactNode }) {
-  if (count === 0) return null;
-  return (
+  if (count === 0 || typeof document === "undefined") return null;
+  // Portalled to <body>: an animated (transformed) page would otherwise pin "fixed" to the page, not the window.
+  return createPortal(
     <div className="fixed inset-x-0 bottom-5 z-30 flex justify-center px-4" role="region" aria-label="Bulk actions">
       <div className="elevated flex animate-slide-up items-center gap-1 rounded-lg bg-ink py-1 pl-3 pr-1 text-[13px] text-white">
         <span className="mr-2 tabular font-medium">{count} selected</span>
@@ -389,7 +391,8 @@ export function SelectionBar({ count, onClear, children }: { count: number; onCl
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { Building2, Download, FilterX, List, Map as MapIcon, Trash2 } from "lucide-react";
+import { Building2, CloudUpload, Download, FilterX, List, Map as MapIcon, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useState } from "react";
 
 import { Avatar, Badge, Button, Checkbox, ConfirmDialog, CountUp, DataTable, EmptyState, ErrorState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Skeleton, Toolbar, toast } from "@/components/ui";
+import { AddToOdoo } from "@/components/add-to-odoo";
 import { ScoutScore } from "@/components/agent-insights";
 import { CompanyDeleteNote } from "@/components/company-delete-note";
 import { PublicLookup } from "@/components/company-search";
@@ -63,6 +64,7 @@ function CompaniesView() {
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(() => new Set());
   const [confirmBulk, setConfirmBulk] = useState(false);
+  const [toOdoo, setToOdoo] = useState(false);
   const canDelete = isPrivileged(user);
   // Only delete what is on screen: a filter or page change drops the selection.
   const view = KEYS.map((k) => filters[k]).join("|");
@@ -230,7 +232,7 @@ function CompaniesView() {
           error={error?.message}
           onRetry={reload}
           rowHref={(c) => `/companies/${c.id}`}
-          selection={canDelete ? { selected, onChange: setSelected } : undefined}
+          selection={{ selected, onChange: setSelected }}
           empty={
             filters.q.trim().length >= 2 ? (
               <EmptyState
@@ -365,10 +367,16 @@ function CompaniesView() {
         )}
       </Section>
       <SelectionBar count={selected.size} onClear={() => setSelected(new Set())}>
-        <Button variant="ghost" size="sm" onClick={() => setConfirmBulk(true)}>
-          <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete
+        <Button variant="ghost" size="sm" onClick={() => setToOdoo(true)}>
+          <CloudUpload className="h-3.5 w-3.5" aria-hidden /> Add to Odoo
         </Button>
+        {canDelete && (
+          <Button variant="ghost" size="sm" onClick={() => setConfirmBulk(true)}>
+            <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete
+          </Button>
+        )}
       </SelectionBar>
+      <AddToOdoo open={toOdoo} companyIds={[...selected]} onClose={() => setToOdoo(false)} onDone={() => setSelected(new Set())} />
       <ConfirmDialog
         open={confirmBulk}
         title={`Delete ${selected.size} compan${selected.size === 1 ? "y" : "ies"}?`}

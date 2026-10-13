@@ -199,3 +199,19 @@ def test_directory_people_are_not_shown_as_verified_and_the_reachable_one_leads(
     db.commit()
     harout = next(p for p in company_service.company_people(db, cid, owner) if p["person"].full_name == "Harout Jaghlasian")
     assert harout["confirmed_at"] is not None and harout["confidence"] > 70  # a colleague confirmed it
+
+
+def test_a_row_with_only_names_never_creates_a_company(db, make_user):
+    owner = make_user(UserRole.SALES_MANAGER)
+    delta = Company(name="Delta Trading", normalized_name="delta trading", headquarters_country="Lebanon")
+    db.add(delta)
+    db.commit()
+    raw = xlsx(FRENCH,
+               ["Ghost Holding SAL", "Nadim Ghosn", "", "", "", "", "", "Holding", "", ""],  # a name and a person only
+               ["Delta Trading", "Lina Aoun", "", "", "", "", "", "Trading", "Beirut", ""])  # known company: kept
+    report = contributions.import_directory(db, file_name="5index.xlsx", raw=raw, directory="5INDEX",
+                                            user_id=owner.id, apply=True)
+    assert db.scalar(select(Company).where(Company.name == "Ghost Holding SAL")) is None
+    assert report["summary"]["companies_new"] == 0 and report["summary"]["rows_skipped"] == 1
+    assert any("not added as a new company" in r["reason"] for r in report["review"])
+    assert db.scalar(select(func.count()).select_from(CompanyPerson).where(CompanyPerson.company_id == delta.id)) == 1

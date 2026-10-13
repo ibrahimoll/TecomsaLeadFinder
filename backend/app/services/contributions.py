@@ -299,7 +299,9 @@ def directory_entries(name: str, raw: bytes) -> tuple[list[dict], dict]:
       e-mails     a single named person's professional address is theirs; role mailboxes, free mail and every
                   address of a row naming several people are the company's.
     Rows without a company name (an ID only) are skipped quietly; placeholder cells ('N/A', '-', 'none') are empty,
-    and a company row with no number, e-mail, website or person is skipped (counted in columns['no_data'])."""
+    and a company row with no number, e-mail, website or person is skipped (counted in columns['no_data']). A row
+    with people but no number, e-mail or website is 'weak': its people join a company LeadFinder already knows, but
+    it never creates one (company_weak in the report)."""
     rows, header = _entries(name, raw, DIRECTORY_COLUMNS)
     mapping = generic.header_map(header, DIRECTORY_COLUMNS)
     role = header[mapping["person"]] if "person" in mapping and classify(header[mapping["person"]]) else None
@@ -318,6 +320,8 @@ def directory_entries(name: str, raw: bytes) -> tuple[list[dict], dict]:
         rid = row.get("record_id")
         base = {k: row[k] for k in ("company", "sector", "city", "address", "registration_number") if row.get(k)}
         base |= {"country": row.get("country") or "Lebanon", "line": line}  # a Lebanese directory
+        if not any(many(row.get(k)) for k in ("phone", "mobile", "whatsapp", "email", "website")):
+            base["weak"] = True  # names only: adds people to a known company, never creates one
         if websites := many(row.get("website")):
             base["website"] = websites[0]
         people: dict[tuple, dict] = {}
@@ -533,7 +537,9 @@ def contribute(db: Session, entries: list[dict], *, channel: str, contributor_id
         stated = published_date(entry.get("last_seen")) or now
         level, cid = ("given", company_id) if company_id else index.match(entry, email)
         why = None
-        if cid is None and licensed and level == "unmatched" and entry.get("company"):
+        if cid is None and licensed and level == "unmatched" and entry.get("weak"):
+            level, why = "weak", "no phone, e-mail or website: not added as a new company"
+        elif cid is None and licensed and level == "unmatched" and entry.get("company"):
             level, cid, why = _create_company(db, entry, index, user_id=contributor_id, import_id=import_id,
                                               stated=stated, directory=directory)
             created.update([cid] if level == "created" else [])

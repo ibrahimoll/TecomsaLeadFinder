@@ -118,6 +118,13 @@ class Settings(BaseSettings):
     commoncrawl_budget_seconds: float = 45  # Common Crawl's share of one company's deep research
     commoncrawl_down_seconds: float = 600  # after the index failed: skipped for every company for this long
     commoncrawl_min_interval_seconds: float = 1.5  # Common Crawl's public index is shared: never hammered
+    # Odoo CRM (services/odoo_crm.py): selected companies sent as CRM leads with a scheduled call, on a user's click.
+    # All four set = feature on. The user must be allowed to create contacts, CRM leads and activities.
+    odoo_base_url: str | None = None  # ODOO_BASE_URL, e.g. https://tecomsa.odoo.com
+    odoo_database: str | None = None  # ODOO_DATABASE
+    odoo_username: str | None = None  # ODOO_USERNAME: the login (e-mail) the API key belongs to
+    odoo_api_key: SecretStr | None = None  # ODOO_API_KEY; never logged or returned
+    odoo_timeout_seconds: float = 20
     # Lusha (services/lusha.py): paid people search + per-person reveal, only on an explicit, confirmed click.
     lusha_api_key: SecretStr | None = None  # LUSHA_API_KEY; empty = feature off. Never logged or returned
     lusha_base_url: str = "https://api.lusha.com"

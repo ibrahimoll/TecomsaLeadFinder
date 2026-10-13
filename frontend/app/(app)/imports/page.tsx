@@ -377,7 +377,6 @@ export default function ImportsPage() {
   return (
     <RequireCapability capability="run_imports">
       <PageHeader
-        breadcrumbs={[{ label: "Settings", href: "/settings" }, { label: "Directory imports" }]}
         title="Directory imports"
         description="Companies, decision-makers and their mobiles from the exports of TECOMSA's licensed directories. Columns are detected automatically, in English or French."
       />

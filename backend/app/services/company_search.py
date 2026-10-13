@@ -350,6 +350,10 @@ def lookup(db: Session, raw: str, *, user_id: int | None, country: str | None = 
                            parsed=intent.to_json(), normalized_query=(
                                (q.domain or " ".join(sorted(q.keys)) or q.normalized) + (f"|{context}" if context.strip("|")
                                                                                           else ""))[:200])
+    from app.services.people.external import search as web_search
+
+    if web_search.provider("company") is not None:  # a 'nothing found' from before the web search was on is stale
+        record.normalized_query = (record.normalized_query[:195] + "|web")
     hits = search(db, raw, country=country, city=city, industry=industry)
     outcome, chosen = resolve(hits, country=country, city=city)
     for name in names:  # 'hotel called Aleph in Byblos' -> 'Aleph', in Byblos

@@ -32,12 +32,14 @@ def health(db: DbSession) -> dict[str, str]:
 def system_status(_: AdminUser, db: DbSession):
     """Read-only application status. Integrations: what this deployment is actually configured with (never a
     credential), then any rows of the `integrations` table."""
-    from app.services import lusha
+    from app.services import lusha, odoo_crm
     from app.services.agents import llm
 
     s = get_settings()
     state = lambda ok: "CONFIGURED" if ok else "NOT_CONFIGURED"  # noqa: E731
     live = [
+        {"name": "Odoo CRM", "status": state(odoo_crm.configured()),
+         "detail": "Add to Odoo (leads + scheduled calls) and hourly read-back of won / lost deals (ODOO_*)"},
         {"name": "Lusha", "status": state(lusha.configured()),
          "detail": "Paid people search and number reveals (LUSHA_API_KEY)"},
         {"name": "Local AI model", "status": state(s.agents_enabled and llm.available()),

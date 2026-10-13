@@ -109,6 +109,11 @@ class Company(TimestampMixin, Base):
     # Scout agent (services/agents/scout.py): 0-100 likelihood of becoming a lead, learned from sales statuses.
     scout_score: Mapped[int | None] = mapped_column(SmallInteger)
     scout_reasons: Mapped[list[str] | None] = mapped_column(JSONB)
+    # Odoo CRM link (services/odoo_crm.py): the lead it was sent to / matched with, read back hourly.
+    odoo_lead_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    odoo_stage: Mapped[str | None] = mapped_column(String(80))
+    odoo_outcome: Mapped[str | None] = mapped_column(String(8))  # open | won | lost
+    odoo_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(32), nullable=False, server_default=CompanyStatus.NEW.value,
                                         index=True)
     status_reason: Mapped[str | None] = mapped_column(String(500))

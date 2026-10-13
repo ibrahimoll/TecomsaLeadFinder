@@ -26,6 +26,7 @@ import {
   toast,
   type Tone,
 } from "@/components/ui";
+import { OdooBadge } from "@/components/add-to-odoo";
 import { AgentInsights } from "@/components/agent-insights";
 import { CompanyDeleteNote } from "@/components/company-delete-note";
 import { LushaPeople } from "@/components/lusha-people";
@@ -1202,6 +1203,7 @@ export default function CompanyPage() {
                     <Icon className="h-3.5 w-3.5 text-fg-subtle" aria-hidden /> {text}
                   </span>
                 ))}
+              <OdooBadge c={c} onDark />
               {safeHref(c.website) && (
                 <a href={safeHref(c.website)!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-accent hover:underline">
                   <Globe className="h-3.5 w-3.5" aria-hidden /> {(c.own_domain === undefined ? c.domain : c.own_domain) ?? "Website"}

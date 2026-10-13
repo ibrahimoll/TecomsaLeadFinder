@@ -37,6 +37,14 @@ def run(stop: threading.Event) -> None:
                 now = time.monotonic()
                 if now - scouted_at > HOUR:
                     scouted_at = now
+                    from app.services import odoo_crm
+
+                    if odoo_crm.configured():  # first: won / lost deals in Odoo are what the Scout learns from
+                        try:
+                            with SessionLocal() as db:
+                                odoo_crm.sync(db)
+                        except Exception:  # Odoo down or refusing: retried next hour, the agents carry on
+                            logger.exception("odoo sync failed")
                     with SessionLocal() as db:
                         scout.run(db)
                 if now - fed_at > HOUR:

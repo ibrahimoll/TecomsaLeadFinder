@@ -14,7 +14,7 @@ or changed in Odoo beyond creating these records and looking up countries, tags,
 
 import logging
 import xmlrpc.client
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Protocol
 
 from sqlalchemy import select
@@ -125,6 +125,8 @@ def add_leads(db: Session, user: User, companies: list[Company], *, tags: list[s
             existing = odoo.call("crm.lead", "search", ["|", ("active", "=", True), ("active", "=", False), *dupe],
                                  limit=1)
             if existing:
+                company.odoo_lead_id = company.odoo_lead_id or existing[0]
+                db.commit()
                 results.append({"company_id": company.id, "name": company.name, "status": "exists",
                                 "lead_id": existing[0]})
                 continue
@@ -141,6 +143,8 @@ def add_leads(db: Session, user: User, companies: list[Company], *, tags: list[s
                 odoo.call("mail.activity", "create", {
                     "res_model_id": lead_model, "res_id": lead_id, "activity_type_id": call_type,
                     "date_deadline": call_on.isoformat(), "user_id": salesperson, "summary": f"Call {company.name}"})
+            company.odoo_lead_id, company.odoo_outcome, company.odoo_stage = lead_id, "open", None
+            company.odoo_synced_at = datetime.now(timezone.utc)
             audit_service.record(db, action=ACTION, user_id=user.id, entity_type="company", entity_id=company.id,
                                  metadata={"odoo_lead_id": lead_id, "call_on": call_on.isoformat(), "tags": tags})
             db.commit()
@@ -151,6 +155,72 @@ def add_leads(db: Session, user: User, companies: list[Company], *, tags: list[s
             results.append({"company_id": company.id, "name": company.name, "status": "failed",
                             "error": message[:300]})
     return results
+
+
+# ---- read back (hourly, services/agents/loop.py) -----------------------------------------------------------------
+SYNC_LIMIT = 5000  # ponytail: reads every lead each hour; page by write_date when TECOMSA's CRM grows past this
+PRODUCT_TAGS = (("frinzo", "working_frinzo"), ("odoo", "working_odoo"), ("it", "working_it"))
+
+
+def _outcome(lead: dict, won_stages: set[int]) -> str:
+    stage = lead["stage_id"][0] if lead.get("stage_id") else None
+    if lead.get("active") and stage in won_stages:
+        return "won"
+    return "open" if lead.get("active") else "lost"
+
+
+def _won_status(tags: list[str]) -> str:
+    words = {w for t in tags for w in t.lower().replace("-", " ").split()}
+    return next((status for word, status in PRODUCT_TAGS if word in words), "opportunity")
+
+
+def sync(db: Session, odoo: Odoo | None = None) -> dict:
+    """Odoo's CRM leads -> the LeadFinder companies they are about (by lead id, website domain or exact name): stage
+    and outcome kept on the company. When an outcome CHANGES, the company's sales status follows (won -> working on
+    the product its tags name, else opportunity; lost -> not interested; a new open lead on a 'new' company ->
+    contacted), recorded in its status history 'from Odoo'. A status set by hand afterwards is not overwritten."""
+    from app.models import CompanyStatusHistory
+    from app.services.normalization import company_domain, normalize_company_name
+
+    odoo = odoo or connect()
+    won_stages = set(odoo.call("crm.stage", "search", [("is_won", "=", True)]))
+    tag_names = {t["id"]: t["name"] for t in odoo.call("crm.tag", "search_read", [], fields=["name"])}
+    leads = odoo.call("crm.lead", "search_read", ["|", ("active", "=", True), ("active", "=", False)],
+                      fields=["partner_name", "name", "website", "stage_id", "active", "tag_ids"],
+                      order="write_date desc", limit=SYNC_LIMIT)
+    by_lead = {c.odoo_lead_id: c for c in db.scalars(select(Company).where(Company.odoo_lead_id.is_not(None)))}
+    now, stats = datetime.now(timezone.utc), {"leads": len(leads), "matched": 0, "status_changed": 0}
+    for lead in leads:
+        company = by_lead.get(lead["id"])
+        if company is None and (domain := company_domain(lead.get("website") or None)):
+            company = db.scalar(select(Company).where(Company.domain == domain))
+        if company is None and (name := lead.get("partner_name") or None):
+            company = db.scalar(select(Company).where(Company.normalized_name == normalize_company_name(name))
+                                .order_by(Company.id).limit(1))
+        if company is None or (company.odoo_lead_id and company.odoo_lead_id != lead["id"]
+                               and company.odoo_outcome == "won"):
+            continue  # unknown to LeadFinder, or a company already won under another lead: left as it is
+        stats["matched"] += 1
+        outcome = _outcome(lead, won_stages)
+        new_status = None
+        if outcome != company.odoo_outcome:
+            if outcome == "won":
+                new_status = _won_status([tag_names.get(t, "") for t in lead.get("tag_ids") or []])
+            elif outcome == "lost":
+                new_status = "not_interested"
+            elif company.status == "new":
+                new_status = "contacted"
+        stage = (lead.get("stage_id") or [None, None])[1]
+        if new_status and new_status != company.status:
+            db.add(CompanyStatusHistory(company_id=company.id, old_status=company.status, new_status=new_status,
+                                        changed_by_user_id=None, reason=f"From Odoo: {stage or outcome}"[:500]))
+            company.status, company.status_reason = new_status, f"Odoo: {stage or outcome}"
+            stats["status_changed"] += 1
+        company.odoo_lead_id, company.odoo_stage, company.odoo_outcome = lead["id"], (stage or "")[:80] or None, outcome
+        company.odoo_synced_at = now
+    db.commit()
+    logger.info("odoo sync %s", stats)
+    return stats
 
 
 def lead_url(lead_id: int) -> str | None:

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Suspense, useEffect, useState } from "react";
 
 import { Avatar, Badge, Button, Checkbox, ConfirmDialog, CountUp, DataTable, EmptyState, ErrorState, Input, PageHeader, Pagination, SearchInput, Section, Select, SelectionBar, Skeleton, Toolbar, toast } from "@/components/ui";
-import { AddToOdoo } from "@/components/add-to-odoo";
+import { AddToOdoo, OdooBadge } from "@/components/add-to-odoo";
 import { ScoutScore } from "@/components/agent-insights";
 import { CompanyDeleteNote } from "@/components/company-delete-note";
 import { PublicLookup } from "@/components/company-search";
@@ -257,8 +257,9 @@ function CompaniesView() {
                 <div className="flex min-w-0 items-center gap-2.5">
                   <Avatar name={displayName(c.name)} size="md" domain={c.own_domain === undefined ? c.domain : c.own_domain} />
                   <div className="min-w-0">
-                    <p className="truncate font-medium" title={c.name}>
-                      {displayName(c.name)}
+                    <p className="flex min-w-0 items-center gap-1.5 font-medium" title={c.name}>
+                      <span className="truncate">{displayName(c.name)}</span>
+                      <OdooBadge c={c} />
                     </p>
                     {c.brief ? (
                       <p className="max-w-[380px] truncate text-xs text-fg-muted" title={c.brief}>

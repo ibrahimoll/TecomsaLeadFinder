@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 
 import { ConfirmDialog, Field, FilterPills, Input, toast } from "@/components/ui";
 import { api, ApiError, useApi } from "@/lib/api";
@@ -135,5 +135,38 @@ export function AddToOdoo({ open, companyIds, onClose, onDone }: { open: boolean
         </div>
       )}
     </ConfirmDialog>
+  );
+}
+
+// Odoo's address, fetched once per page load and shared by every badge (a list shows dozens).
+let odooBasePromise: Promise<string | null> | null = null;
+function odooBase() {
+  odooBasePromise ??= api<{ url: string | null }>("/odoo/status")
+    .then((s) => s.url?.replace(/\/$/, "") ?? null)
+    .catch(() => null);
+  return odooBasePromise;
+}
+
+const OUTCOME: Record<string, string> = {
+  won: "bg-success-soft text-success",
+  lost: "bg-surface-muted text-fg-muted",
+  open: "bg-info-soft text-info",
+};
+
+/** "In Odoo" with the lead's stage (read back hourly); a link to the lead when Odoo's address is known. */
+export function OdooBadge({ c, onDark }: { c: { odoo_lead_id?: number | null; odoo_stage?: string | null; odoo_outcome?: string | null }; onDark?: boolean }) {
+  const [base, setBase] = useState<string | null>(null);
+  useEffect(() => {
+    if (c.odoo_lead_id) void odooBase().then(setBase);
+  }, [c.odoo_lead_id]);
+  if (!c.odoo_lead_id) return null;
+  const label = c.odoo_outcome === "won" ? "Won in Odoo" : c.odoo_outcome === "lost" ? "Lost in Odoo" : `In Odoo${c.odoo_stage ? ` · ${c.odoo_stage}` : ""}`;
+  const cls = `inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${onDark ? "bg-white text-accent" : OUTCOME[c.odoo_outcome ?? "open"] ?? OUTCOME.open}`;
+  return base ? (
+    <a href={`${base}/web#id=${c.odoo_lead_id}&model=crm.lead&view_type=form`} target="_blank" rel="noopener noreferrer" className={`${cls} hover:underline`} onClick={(e) => e.stopPropagation()}>
+      {label} ↗
+    </a>
+  ) : (
+    <span className={cls}>{label}</span>
   );
 }

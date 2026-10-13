@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
+from app.core.config import get_settings
 from app.core.exceptions import BusinessRuleError
 from app.models import Company
 from app.services import odoo_crm
@@ -22,7 +23,8 @@ class AddLeads(BaseModel):
 
 @router.get("/status")
 def status(_: CurrentUser) -> dict:
-    return {"configured": odoo_crm.configured()}
+    # the base URL builds "open in Odoo" links (not a secret)
+    return {"configured": odoo_crm.configured(), "url": get_settings().odoo_base_url if odoo_crm.configured() else None}
 
 
 @router.get("/tags")

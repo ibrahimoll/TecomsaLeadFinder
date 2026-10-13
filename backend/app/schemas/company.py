@@ -126,6 +126,10 @@ class CompanyOut(OutModel):
     profiled_at: datetime | None = None
     scout_score: int | None = None
     scout_reasons: list[str] | None = None
+    # Odoo CRM link: the lead it was sent to / matched with, and its stage / outcome (read back hourly)
+    odoo_lead_id: int | None = None
+    odoo_stage: str | None = None
+    odoo_outcome: str | None = None
     last_enriched_at: datetime | None = None
     website_confidence: int | None = None
     last_researched_at: datetime | None

@@ -76,6 +76,10 @@ export interface Company {
   /** Scout agent: 0-100, learned from the team's sales statuses; null until it has enough outcomes. */
   scout_score?: number | null;
   scout_reasons?: string[] | null;
+  /** Odoo CRM link, read back hourly: the lead, its stage, and won / lost / open. */
+  odoo_lead_id?: number | null;
+  odoo_stage?: string | null;
+  odoo_outcome?: "open" | "won" | "lost" | null;
   last_researched_at: string | null;
   last_verified_at: string | null;
   created_by_user_id: number | null;

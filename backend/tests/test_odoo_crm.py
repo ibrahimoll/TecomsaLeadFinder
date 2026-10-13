@@ -64,3 +64,50 @@ def test_selected_companies_become_leads_with_a_scheduled_call(db, make_user):
         "2030-01-02", 4, 9, 300)
     audit = db.scalar(select(AuditLog).where(AuditLog.action == odoo_crm.ACTION))
     assert audit.entity_id == str(acme.id) or audit.entity_id == acme.id
+
+
+class SyncOdoo:
+    uid = 2
+
+    def __init__(self, leads):
+        self.leads = leads
+
+    def call(self, model, method, *args, **kwargs):
+        if model == "crm.stage":
+            return [4]  # the "Won" stage
+        if model == "crm.tag":
+            return [{"id": 1, "name": "Odoo ERP"}, {"id": 2, "name": "Hot"}]
+        if model == "crm.lead" and method == "search_read":
+            return self.leads
+        return []
+
+
+def test_won_and_lost_deals_in_odoo_set_the_sales_status_once(db):
+    from app.models import CompanyStatusHistory
+
+    won = Company(name="Acme Foods", normalized_name="acme foods", odoo_lead_id=11)
+    lost = Company(name="Beta Trading", normalized_name="beta trading", domain="beta.example")
+    manual = Company(name="Gamma Hotel", normalized_name="gamma hotel", status="qualified")
+    db.add_all([won, lost, manual])
+    db.commit()
+    leads = [
+        {"id": 11, "partner_name": "Acme Foods", "website": False, "stage_id": [4, "Won"], "active": True,
+         "tag_ids": [1, 2]},
+        {"id": 12, "partner_name": "Beta Co", "website": "https://www.beta.example/", "stage_id": [2, "Proposition"],
+         "active": False, "tag_ids": []},  # lost; matched by its website, not its name
+        {"id": 13, "partner_name": "Gamma Hotel S.A.L.", "website": False, "stage_id": [1, "New"], "active": True,
+         "tag_ids": []},  # open lead on a company someone already qualified by hand
+        {"id": 14, "partner_name": "Nobody Known", "website": False, "stage_id": [1, "New"], "active": True,
+         "tag_ids": []},
+    ]
+    stats = odoo_crm.sync(db, odoo=SyncOdoo(leads))
+    assert stats == {"leads": 4, "matched": 3, "status_changed": 2}
+    db.refresh(won), db.refresh(lost), db.refresh(manual)
+    assert (won.status, won.odoo_outcome, won.odoo_stage) == ("working_odoo", "won", "Won")  # tag 'Odoo ERP'
+    assert (lost.status, lost.odoo_lead_id, lost.odoo_outcome) == ("not_interested", 12, "lost")
+    assert (manual.status, manual.odoo_lead_id, manual.odoo_outcome) == ("qualified", 13, "open")  # not downgraded
+    assert db.scalar(select(CompanyStatusHistory.reason).where(CompanyStatusHistory.company_id == won.id)) == \
+        "From Odoo: Won"
+    won.status = "follow_up"  # a salesperson changes it afterwards: the next sync leaves it (same outcome)
+    db.commit()
+    assert odoo_crm.sync(db, odoo=SyncOdoo(leads))["status_changed"] == 0

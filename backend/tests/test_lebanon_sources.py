@@ -579,3 +579,20 @@ def test_a_lebanese_item_located_by_its_headquarters_city_is_not_a_foreign_brand
     result = external.run(db, company_id, force=True)
     assert "foreign_brand_domain" not in result
     assert set(people_of(db, company_id)) == {"Rami Haddad | Chief Executive Officer"}
+
+
+def test_a_record_of_another_sector_never_matches_by_name(db):
+    from app.models import Company, CompanyAlias
+    from app.services.people.external.lebanon import identity
+    from app.services.people.external.lebanon.records import Record
+
+    hotel = Company(name="Le Cedrus Boutique Hotel", normalized_name="le cedrus boutique hotel",
+                    industry="Hospitality", sub_industry="Hotel", legal_name="CEDRUS BANK SAL")
+    db.add(hotel)
+    db.flush()
+    db.add(CompanyAlias(company_id=hotel.id, alias="CEDRUS BANK S.A.L.",  # taught by an earlier wrong match
+                        normalized_alias="cedrus bank sal", alias_type="legal"))
+    db.flush()
+    ctx = identity.context(db, hotel)
+    assert identity.match(ctx, Record(org=["CEDRUS BANK SAL"])) == (None, "sector_mismatch")
+    assert identity.match(ctx, Record(org=["Le Cedrus Boutique Hotel"]))[0] == 88

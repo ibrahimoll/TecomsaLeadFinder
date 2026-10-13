@@ -24,6 +24,7 @@ services:
       retries: 10
 
   backend:
+    restart: unless-stopped
     build:
       context: ./backend
       args:
@@ -48,6 +49,7 @@ services:
   # Background job worker (Find Leads discovery, website checks) on the Postgres job queue; restarts on code
   # changes like the API. Scale with: docker compose up -d --scale worker=2
   worker:
+    restart: unless-stopped
     build:
       context: ./backend
       args:
@@ -95,6 +97,7 @@ services:
       - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
 
   frontend:
+    restart: unless-stopped
     build:
       context: ./frontend
       target: dev

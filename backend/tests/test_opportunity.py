@@ -21,7 +21,7 @@ def test_a_growing_factory_fits_odoo_with_reasons_and_pitch():
               {"person": cfo, "job_title": "CFO", "department": "finance", "title_rank": 1,
                "employment_status": "current"}]
     odoo = fit(c, [sig("factory"), sig("branches", "3"), sig("active_careers_page")], people)["odoo"]
-    assert odoo["fit_level"] == "high" and odoo["points"] == 6  # factory 3 + branches 2 + hiring 1
+    assert odoo["fit_level"] == "high" and odoo["points"] == 8  # factory 3 + branches 2 + hiring 1 + 200 staff 2
     assert odoo["reasons"][0]["evidence"] == "factory" and "Manufacturing, Inventory, Quality" in odoo["pitch"]
     assert [p["name"] for p in odoo["people"]] == ["Rana Saad", "Karim Aoun"]  # owner, then finance (200 staff)
 
@@ -66,3 +66,13 @@ def test_company_list_has_mobile_fit_filter_sort_and_clean_name_order(db):
     odoo, total = company_service.list_companies(db, page, fit="odoo")
     assert total == 1 and odoo[0].name == "( Zeta Mills Sarl)"  # factory 3 + branches 2: medium
     assert {f["solution"]: f["fit_level"] for f in odoo[0].fit}["odoo"] == "medium"
+
+
+def test_tecomsa_ideal_size_bad_fits_and_new_sites():
+    tiny = fit(Company(name="Corner Shop", industry="Retail", employee_count_estimate=4), [sig("retail")])
+    assert all(any(r["points"] == -3 for r in f["reasons"]) for f in tiny.values())  # very small: bad fit everywhere
+    assert tiny["odoo"]["points"] == -1  # retail 2 - tiny 3
+    bank = fit(Company(name="Some Bank", industry="Banking", employee_count_estimate=800), [])
+    assert bank["odoo"]["points"] == -1 and bank["frinzo"]["points"] == 3  # core systems -2 + large 1; customers 2 + size 1
+    opening = fit(Company(name="New Branch Co", employee_count_estimate=120), [sig("branch_opening")])["it"]
+    assert opening["points"] == 4 and "New-site network, Wi-Fi, CCTV and telephony" in opening["pitch"]

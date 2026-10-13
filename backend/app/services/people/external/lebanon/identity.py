@@ -94,6 +94,25 @@ _GENERIC_WORDS = {"school", "schools", "college", "ecole", "center", "centre", "
                   "افران", "تامين", "للتامين", "بنك", "مصرف", "لبنان", "الدوليه", "الدولية", "العربيه", "العربية"}
 
 
+# Sector words a name states outright. Two names stating different sectors are two companies, however alike the rest
+# ('Le Cedrus Boutique Hotel' is not 'Cedrus Bank SAL'): only an identifier or the website can overrule that.
+_SECTOR_WORDS = {
+    "bank": {"bank", "banque", "banking", "بنك", "مصرف", "البنك"},
+    "insurance": {"insurance", "reinsurance", "assurance", "assurances", "تامين", "للتامين", "التامين"},
+    "hotel": {"hotel", "hotels", "resort", "suites", "فندق"},
+    "school": {"school", "schools", "ecole", "college", "academy", "lycee", "مدرسه", "مدرسة"},
+    "university": {"university", "universite", "جامعه", "جامعة"},
+    "hospital": {"hospital", "hopital", "clinic", "clinique", "مستشفى"},
+    "restaurant": {"restaurant", "cafe", "مطعم"},
+    "pharmacy": {"pharmacy", "pharmacie", "صيدليه", "صيدلية"},
+}
+
+
+def _sectors(names) -> set[str]:
+    words = {_fold(w) for n in names for w in re.findall(r"[\w']+", n.lower())}
+    return {sector for sector, vocab in _SECTOR_WORDS.items() if words & vocab}
+
+
 def _name_skeletons(name: str, *, arabic_only: bool = False) -> set[str]:
     """Skeletons of a name's distinctive words (legal forms, generic and sector words dropped)."""
     words = [w for w in org_key(name).split() if w not in _AR_GENERIC and _fold(w) not in _GENERIC_WORDS
@@ -111,6 +130,7 @@ class CompanyContext:
     phones: set[str]
     latin_skeletons: set[str]  # the company's distinctive Latin words, as skeletons
     town: set[str] = field(default_factory=set)
+    names: list[str] = field(default_factory=list)  # its names and aliases as written (sector words)
 
 
 def context(db: Session, company: Company) -> CompanyContext:
@@ -128,7 +148,10 @@ def context(db: Session, company: Company) -> CompanyContext:
     for v in [v for n in names for v in name_variants(n) if not _ARABIC.search(v)][:1]:  # the main Latin name
         latin |= _name_skeletons(v)
     town = {skeleton(w) for w in _fold(company.headquarters_city or "").split() if len(w) > 2}
-    return CompanyContext(company, full, core, acronyms, identifiers, phones, latin, town)
+    # the sector it states: its own name and industry only - never aliases or a legal name, which an earlier wrong
+    # match may have taught it (the canonical name is never rewritten by research)
+    sector_names = [company.name, company.industry or "", company.sub_industry or ""]
+    return CompanyContext(company, full, core, acronyms, identifiers, phones, latin, town, sector_names)
 
 
 def match(ctx: CompanyContext, record: Record) -> tuple[int | None, str]:
@@ -143,6 +166,9 @@ def match(ctx: CompanyContext, record: Record) -> tuple[int | None, str]:
         return None, "group_mismatch"  # 'X Group' is not 'X'
     if domain:
         return (95 if named else 92), "domain"
+    theirs, ours = _sectors(record.org), _sectors(ctx.names)
+    if theirs and ours and not theirs & ours:
+        return None, "sector_mismatch"  # 'Cedrus Bank' is not 'Le Cedrus Boutique Hotel'
     if named:
         return named, "name"
     if group_mismatch:

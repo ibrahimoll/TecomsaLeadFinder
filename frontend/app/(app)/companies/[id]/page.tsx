@@ -980,7 +980,9 @@ function Opportunity({ detail }: { detail: CompanyDetail }) {
                 <ul className="space-y-1.5">
                   {f.reasons.map((r) => (
                     <li key={r.why} className="flex gap-2">
-                      <span className="tabular w-7 shrink-0 text-xs font-medium text-accent">+{r.points}</span>
+                      <span className={`tabular w-7 shrink-0 text-xs font-medium ${r.points < 0 ? "text-fg-muted" : "text-accent"}`}>
+                        {r.points < 0 ? `−${-r.points}` : `+${r.points}`}
+                      </span>
                       <span>
                         {r.why}
                         <span className="block text-xs text-fg-subtle">{r.evidence}</span>

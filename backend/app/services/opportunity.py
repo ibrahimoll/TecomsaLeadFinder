@@ -31,8 +31,9 @@ RULES: dict[str, list[Rule]] = {
         (("construction", "project_based", "procurement_award"), (),
          r"contract|construct|engineer|real estate|architect", 2, "Runs projects", "Project, Timesheets, Invoicing"),
         (("hospitality", "healthcare", "clinics", "hospitals", "restaurants", "appointment_booking",
-          "professional_services"), (), r"restaurant|hotel|clinic|hospital|school|consult|travel|agency", 1,
+          "professional_services"), (), r"restaurant|hotel|clinic|hospital|school|consult|travel|agency|service", 1,
          "Bills services or appointments", "Point of Sale / Appointments, Invoicing"),
+        ((), (), r"\bbank|insurance|insurer", -2, "Banks and insurers run specialised core systems", None),
         (("multi_location", "branches", "franchising", "franchise_network", "branch_opening", "news_new_branch"), (),
          None, 2, "Several sites: one accounting and stock across them", "Multi-company Accounting"),
         (("fleet", "delivery", "field_sales"), (), None, 1, "Teams or vehicles on the road", "Field Service, Fleet"),
@@ -40,13 +41,16 @@ RULES: dict[str, list[Rule]] = {
           "new_market", "news_new_market", "acquisition"), (), None, 1, "Growing: hiring or expanding", None),
     ],
     "frinzo": [
-        (("retail", "retail_stores", "e_commerce", "hospitality", "restaurants", "healthcare", "clinics", "b2c"), (),
-         r"restaurant|hotel|retail|clinic|pharmac|beauty|salon|school|university|gym|real estate|travel|car|fashion",
-         2, "Sells to consumers", "WhatsApp and Instagram campaigns"),
+        (("retail", "retail_stores", "e_commerce", "hospitality", "restaurants", "healthcare", "clinics", "hospitals",
+          "b2c"), (),
+         r"restaurant|caf|hotel|hospitality|retail|shop|store|supermarket|clinic|hospital|medical|pharmac|beauty|salon|"
+         r"school|universit|education|gym|real estate|travel|touris|car|auto|fashion|e-?commerce|deliver|bank|financ|"
+         r"insurance",
+         2, "Talks to many customers (customer-facing sector)", "WhatsApp and Instagram campaigns"),
         ((), ("Meta Pixel",), None, 2, "Already pays for Facebook / Instagram ads",
          "Re-engage ad audiences on WhatsApp"),
-        (("customer_support", "call_center"), ("Tawk.to",), None, 2,
-         "Talks to customers every day (support, WhatsApp, live chat)", "WhatsApp chatbot and shared inbox"),
+        (("customer_support", "call_center"), ("Tawk.to",), None, 3,
+         "Several people answer customers (support, WhatsApp, live chat)", "WhatsApp chatbot and shared inbox"),
         (("online_ordering", "delivery", "appointment_booking"), (), None, 2, "Takes orders or bookings",
          "Order updates and booking reminders on WhatsApp"),
         ((), ("SendGrid", "Mailgun", "Mailchimp", "Brevo"), None, 1, "Already runs email campaigns",
@@ -64,18 +68,26 @@ RULES: dict[str, list[Rule]] = {
         (("hospitals", "clinics", "healthcare", "hospital_beds"), (), r"hospital|clinic|medical|laborator", 2,
          "Uptime and patient data matter", "Backup, security, managed IT"),
         ((), ("Microsoft 365",), None, 1, "Runs Microsoft 365", "Security, backup, licences"),
-        (("manufacturing", "factory", "hospitality", "warehouse", "call_center"), (), None, 1,
-         "Sites full of networks and devices", "Network and Wi-Fi, devices"),
+        (("manufacturing", "factory", "hospitality", "warehouse", "call_center", "retail_stores", "showrooms"), (),
+         r"hotel|school|universit|factory|warehouse|mall|holding|group|logistic", 1,
+         "Sites full of networks, Wi-Fi, CCTV and phones", "Network and Wi-Fi, CCTV, telephony"),
+        (("branch_opening", "news_new_branch", "news_expansion", "news_new_factory", "warehouse_opening",
+          "factory_opening", "expansion"), (), None, 2, "Opening a new site: network, Wi-Fi, CCTV and phones to install",
+         "New-site network, Wi-Fi, CCTV and telephony"),
     ],
 }
+# Size (TECOMSA's ideal customers, 2026-10): (sweet spot min, max) and points; a known very small company is a bad fit.
+SIZE = {"odoo": (20, 500, 2), "frinzo": (20, None, 1), "it": (20, 1000, 2)}
+TINY = 10
 SOLUTION_LABEL = {"odoo": "Odoo ERP", "frinzo": "Frinzo", "it": "IT solutions"}
 # who to call, by department, in order: a small company (or one of unknown size) decides at the top
-CALL = {"odoo": (["executive", "finance"], ["executive", "finance", "operations", "supply_chain", "it"]),
-        "frinzo": (["marketing", "executive"], ["marketing", "e_commerce", "executive", "sales", "customer_experience"]),
-        "it": (["it", "executive"], ["it", "executive", "operations"])}
+CALL = {"odoo": (["executive", "finance"], ["executive", "finance", "it", "operations", "supply_chain"]),
+        "frinzo": (["executive", "marketing"],
+                   ["marketing", "customer_experience", "e_commerce", "executive", "it", "sales"]),
+        "it": (["executive", "it"], ["it", "executive", "operations", "procurement"])}
 DEPARTMENT_LABEL = {"executive": "Owner / GM", "finance": "Finance", "operations": "Operations", "it": "IT",
                     "supply_chain": "Supply chain", "marketing": "Marketing", "e_commerce": "E-commerce",
-                    "sales": "Sales", "customer_experience": "Customer service"}
+                    "sales": "Sales", "customer_experience": "Customer service", "procurement": "Procurement"}
 
 
 def _level(points: int, researched: bool) -> str:
@@ -89,6 +101,7 @@ def analyse(company: Company, signals: list[dict[str, Any]], people: list[dict[s
     industry = " ".join(filter(None, (company.industry, company.sub_industry))).lower()
     researched = any(s["signal_type"] in ("technology", "email_provider", "email_security") for s in signals)
     small = (company.employee_count_max or company.employee_count_estimate or 0) <= 50
+    staff = company.employee_count_estimate or company.employee_count_max or company.employee_count_min
     out = []
     for solution, rules in RULES.items():
         reasons, pitch = [], []
@@ -105,6 +118,15 @@ def analyse(company: Company, signals: list[dict[str, Any]], people: list[dict[s
             reasons.append({"why": "On Instagram / Facebook", "points": 1,
                             "evidence": " · ".join(n for n, u in (("Instagram", company.instagram_url),
                                                                    ("Facebook", company.facebook_url)) if u)})
+        if staff:
+            low, high, points = SIZE[solution]
+            if staff <= TINY:
+                reasons.append({"why": "Very small: simple operations, usually a bad fit", "points": -3,
+                                "evidence": f"{staff} employees"})
+            elif staff >= low:
+                ideal = high is None or staff <= high
+                reasons.append({"why": "The size TECOMSA sells to" if ideal else "Large organisation",
+                                "points": points if ideal else 1, "evidence": f"{staff:,} employees"})
         total = sum(r["points"] for r in reasons)
         note = None
         if solution == "odoo" and "Odoo" in values:

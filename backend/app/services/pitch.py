@@ -19,11 +19,35 @@ from app.models import CompanySignal, OpportunityAnalysis, User
 from app.services import audit_service, opportunity
 
 logger = logging.getLogger("leadfinder.pitch")
+# TECOMSA's own product briefs (sales team, 2026-10): what each solves, who buys it, the signs, who decides, bad fit.
 PRODUCTS = {
-    "odoo": "Odoo ERP (accounting, inventory, sales, purchase, manufacturing, POS, CRM...), implemented by TECOMSA",
-    "frinzo": "Frinzo (frinzo.com): communication automation and marketing campaigns on WhatsApp, Instagram, SMS "
-              "and Facebook",
-    "it": "TECOMSA IT solutions: Microsoft 365 / Google Workspace, email security, networks, backup, managed IT",
+    "odoo": (
+        "Odoo ERP, implemented by TECOMSA: sales, purchasing, inventory, accounting, manufacturing, HR, projects and "
+        "operations in one system. Solves: companies running these across Excel, disconnected software or an "
+        "outdated ERP. Ideal: manufacturers, distributors, wholesalers, retailers, service and construction "
+        "companies, multi-branch businesses, about 20-500+ employees. Signs: several warehouses or branches, "
+        "growing volume, manual reporting, duplicate data entry, weak stock visibility, many Excel files, "
+        "disconnected departments, an old ERP. Decides: owner / CEO / GM / CFO / finance, IT or operations manager. "
+        "Bad fit: very small simple businesses, basic invoicing only, highly specialised core systems, no budget or "
+        "process commitment."),
+    "frinzo": (
+        "Frinzo (frinzo.com): the official WhatsApp Business API plus Instagram messaging - shared inbox for many "
+        "agents, automation and AI customer service, campaigns, appointment / order flows, OTPs and notifications, "
+        "reporting, CRM / ERP / e-commerce integration. Solves: many customer messages handled manually on "
+        "individual phones, slow replies, no automation or reporting. Ideal: retail, restaurants, automotive, "
+        "hospitals and clinics, e-commerce, delivery, education, real estate, travel, hospitality, financial "
+        "services, customer-service-heavy companies with 20+ employees or high message volume. Decides: CEO / GM, "
+        "marketing, customer service, call center, e-commerce, IT or digital transformation manager. Bad fit: few "
+        "customer messages, one person handling customers, unwilling to use the official WhatsApp Business API."),
+    "it": (
+        "TECOMSA IT services: networks and Wi-Fi, servers and cloud, cybersecurity, CCTV, telephony / PBX, "
+        "connectivity, installation, modernisation, integration and ongoing support. Ideal: offices, hospitals, "
+        "hotels, schools, factories, warehouses, retail chains, malls, corporate groups, multi-site organisations, "
+        "about 20-1,000+ employees. Signs: new office or branch, poor Wi-Fi, old network equipment, server problems, "
+        "downtime, expanding CCTV, moving to cloud, replacing the PBX, no internal IT team. Decides: IT manager / CTO "
+        "/ CIO / infrastructure, GM, operations or procurement manager, owner. Bad fit: tiny offices needing consumer "
+        "equipment, lowest-price hardware buyers with no interest in support, everything locked with another "
+        "provider long-term."),
 }
 SYSTEM = (
     "You write sales pitches for TECOMSA, a Lebanese company selling Odoo ERP, Frinzo and IT solutions to "

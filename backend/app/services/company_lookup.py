@@ -247,6 +247,25 @@ def warm(country: str = "Lebanon") -> None:
     threading.Thread(target=build, name="lookup-index", daemon=True).start()
 
 
+_BRANCH_SEP = re.compile(r"\s+[-–—|]\s+")
+
+
+def _head_keys(name: str) -> set[str]:
+    """The keys of a record's own name: the part before ' - ' ('Crepaway - Le Mall' -> Crepaway), and the whole."""
+    from app.services.company_search import name_keys
+    from app.services.people.external.lebanon.records import org_key
+
+    return name_keys(_BRANCH_SEP.split(name)[0]) | {org_key(name)}
+
+
+def in_city(candidate, city: str | None) -> bool:
+    """The record is in the city the user named ('Byblos (Jbeil)': either name), or does not say where it is."""
+    if not city or not (candidate.city or candidate.address):
+        return True
+    where = _fold(f"{candidate.city or ''} {candidate.address or ''}")
+    return any(n in where for n in (_fold(p).strip() for p in re.split(r"[()/,]", city)) if len(n) >= 3)
+
+
 def _extracts(q, country) -> list[Found]:
     index = _extract_index(country)
     keys = [f"@{q.domain}"] if q.domain else [*q.keys, *q.skeletons, *filter(None, map(_loose, q.keys))]
@@ -258,6 +277,8 @@ def _extracts(q, country) -> list[Found]:
                 continue
             found = "strong" if q.domain or key in q.keys else strength(c.company_name, q) or (
                 "possible" if key[0] == "%" else None)  # a spelling variant: offered, never created
+            if found == "strong" and not q.domain and key not in _head_keys(c.company_name):
+                found = "possible"  # 'Crepaway - Le Mall' searched as 'Le Mall': a branch's place, not its name
             if found:
                 seen.add(id(c))
                 out.append(Found(copy.copy(c), config, found))  # a copy: the pipeline marks its records
@@ -502,7 +523,7 @@ def run(db, q, *, country: str | None, city: str | None, user_id: int | None, de
         report.append({"source": "corpus", "status": "failed"})
     timed_out = False
     for tier in _sources(q, country_obj, intent):
-        if timed_out or any(f.strength == "strong" for f in found):
+        if timed_out or any(f.strength == "strong" and in_city(f.candidate, city) for f in found):
             break  # stop early: an earlier source already knows the entity
         if deadline - time.monotonic() < TIER_MIN_SECONDS:
             report += [{"source": name, "status": "skipped", "error": "NO_TIME_LEFT"} for name, _ in tier]
@@ -526,7 +547,7 @@ def run(db, q, *, country: str | None, city: str | None, user_id: int | None, de
             timed_out = True
             report.append({"source": futures[future][0], "status": "timed_out"})
         pool.shutdown(wait=False, cancel_futures=True)
-    strong = [f for f in found if f.strength == "strong"] if q.domain or q.keys else []
+    strong = [f for f in found if f.strength == "strong" and (q.domain or in_city(f.candidate, city))]         if q.domain or q.keys else []  # another town than the one named: offered, never opened or created
     wanted_country = country_obj.name
     if wanted_country and q.domain is None:  # a name search stays in the searched country
         strong = [f for f in strong if (f.candidate.country or wanted_country) == wanted_country]

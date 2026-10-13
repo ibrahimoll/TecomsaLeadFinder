@@ -312,3 +312,20 @@ def test_langsearch_results_and_errors():
     assert (r.title, r.domain, r.snippet) == ("Al Shayeb | Instagram", "www.instagram.com", "Sweets")
     with pytest.raises(search.SearchError):
         engine.search("empty allowance", limit=5)
+
+
+def test_a_branch_place_or_another_town_is_never_the_company_searched(client_for, db, no_extracts):
+    """'Le Mall Jbeil' once opened Crepaway: the map's 'Crepaway - Le Mall' (its branch in Le Mall Dbayeh) matched
+    on the place after the dash, and no record was in Jbeil. A branch's place and another town are only offered."""
+    agent, _ = client_for(UserRole.SALES_AGENT)
+    crepaway = new_company(agent, "Crepaway", website="https://www.crepaway.com")
+    no_extracts.append(FakeConnector(config("osm"), lambda: [
+        cand("Crepaway - Le Mall", connector="osm", n=1, city="Dbayeh", address="Le Mall",
+             website="https://www.crepaway.com"),
+        cand("Le Mall", connector="osm", n=2, city="Beirut", address="Sin el Fil")]))
+    result = lookup(agent, "le mall jbeil")
+    assert result["status"] != "found" or result["company"]["company_id"] != crepaway
+    assert result["company"] is None and count(db, Company) == 1  # nothing opened, nothing created
+    assert {c["name"] for c in result["candidates"]} >= {"Le Mall"}  # offered, the user decides
+    found = lookup(agent, "le mall")  # no town named: the mall itself, never the restaurant inside it
+    assert found["company"] is None or found["company"]["name"] == "Le Mall"

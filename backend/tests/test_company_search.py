@@ -286,6 +286,29 @@ def test_web_search_offers_a_business_known_only_by_its_platform_pages(client_fo
     assert len(sent) == 2
 
     s = get_settings()
+    monkeypatch.setattr(s, "langsearch_api_key", None)
     monkeypatch.setattr(s, "tavily_api_key", SecretStr("tvly-test"))
     assert isinstance(search.provider("company"), search.TavilySearchProvider)
-    assert search.provider() is None  # people research never spends the free monthly searches
+    monkeypatch.setattr(s, "langsearch_api_key", SecretStr("sk-test"))
+    assert isinstance(search.provider("company"), search.LangSearchProvider)  # auto: LangSearch first
+    assert search.provider() is None  # people research never spends the free searches
+
+
+def test_langsearch_results_and_errors():
+    import httpx
+
+    from app.services.people.external import search
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        assert request.headers["authorization"] == "Bearer sk-test"
+        if b"empty allowance" in request.read():
+            return httpx.Response(200, json={"code": 429, "msg": "daily allowance used"})
+        return httpx.Response(200, json={"code": 200, "data": {"webPages": {"value": [
+            {"name": "Al Shayeb | Instagram", "url": "https://www.instagram.com/alshayeb/", "snippet": "Sweets"},
+            {"name": "not a web page", "url": "ftp://x"}]}}})
+
+    engine = search.LangSearchProvider("sk-test", timeout=5, transport=httpx.MockTransport(answer))
+    [r] = engine.search("Al Shayeb Lebanon", limit=5)
+    assert (r.title, r.domain, r.snippet) == ("Al Shayeb | Instagram", "www.instagram.com", "Sweets")
+    with pytest.raises(search.SearchError):
+        engine.search("empty allowance", limit=5)

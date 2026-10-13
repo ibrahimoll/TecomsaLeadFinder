@@ -211,8 +211,9 @@ docker compose exec backend python -m scripts.lebanon_sources ingest-file commer
   - The database is searched first: domain, identifier, exact name, legal name, alias (Arabic, French, English), the name without legal form or place, brand, transliteration and typos.
   - If nothing strong is known, the permitted public sources are tried, cheapest first, for at most 20 seconds: the local source corpus, then the Overture / OpenStreetMap / dataset extracts and the website itself (for a domain), then Wikidata.
   - A company is created only on strong source evidence, through discovery's duplicate resolution. Its research is queued at priority 3.
-  - **Web search (Tavily)**: with `TAVILY_API_KEY` set (free plan: 1,000 searches a month, no card;
-    https://tavily.com), the lookup also runs one real web search per query. Its results are cached for
+  - **Web search**: with `LANGSEARCH_API_KEY` (free plan, a daily allowance; https://langsearch.com, reachable
+    from Lebanon) or `TAVILY_API_KEY` (1,000 free a month; tavily.com is blocked from Lebanon, its API is not) set,
+    the lookup also runs one real web search per query (`COMPANY_SEARCH_PROVIDER=auto`: LangSearch first). Its results are cached for
     `SEARCH_CACHE_DAYS`, so a repeated search spends nothing. The company's own website is verified as before. Its
     pages on platforms (Facebook, Instagram, Google Maps, directories) whose title carries the searched name are
     offered with a "View page" link. They are never created on their own; **Add company** creates one. People research

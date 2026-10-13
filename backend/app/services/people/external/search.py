@@ -7,8 +7,10 @@ and Wikidata are free). Providers use a permitted API (never a search engine's r
     none    (default) no web search
     brave   Brave Search API (paid; https://api.search.brave.com), key in BRAVE_SEARCH_API_KEY
     tavily  Tavily Search API (1,000 free searches a month, no card; https://tavily.com), key in TAVILY_API_KEY
+    langsearch  LangSearch Web Search API (free plan: a daily allowance, $0; https://langsearch.com; reachable from
+            Lebanon), key in LANGSEARCH_API_KEY
 
-COMPANY_SEARCH_PROVIDER (default tavily) is the one Find Leads' direct company search uses; people research keeps
+COMPANY_SEARCH_PROVIDER (default auto: the first key set of langsearch, tavily, brave) is the one Find Leads' direct company search uses; people research keeps
 PEOPLE_SEARCH_PROVIDER (default none), so background research never spends the free monthly searches.
 
 Results are cached (external_search_cache) for SEARCH_CACHE_DAYS: the same query is not sent twice. The same table
@@ -137,17 +139,52 @@ class TavilySearchProvider:
         return results
 
 
+class LangSearchProvider:
+    key = "langsearch"
+    supports_quotes = True
+    ENDPOINT = "https://api.langsearch.com/v1/web-search"
+
+    def __init__(self, api_key: str, *, timeout: float, transport: httpx.BaseTransport | None = None):
+        self._api_key, self.timeout, self.transport = api_key, timeout, transport
+
+    def search(self, query: str, *, limit: int, country: str | None = None,
+               language: str | None = None) -> list[SearchResult]:
+        try:
+            with httpx.Client(transport=self.transport, timeout=self.timeout) as client:
+                response = client.post(self.ENDPOINT, json={"query": query, "count": min(limit, 10)},
+                                       headers={"Authorization": f"Bearer {self._api_key}"})
+        except httpx.HTTPError as exc:
+            raise SearchError(f"search provider unreachable ({exc.__class__.__name__})") from None
+        body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+        if response.status_code != 200 or str(body.get("code", 200)) != "200":  # missing / bad key, daily allowance
+            raise SearchError(f"search provider answered HTTP {response.status_code} / {body.get('code')}")
+        results = []
+        for item in (((body.get("data") or {}).get("webPages") or {}).get("value") or [])[:limit]:
+            url = item.get("url") or ""
+            if url.startswith(("http://", "https://")):
+                results.append(SearchResult(
+                    title=_TAGS.sub("", item.get("name") or "")[:300], url=url,
+                    snippet=_TAGS.sub("", item.get("snippet") or "")[:500],
+                    domain=(urlsplit(url).hostname or "").lower(), published=item.get("datePublished") or None))
+        return results
+
+
 def provider(purpose: str = "people") -> PublicWebSearchProvider | None:
     """The provider configured for people research (PEOPLE_SEARCH_PROVIDER) or for the direct company search
     (purpose="company": COMPANY_SEARCH_PROVIDER), or None (no search)."""
     s = get_settings()
+    secrets = {"langsearch": s.langsearch_api_key, "tavily": s.tavily_api_key, "brave": s.brave_search_api_key}
+    keys = {n: v.get_secret_value().strip() for n, v in secrets.items() if v and v.get_secret_value().strip()}
     name = s.company_search_provider if purpose == "company" else s.people_search_provider
-    secret = {"brave": s.brave_search_api_key, "tavily": s.tavily_api_key}.get(name)
-    key = secret.get_secret_value().strip() if secret else ""
+    if name == "auto":
+        name = next(iter(keys), "none")
+    key = keys.get(name)
     if not key:
         return None
     if name == "brave":
         return BraveSearchProvider(key, timeout=s.search_timeout_seconds, min_interval=s.search_min_interval_seconds)
+    if name == "langsearch":
+        return LangSearchProvider(key, timeout=s.search_timeout_seconds)
     return TavilySearchProvider(key, timeout=s.search_timeout_seconds)
 
 

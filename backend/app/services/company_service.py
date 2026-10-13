@@ -80,7 +80,8 @@ def list_companies(
     if q and q.strip():
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(Company.name.ilike(like), Company.normalized_name.ilike(f"%{_normalized_name(q)}%"),
-                              Company.legal_name.ilike(like), Company.domain.ilike(like)))
+                              Company.legal_name.ilike(like), Company.domain.ilike(like),
+                              Company.industry.ilike(like), Company.sub_industry.ilike(like)))
     if status:
         stmt = stmt.where(Company.status == status)
     # Location filters match the headquarters or any other known location of the company.

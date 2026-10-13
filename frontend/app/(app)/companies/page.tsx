@@ -165,11 +165,7 @@ function CompaniesView() {
           </div>
         </div>
         <Toolbar>
-          <SearchInput value={search} onChange={setSearch} placeholder="Search by name or domain" className="w-64" label="Search companies" />
-          <FilterInput label="Country" value={filters.country} onCommit={(country) => setFilters({ country })} />
-          <FilterInput label="Region" value={filters.region} onCommit={(region) => setFilters({ region })} />
-          <FilterInput label="City" value={filters.city} onCommit={(city) => setFilters({ city })} />
-          <FilterInput label="Industry" value={filters.industry} onCommit={(industry) => setFilters({ industry })} />
+          <SearchInput value={search} onChange={setSearch} placeholder="Search name, domain or industry" className="w-72" label="Search companies" />
           <Select aria-label="Status" value={filters.status} onChange={(e) => setFilters({ status: e.target.value })} className="w-44">
             <option value="">All statuses</option>
             {COMPANY_STATUSES.map((s) => (
@@ -407,11 +403,6 @@ function CompaniesView() {
   );
 }
 
-/** Text filter committed to the URL as you type (debounced). */
-function FilterInput({ label, value, onCommit }: { label: string; value: string; onCommit: (value: string) => void }) {
-  const [text, setText] = useDebouncedSearch(value, onCommit);
-  return <Input aria-label={label} placeholder={label} value={text} onChange={(e) => setText(e.target.value)} className="w-36" />;
-}
 
 export default function CompaniesPage() {
   return (

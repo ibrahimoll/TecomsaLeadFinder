@@ -228,6 +228,8 @@ function FindLeads() {
   const [country, setCountry] = useState("Lebanon");
   const [region, setRegion] = useState("");
   const [industry, setIndustry] = useState("");
+  // Every industry discovery can search (main sectors, then ~2,000 detailed categories); static, fetched once.
+  const industryList = useApi<{ label: string; group: string }[]>("/industries");
   const [offering, setOffering] = useState<Offering>("ANY");
   const [count, setCount] = useState("50");
   const [busy, setBusy] = useState(false);
@@ -304,10 +306,15 @@ function FindLeads() {
                     className="w-full"
                   />
                   <datalist id="fl-industry-list">
-                    {INDUSTRIES.map((i) => (
-                      <option key={i} value={i} />
+                    {(industryList.data ?? INDUSTRIES.map((label) => ({ label, group: "" }))).map((i) => (
+                      <option key={i.label} value={i.label} label={i.group || undefined} />
                     ))}
                   </datalist>
+                  {industryList.data && (
+                    <p className="mt-1 text-[11.5px] text-fg-subtle">
+                      Type to pick from {industryList.data.length.toLocaleString()} industries, e.g. Bakery, Dental Clinic, Furniture Store, or write your own.
+                    </p>
+                  )}
                 </Field>
                 <div>
                   <p className="mb-1.5 text-xs font-medium text-fg">What are you selling?</p>

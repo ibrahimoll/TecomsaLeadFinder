@@ -64,3 +64,15 @@ def agents_status(_: CurrentUser, db: DbSession) -> dict:
     settings = get_settings()
     return {"enabled": settings.agents_enabled, "model": settings.ollama_model, "model_ready": llm.available(),
             "profiler": profiler.stats(db), "scout": scout.stats(db)}
+
+
+@router.get("/industries")
+def industries(_: CurrentUser) -> list[dict]:
+    """Every industry Find Leads can search: LeadFinder's main sectors first, then the detailed business categories
+    (Overture taxonomy), each resolved by discovery to its own category profile."""
+    from app.services.discovery.industries import INDUSTRIES, NORMALIZED_LABELS
+
+    main = list(NORMALIZED_LABELS)
+    detailed = sorted({p.label: p.group for p in INDUSTRIES if p.label not in set(main)}.items())
+    return [{"label": label, "group": "Main sectors"} for label in main] + [
+        {"label": label, "group": group or "Other"} for label, group in detailed]
